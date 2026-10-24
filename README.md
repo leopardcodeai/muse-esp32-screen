@@ -21,7 +21,7 @@
 - **Lets the assistant draw:** `muse_draw` takes a scene in a small text language (shapes, gradients, text, 273 icons, the figure, particles, motion), so the assistant designs the screen itself.
 - **Listens and talks:** the wake word runs on the box, the conversation goes through Home Assistant's voice pipeline, local or cloud.
 - **Feels the room:** with the sensor dock, a 24 GHz radar sees someone arrive and a climate sensor reads temperature and humidity.
-- **Works with any assistant:** Meta's Muse, Claude, or any agent that can call Home Assistant. Nothing in the firmware is tied to one of them.
+- **Works with any assistant:** Meta's Muse, Claude, or any agent that can call Home Assistant. Nothing in the firmware is tied to one of them. Anthropic's new proactive agent [Claude Duet](#use-case-claude-duet-untested) fits it well, untested so far.
 
 ## Try it in 30 seconds
 
@@ -191,6 +191,7 @@ Everything the box can do is a Home Assistant action named `esphome.<device>_mus
 |---|---|---|
 | Meta Muse | its Home Assistant connection, with a long-lived access token [10] | the prompt, pasted once into a chat with Muse |
 | Claude (Code, Desktop, app) | the Home Assistant MCP server, or [`tools/muse_screen.py`](tools/muse_screen.py) from a shell | the same prompt as a project instruction, or `CLAUDE.md` of your own |
+| Claude Duet (research preview) | untested; only through what Duet can connect to, for example a connector to Home Assistant's MCP server | the prompt; see [Use case: Claude Duet](#use-case-claude-duet-untested) |
 | Grok, Dots, Spark, any agent | Home Assistant's REST API: `POST /api/services/esphome/muse_esp32_s3_box_3_screen_<action>` with `Authorization: Bearer <token>` [10] | the prompt and a token; `tools/muse_screen.py` shows every call |
 | Home Assistant itself | automations and scripts, and its voice assistant for timers and conversation | the examples in [homeassistant/](homeassistant/) |
 
@@ -202,6 +203,12 @@ Everything the box can do is a Home Assistant action named `esphome.<device>_mus
 | Claude asks before acting | a Grok bot reports a build | Dots counts down | Spark celebrates |
 
 Each of these is five to fourteen lines of scene text. The assistant that sends it decides the look; the box only draws.
+
+### Use case: Claude Duet (untested)
+
+[Claude Duet](https://macrumors.com/2026/10/21/anthropic-claude-duet/) is Anthropic's proactive agent, announced on 21 October 2026 as a research preview: Pro and Max subscribers in the United States, through a waitlist, built on Claude Opus 5.5 ([iPhone in Canada](https://iphoneincanada.ca/2026/10/21/claude-duet-proactive-ai-agent-app)). It sends a short brief each morning, checks your connected apps every few hours and messages you only when something needs you. [27]
+
+On the box, those moments become cards: the morning brief as `muse_show_text` or `muse_show_list`, a "this needs you" moment as `muse_show_event`, and a yes or no question as `muse_ask`, answered with a tap that goes back as the action's response. Whether Duet can reach Home Assistant at all depends on what it can connect to, for example a connector to Home Assistant's MCP server. We have not tested it.
 
 ## Hardware
 
@@ -579,3 +586,4 @@ Every statement about hardware, services and other projects above refers to one 
 24. Comparable projects, read on 7 October 2026: (a) MichalZaniewicz, *esphome-esp32-s3-box-3-va*: https://github.com/MichalZaniewicz/esphome-esp32-s3-box-3-va and its fork f3mshep: https://github.com/f3mshep/esphome-esp32-s3-box-3-va ; (b) chrisdunnname, *esphome-s3-box-3-lvgl*: https://github.com/chrisdunnname/esphome-s3-box-3-lvgl ; (c) aschieweck, *ESP32-S3-Box-3-Voice-Assistant*: https://github.com/aschieweck/ESP32-S3-Box-3-Voice-Assistant ; (d) BigBobbas, *ESP32-S3-Box3-Custom-ESPHome*: https://github.com/BigBobbas/ESP32-S3-Box3-Custom-ESPHome .
 25. OpenStreetMap, *Copyright and License*: https://www.openstreetmap.org/copyright (Open Database License).
 26. Wikimedia Foundation, *Maps Terms of Use*: https://foundation.wikimedia.org/wiki/Policy:Maps_Terms_of_Use ("Wikimedia Maps may not be used by third-party services outside of the Wikimedia projects"), the reason for the change in 4.1.
+27. Claude Duet, read on 24 October 2026: MacRumors, *Anthropic Launches Claude Duet, a Proactive AI Agent*, 21 October 2026: https://macrumors.com/2026/10/21/anthropic-claude-duet/ ; iPhone in Canada, *Claude Duet Is Anthropic's Answer to Muse, Grok Bot and OpenAI Dots*, 21 October 2026: https://iphoneincanada.ca/2026/10/21/claude-duet-proactive-ai-agent-app (research preview through a waitlist, Pro and Max in the US, built around Opus 5.5, a morning brief, checks every few hours, approval before it acts).
