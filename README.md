@@ -57,15 +57,7 @@ Then add the box in Home Assistant (Settings, Devices and services), pick a voic
 
 ## How it works
 
-```mermaid
-flowchart LR
-  A["AI assistant<br/>Muse, Claude, any agent"] -- "REST, MCP or Assist:<br/>esphome.*_muse_* actions" --> HA["Home Assistant"]
-  HA -- "ESPHome native API,<br/>encrypted, on the LAN" --> BOX["ESP32-S3-BOX-3<br/>screen, speaker, mics, radar"]
-  HA -- "websocket events:<br/>call_service or muse_web" --> WEB["Muse Web Screen<br/>in the browser"]
-  BOX -. "taps, sensors, voice" .-> HA
-  WEB -. "muse_web_answer" .-> HA
-  HA -. "action response" .-> A
-```
+<p align="center"><img src="docs/images/how-it-works.png" width="900" alt="How it works: the AI assistant calls one Home Assistant action; Home Assistant passes it to the ESP32-S3-BOX-3 over the encrypted ESPHome API, and Muse Web Screen, the ESP-Mosaico and the camera add-on for Apple TV mirror the same call through websocket events; a tap travels back as the action's answer"></p>
 
 The assistant never talks to the box directly. It calls Home Assistant actions with a long-lived token; Home Assistant passes them to the box over ESPHome's encrypted API, and Muse Web Screen in a browser mirrors every call by listening to Home Assistant's events (or to a `muse_web` event of its own, for a house without a box). The box is one ESPHome configuration, five C++ headers and a handful of tools; everything that differs from house to house is a substitution or a secret. The full picture with the house's devices: [How it fits together](#how-it-fits-together).
 
