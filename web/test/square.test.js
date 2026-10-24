@@ -59,7 +59,8 @@ test("ask: yes left, no right in the bottom row; the press shows 150 ms", () => 
   const { d, answers, advance } = make();
   d.dispatch("ask", { question: "Licht an?" });
   const yes = squareButton(2, 0), no = squareButton(2, 1);
-  assert.equal(yes.y, PANEL.y + 128 + 68);
+  assert.equal(yes.y, PANEL.y + 136 + 68);
+  assert.equal(PANEL.y + PANEL.h - (yes.y + yes.h), 20, "the bottom row keeps 20 px to the panel's edge");
   assert.ok(yes.x < no.x);
   d.touchStart(no.x + 10, no.y + 10);
   d.touchEnd();
@@ -178,8 +179,12 @@ test("the ready screen: the top bar like the box's, the figure, and Bereit once 
   assert.deepEqual([time.x, time.y, time.align], [CLOCK.x + CLOCK.w / 2, CLOCK.y + CLOCK.h / 2, "C"]);
   assert.ok(calls.some((c) => c.op === "circle" && c.x === 450 && c.y === 32 && c.radius === 6), "the connection dot");
   assert.deepEqual(figure[0], { sub: "idle", x: FIGURE.x, y: FIGURE.y, size: FIGURE.size });
+  // Figure, 16 px gap and bubble are centred in the area under the top bar (y 62 to 480).
+  assert.deepEqual([FIGURE.x, FIGURE.y, FIGURE.size], [100, 97, 280]);
+  assert.equal(BUBBLE.y, FIGURE.y + FIGURE.size + 16);
+  assert.equal(FIGURE.y - TOP_BAR.h, 480 - (BUBBLE.y + BUBBLE.h), "as much room above as below");
   const bubble = calls.find((c) => c.op === "rect" && c.w === BUBBLE.w);
-  assert.deepEqual([bubble.x, bubble.y, bubble.h, bubble.radius], [105, 358, 52, 26]);
+  assert.deepEqual([bubble.x, bubble.y, bubble.h, bubble.radius], [105, 393, 52, 26]);
   const label = calls.find((c) => c.text === "Bereit");
   assert.deepEqual([label.x, label.y], [BUBBLE.x + 147, BUBBLE.y + 26]);
   assert.ok(calls.every((c) => c.op !== "rect" || c.y >= TOP_BAR.h), "no pill in the top bar");
@@ -203,7 +208,9 @@ test("a card: the timer chip and +N right after the name, the content below the 
   const time = calls.find((c) => c.text === "12:00");
   assert.ok(time.x - 25 >= chips[1].x + chips[1].w + 12, "the clock moves right of both chips");
   assert.deepEqual([figure[0].sub, figure[0].x, figure[0].y], ["avatar", 24, 72]);
-  assert.ok(calls.some((c) => c.op === "rect" && c.x === 24 && c.y === 176 && c.w === 432 && c.h === 272), "the panel");
+  assert.ok(calls.some((c) => c.op === "rect" && c.x === 24 && c.y === 176 && c.w === 432 && c.h === 280), "the panel");
+  assert.equal(PANEL.x, 480 - (PANEL.x + PANEL.w), "equal margins left and right");
+  assert.equal(480 - (PANEL.y + PANEL.h), PANEL.x, "the bottom margin equals the side margins");
 });
 
 test("the celebration: title and message in the bubble's place, no bubble", () => {
@@ -215,6 +222,9 @@ test("the celebration: title and message in the bubble's place, no bubble", () =
   assert.deepEqual([title.x, title.y, title.align], [240, CELEBRATION.titleY, "TC"]);
   const body = calls.find((c) => c.text === "Alles erledigt");
   assert.deepEqual([body.x, body.y], [240, CELEBRATION.bodyY]);
+  assert.deepEqual([CELEBRATION.titleY, CELEBRATION.bodyY], [385, 437]);
+  assert.ok(CELEBRATION.titleY >= FIGURE.y + FIGURE.size, "the title sits below the figure");
+  assert.ok(CELEBRATION.bodyY + 26 <= 480, "the message fits on the screen");
   assert.ok(!texts.includes("Bereit"));
   assert.ok(!calls.some((c) => c.op === "rect" && c.w === BUBBLE.w));
 });

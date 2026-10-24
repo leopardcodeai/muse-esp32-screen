@@ -11,7 +11,7 @@
 // screen shows the figure at 280 px with one status bubble under it, as the box's
 // drawStatus shows its pill; the celebration puts a title and a message in the bubble's
 // place; every card has an avatar or a coloured disc, a title of up to two lines and a
-// white panel of 432 x 272 with the card's content.
+// white panel of 432 x 280 with the card's content.
 //
 // Motion (SQUARE_LAYOUT.md, Motion): a new card slides up 24 px and fades in over 220 ms
 // (ease-out) while the one before fades out over 160 ms (a snapshot of the last picture
@@ -46,12 +46,14 @@ export const NAME = { x: 24, y: 10, w: 120, h: 44 };
 export const CLOCK = { x: 165, y: 12, w: 150, h: 40 };
 export const DOT = { x: 444, y: 26, size: 12 };
 export const BADGE = { x: 116, y: 16, w: 64, h: 32, radius: 16, gap: 8 };
-export const FIGURE = { x: 100, y: 62, size: 280 };
-export const BUBBLE = { x: 105, y: 358, w: 270, h: 52, radius: 26, dotX: 20, dot: 12, textX: 40, textW: 214 };
-export const CELEBRATION = { titleY: 350, bodyY: 402, w: 432 };
+// The ready screen: figure (280) + 16 + bubble (52) = 348 px, centred in y 62 to 480
+// (35 px above and below), as the ESP-Mosaico firmware draws it.
+export const FIGURE = { x: 100, y: 97, size: 280 };
+export const BUBBLE = { x: 105, y: 393, w: 270, h: 52, radius: 26, dotX: 20, dot: 12, textX: 40, textW: 214 };
+export const CELEBRATION = { titleY: 385, bodyY: 437, w: 432 };
 export const AVATAR = { x: 24, y: 72, size: 84 };
 export const TITLE = { x: 124, y: 72, w: 332, h: 84, lineH: 38 };
-export const PANEL = { x: 24, y: 176, w: 432, h: 272, radius: 28 };
+export const PANEL = { x: 24, y: 176, w: 432, h: 280, radius: 28 }; // 24 px from the sides and the bottom
 
 const F = (weight, px) => `${weight} ${px}px ${INTER}`;
 export const SQUARE_FONTS = {
@@ -112,7 +114,7 @@ export const SQUARE = {
 export function squareButton(n, i) {
   const slot = n <= 2 ? 2 + i : i;
   const col = slot % 2, row = Math.floor(slot / 2);
-  return { x: PANEL.x + 16 + col * 208, y: PANEL.y + 128 + row * 68, w: 192, h: 56 };
+  return { x: PANEL.x + 16 + col * 208, y: PANEL.y + 136 + row * 68, w: 192, h: 56 };
 }
 
 export function squareButtonAt(n, px, py) {

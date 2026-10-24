@@ -35,19 +35,23 @@ status once, in the bubble under the figure (as the box's `drawStatus` shows its
 no status pill in the top bar and no second status line. A tap on the top bar shows the display
 about itself.
 
+The ready screen centres figure and bubble in the area under the top bar (y 62 to 480, 418 px):
+figure 280, a gap of 16 and the bubble 52 make 348 px, with 35 px above and below. The cards keep
+equal margins of 24 px on the left, the right and at the bottom.
+
 | Element | x | y | w | h | Style |
 |---|---|---|---|---|---|
 | Name | 24 | 10 | 120 | 44 | top bar: Inter 800 30 INK, left, vertically centred, ellipsis (default „Muse") |
 | Clock | 165 | 12 | 150 | 40 | top bar: Inter 700 28 INK, centred, `H:MM`; when the timer chip and the queue badge both show and would reach into it, it moves right so that its text starts 12 px after the last chip |
 | Connection dot | 444 | 26 | 12 | 12 | top bar: green connected, ORANGE connecting, teal demo, red off (the box's colours) |
 | Timer chip and queue badge | 116 | 16 | 64 (grows with the text) | 32 | top bar, right after the name: ORANGE, radius 16, Inter 800 19 white, centred, 8 apart; the soonest timer's time left first (not on the timer card), then „+N" of waiting cards (not on the ready screen); hidden when there is nothing to show |
-| Idle figure | 100 | 62 | 280 | 280 | contain |
-| Status bubble | 105 | 358 | 270 | 52 | the one status on the ready screen: CARD, radius 26, shadow 0 2 8 rgba(0,0,0,.10); dot 12 at bubble x 20 (centred vertically) in the status colour; text Inter 700 21 INK centred in bubble x 40 to 254, ellipsis |
-| Celebration title | 24 | 350 | 432 | 40 | replaces the bubble: Inter 800 32 INK, centred, top at y 350, one line |
-| Celebration message | 24 | 402 | 432 | 26 | Inter 500 20 SUB, centred, top at y 402, one line, ellipsis |
+| Idle figure | 100 | 97 | 280 | 280 | contain; 35 px below the top bar |
+| Status bubble | 105 | 393 | 270 | 52 | the one status on the ready screen: CARD, radius 26, shadow 0 2 8 rgba(0,0,0,.10); dot 12 at bubble x 20 (centred vertically) in the status colour; text Inter 700 21 INK centred in bubble x 40 to 254, ellipsis; 16 px below the figure, 35 px above the screen's bottom |
+| Celebration title | 24 | 385 | 432 | 40 | replaces the bubble: Inter 800 32 INK, centred, top at y 385, one line |
+| Celebration message | 24 | 437 | 432 | 26 | Inter 500 20 SUB, centred, top at y 437, one line, ellipsis |
 | Card avatar or disc | 24 | 72 | 84 | 84 | avatar image, or a disc radius 42 in the icon colour with a 48 px glyph in white |
 | Card title | 124 | 72 | 332 | 84 | Inter 800 30 INK, up to 2 lines, vertically centred, ellipsis |
-| Panel | 24 | 176 | 432 | 272 | CARD, radius 28, shadow 0 4 16 rgba(0,0,0,.08); inner padding 24 |
+| Panel | 24 | 176 | 432 | 280 | CARD, radius 28, shadow 0 4 16 rgba(0,0,0,.08); inner padding 24; ends at y 456, 24 px above the bottom |
 
 Panel contents, coordinates relative to the panel:
 
@@ -65,7 +69,7 @@ Panel contents, coordinates relative to the panel:
 | timer (`show_timer`) | arc 196 x 196 at (118, 18), thickness 16, track SHADOW, fill ORANGE, full at start; time left Inter 800 44 INK centred in the arc (`m:ss`, `h:mm:ss` above an hour) |
 | route, scene (`show_route`, `draw`) | web and camera: as on the box, scaled into the panel; firmware: a text card until ported |
 
-Buttons (ask, choose): grid of 2 x 2 at (16 + col × 208, 128 + row × 68), 192 x 56, radius 28,
+Buttons (ask, choose): grid of 2 x 2 at (16 + col × 208, 136 + row × 68), 192 x 56 (the bottom row ends 20 px above the panel's edge), radius 28,
 INK with Inter 700 20 white text, centred, one line, ellipsis. Ask uses the bottom row (row 1):
 yes left, no right. A pressed button shows ORANGE for 150 ms.
 
