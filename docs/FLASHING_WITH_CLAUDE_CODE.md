@@ -19,7 +19,7 @@ so you can check what it does.
 
 ## Step by step
 
-1. **Clone and open.** `git clone https://github.com/leopardcodeai/muse-esp32-s3-box-3-screen` and
+1. **Clone and open.** `git clone https://github.com/leopardcodeai/muse-esp32-screen` and
    open the folder in the agent. It reads `CLAUDE.md` (or `AGENTS.md`) and knows the rules.
 2. **Secrets.** Say: *"create firmware/secrets.yaml from the example with my Wi-Fi"*. The
    agent copies `firmware/secrets.yaml.example`, asks for the Wi-Fi name and password

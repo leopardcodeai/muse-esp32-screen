@@ -1,6 +1,8 @@
-# Muse ESP32-S3-BOX-3 Screen
+# Muse ESP32 Screen
 
-**An open-source face for your AI assistant: it shows cards, asks questions with buttons, counts timers and draws its own scenes on a 2.4 inch ESP32-S3-BOX-3, or in a browser tab with no hardware at all.**
+**An open-source face for your AI assistant: it shows cards, asks questions with buttons, counts timers and draws its own scenes on a 2.4 inch ESP32-S3-BOX-3, on the new ESP32-S31 (Espressif's ESP-Mosaico, 480 x 480, port in progress), or in a browser tab with no hardware at all.**
+
+<sub>Formerly Muse ESP32-S3-BOX-3 Screen; renamed on 24 October 2026 because it now runs on more than one ESP32 board. Old links redirect.</sub>
 
 [![Live demo](https://img.shields.io/badge/live_demo-muse--web--screen.vercel.app-0A84FF)](https://muse-web-screen.vercel.app)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-34C759)](LICENSE)
@@ -45,8 +47,8 @@
 **Flash** (the full seven steps: [Quick start](#quick-start); unboxing and download mode: [docs/BOX3_SETUP.md](docs/BOX3_SETUP.md)):
 
 ```bash
-git clone https://github.com/leopardcodeai/muse-esp32-s3-box-3-screen.git
-cd muse-esp32-s3-box-3-screen/firmware
+git clone https://github.com/leopardcodeai/muse-esp32-screen.git
+cd muse-esp32-screen/firmware
 cp secrets.yaml.example secrets.yaml     # Wi-Fi, hotspot password, API key
 esphome run muse-esp32-s3-box-3-screen.yaml
 ```
@@ -222,8 +224,8 @@ Seven steps from a box in its packaging to the first card. Expect 15 minutes plu
 1. **Clone and configure.**
 
    ```bash
-   git clone https://github.com/leopardcodeai/muse-esp32-s3-box-3-screen.git
-   cd muse-esp32-s3-box-3-screen/firmware
+   git clone https://github.com/leopardcodeai/muse-esp32-screen.git
+   cd muse-esp32-screen/firmware
    cp secrets.yaml.example secrets.yaml
    ```
 
@@ -465,7 +467,7 @@ Two findings behind those numbers that cost real time: with mbedTLS in internal 
 ## Repository layout
 
 ```text
-muse-esp32-s3-box-3-screen/
+muse-esp32-screen/
   firmware/
     muse-esp32-s3-box-3-screen.yaml            the ESPHome configuration: actions, display, touch, audio, sensors
     muse.h                   drawing helpers, card queue, questions, timers, lists, the status bar

@@ -37,8 +37,8 @@ connection to a Home Assistant in your LAN. Pick one:
 - **Run the page on your own computer**, the way that works everywhere. Python 3 is enough:
 
   ```bash
-  git clone https://github.com/leopardcodeai/muse-esp32-s3-box-3-screen
-  cd muse-esp32-s3-box-3-screen/web
+  git clone https://github.com/leopardcodeai/muse-esp32-screen
+  cd muse-esp32-screen/web
   python3 -m http.server 8321
   ```
 

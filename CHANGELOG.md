@@ -4,6 +4,7 @@ The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-scre
 
 ## Muse Web Screen 1.4.0, 24 October 2026 (firmware unchanged at 4.3.0)
 
+- The project is called Muse ESP32 Screen and lives at github.com/leopardcodeai/muse-esp32-screen, because it now targets more than one ESP32 board (the ESP32-S3-BOX-3 and the ESP32-S31 of Espressif's ESP-Mosaico). Every earlier address redirects. Device names, action names and the firmware file stay as they are.
 - Square layout, 480 x 480 (`index.html?layout=square` or the new Layout setting), for the ESP-Mosaico port and the camera add-on: every action, cards slide in and fade out, the pill dot pulses while listening or thinking, the timer arc moves smoothly, celebrate adds a confetti burst, and nothing is redrawn while nothing moves. The 320 x 240 layout renders pixel for pixel as before. Design: docs/SQUARE_LAYOUT.md.
 - Your own character: `tools/make_figure.py --from-image` turns one picture into the full set of animations for the box and the browser (docs/OWN_FIGURE.md); `--size` and `--avatar` serve the square layout.
 - Fixed after a review: the square's queue limit also holds after urgent cards; a question arriving within the 150 ms of a button press is no longer advanced by that press; a layout chosen in the settings applies even when the URL forces another; a large picture with a small character no longer needs a gigabyte in `--from-image`.
@@ -11,7 +12,7 @@ The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-scre
 
 ## 4.3.0, 8 October 2026
 
-- The project is called Muse ESP32-S3-BOX-3 Screen, after the board's own name; "ESP32BoxS3" is gone. The repository moved to github.com/leopardcodeai/muse-esp32-s3-box-3-screen (both earlier addresses redirect), the firmware file is `firmware/muse-esp32-s3-box-3-screen.yaml`, and the default device name is `muse-esp32-s3-box-3-screen`, so a box flashed from scratch has the actions `esphome.muse_esp32_s3_box_3_screen_muse_*`.
+- The project is called Muse ESP32-S3-BOX-3 Screen, after the board's own name; "ESP32BoxS3" is gone. The repository moved to github.com/leopardcodeai/muse-esp32-screen (both earlier addresses redirect), the firmware file is `firmware/muse-esp32-s3-box-3-screen.yaml`, and the default device name is `muse-esp32-s3-box-3-screen`, so a box flashed from scratch has the actions `esphome.muse_esp32_s3_box_3_screen_muse_*`.
 - A box already running under `muse-esp32boxs3-screen` keeps its name, its actions and everything that calls them: set `name: muse-esp32boxs3-screen` in the substitutions of your overlay (docs/HOME_OVERLAY.md). Changing the device name changes every action name, and the prompt your assistant keeps has to change with it.
 - Muse Web Screen keeps the device name saved in its settings; only a browser that never saved its settings follows the new default.
 

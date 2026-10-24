@@ -7,8 +7,8 @@ The firmware in `firmware/muse-esp32-s3-box-3-screen.yaml` is the same for every
 ESPHome resolves every file path in a configuration (`includes`, `image: file`, `font`, `media_player: files`, the wake word model) against the directory of the **main** YAML, the one you pass on the command line [1]. So the overlay has to live in `firmware/`, next to `muse-esp32-s3-box-3-screen.yaml`. If you keep it in a repository of your own, link it in:
 
 ```bash
-ln -s ~/my-house/muse-esp32-s3-box-3-screen.home.yaml ~/muse-esp32-s3-box-3-screen/firmware/muse-esp32-s3-box-3-screen.home.yaml
-ln -s ~/my-house/secrets.yaml       ~/muse-esp32-s3-box-3-screen/firmware/secrets.yaml
+ln -s ~/my-house/muse-esp32-s3-box-3-screen.home.yaml ~/muse-esp32-screen/firmware/muse-esp32-s3-box-3-screen.home.yaml
+ln -s ~/my-house/secrets.yaml       ~/muse-esp32-screen/firmware/secrets.yaml
 ```
 
 `.gitignore` of this repository ignores `firmware/*.home.yaml` and `firmware/secrets.yaml`, so neither can be committed here by accident.
@@ -63,7 +63,7 @@ button:
 Build, flash and read the log with the overlay as the main file:
 
 ```bash
-cd ~/muse-esp32-s3-box-3-screen/firmware
+cd ~/muse-esp32-screen/firmware
 esphome run muse-esp32-s3-box-3-screen.home.yaml --device kitchen-box.local
 esphome logs muse-esp32-s3-box-3-screen.home.yaml --device kitchen-box.local
 ```
