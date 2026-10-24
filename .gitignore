@@ -7,5 +7,7 @@ __pycache__/
 .DS_Store
 # Meta's Muse artwork, if tools/make_muse_assets.py was run: never commit it
 firmware/figure/muse_*.png
+# Your own character for the box (docs/OWN_FIGURE.md); drop this line in a fork that should carry it
+firmware/figure/own_*.png
 # A private overlay linked in from elsewhere (docs/HOME_OVERLAY.md)
 firmware/*.home.yaml

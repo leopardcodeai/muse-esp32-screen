@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { DEFAULT_DEVICE } from "../ha.js";
 import {
   DEFAULTS, SETTINGS_KEY, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, insecureFromHttps,
+  layoutFor, layoutReload,
   MIXED_CONTENT_NOTE,
 } from "../settings.js";
 
@@ -81,4 +82,15 @@ test("README and the settings dialog name the box as DEFAULT_DEVICE does", () =>
   }
   assert.ok(readme.includes(`esphome.${DEFAULT_DEVICE}_muse_show_text`), "README shows the action prefix");
   assert.ok(readme.includes(`\`${DEFAULT_DEVICE}\``), "README names the default device");
+});
+
+test("layoutReload(): a choice other than the layout on screen reloads without ?layout=", () => {
+  // Review 24.10.2026: with ?layout=square and box saved, saving box kept the square page.
+  const href = "https://muse.example/index.html?layout=square&demo=1";
+  const active = layoutFor(new URL(href).search, { ...DEFAULTS, layout: "box" });
+  assert.equal(active, "square");
+  assert.equal(layoutReload(href, active, "box"), "https://muse.example/index.html?demo=1");
+  assert.equal(layoutReload(href, active, "square"), null, "the layout on screen: no reload");
+  assert.equal(layoutReload("https://muse.example/", "box", "box"), null);
+  assert.equal(layoutReload("https://muse.example/", "box", "square"), "https://muse.example/");
 });

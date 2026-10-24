@@ -56,16 +56,20 @@ export function allFonts() {
 }
 
 export class Renderer {
-  constructor(canvas) {
+  // `width` x `height` is the logical canvas: the box's 320 x 240 unless a layout asks
+  // for another one (the square layout of square.js is 480 x 480).
+  constructor(canvas, { width = W, height = H } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", { alpha: false });
     this.k = 1;
+    this.w = width;
+    this.h = height;
     this.metricsCache = new Map();
   }
 
   // k device pixels per logical pixel.
   resize(k) {
-    const w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k));
+    const w = Math.max(1, Math.round(this.w * k)), h = Math.max(1, Math.round(this.h * k));
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w;
       this.canvas.height = h;
@@ -128,7 +132,7 @@ export class Renderer {
   fill(color) {
     const ctx = this.ctx;
     ctx.fillStyle = css(color);
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, this.w, this.h);
   }
 
   rect(x, y, w, h, color) {

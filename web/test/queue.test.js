@@ -30,6 +30,32 @@ test("the line holds twelve; the thirteenth is dropped", () => {
   assert.equal(q.waiting[QUEUE_MAX - 1].title, "w11");
 });
 
+test("a smaller layout limit holds after urgent cards too; the box keeps the firmware's rule", () => {
+  // Review 24.10.2026: the square's 8 was enforced only for cards that wait.
+  const q = new CardQueue();
+  q.max = 8;
+  q.offer(card(1, "on"));
+  q.takeNext();
+  for (let i = 0; i < 7; i++) q.offer(card(1, `w${i}`));
+  for (let i = 0; i < 4; i++) {
+    q.offer(card(6, `urgent${i}`), true);
+    assert.ok(q.waiting.length <= 8, `${q.waiting.length} in line after urgent${i}`);
+    q.takeNext();
+  }
+  assert.equal(q.current.title, "urgent3");
+  assert.equal(q.waiting[0].title, "urgent2", "the pushed-aside urgent card is still first in line");
+  q.offer(card(6, "urgent4"), true);
+  assert.equal(q.waiting.length, 8);
+  assert.deepEqual(q.waiting.slice(0, 2).map((c) => c.title), ["urgent4", "urgent3"]);
+  // The box (QUEUE_MAX) mirrors firmware/muse.h, which caps only cards that wait.
+  const box = new CardQueue();
+  box.offer(card(1, "on"));
+  box.takeNext();
+  for (let i = 0; i < QUEUE_MAX; i++) box.offer(card(1, `w${i}`));
+  box.offer(card(6, "urgent"), true);
+  assert.equal(box.waiting.length, QUEUE_MAX + 2);
+});
+
 test("a question, the doorbell and a conversation go first; the card on screen comes back", () => {
   const q = new CardQueue();
   q.offer(card(1, "text"));

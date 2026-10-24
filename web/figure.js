@@ -72,11 +72,14 @@ export class Figure {
   // the page colour, like the box's pictures, whose edges fade into that colour: on the
   // page the square is invisible, in a scene the caller clips it to a disc, which is the
   // light round frame the box shows there.
-  draw(r, sub, t, x0, y0, stepMs = STEP_MS) {
+  // `drawSize` (optional) draws the frame that many px wide instead of its own size, for
+  // the larger figure of the square layout (square.js).
+  draw(r, sub, t, x0, y0, stepMs = STEP_MS, drawSize = 0) {
     const size = sub === "avatar" ? AVATAR : SIZE;
     const c = r.ctx;
     c.save();
     c.translate(x0, y0);
+    if (drawSize > 0 && drawSize !== size) c.scale(drawSize / size, drawSize / size);
     c.fillStyle = css(PAGE);
     c.fillRect(0, 0, size, size);
     if (sub === "confetti") drawConfettiFrame(c, onceStep(t, stepMs, CONFETTI_FRAMES, this.smooth), size);

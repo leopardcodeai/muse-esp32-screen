@@ -14,8 +14,9 @@ import { parseStatus, condition, urgentEvent } from "./tables.js";
 import * as S from "./scene.js";
 import { drawTopBar, drawCard } from "./cards.js";
 import { SceneDrawer } from "./draw.js";
+import { SquareView, SQUARE, squareButtonAt, toScene, squareCaption } from "./square.js";
 
-export const VERSION = "1.3.0";
+export const VERSION = "1.4.0";
 
 export class Display {
   constructor(opts) {
@@ -62,6 +63,17 @@ export class Display {
     this.answerCount = 0;
     this.touch = null; // {x0, y0, x1, y1, at}
     this.placedNow = false;
+
+    // The layout: "box" (320 x 240, the box's own) or "square" (480 x 480,
+    // docs/SQUARE_LAYOUT.md). The square one draws through square.js and keeps the
+    // spec's times; the box's code paths stay as they are.
+    this.square = opts.layout === "square";
+    this.pressed = null; // square: the question button shown pressed, {i, until, number}
+    if (this.square) {
+      this.squareView = new SquareView();
+      this.queue.max = SQUARE.queueMax;
+      if (this.media) this.media.frame = SQUARE.photo;
+    }
   }
 
   get mode() {
@@ -72,6 +84,7 @@ export class Display {
 
   // Puts a card in line and shows it when its turn is now; the action's response.
   offer(card, urgent = false) {
+    if (this.square) card.ms = SQUARE.cardMs(card);
     if (this.demoMs > 0 && card.mode !== 8 && card.mode !== 11) card.ms = this.demoMs;
     this.placedNow = this.queue.offer(card, urgent);
     if (this.placedNow) this.next();
@@ -81,8 +94,10 @@ export class Display {
 
   // The next card of the line, or the status when none waits. A question that leaves
   // the screen unanswered is answered "none".
-  next() {
-    if (this.question.open && this.mode === 8) this.question.abandon((s) => this.publishAnswer(s));
+  // `answered`: the question on screen was answered already (the square's press), so an
+  // open question is the one arriving, not one that leaves unanswered.
+  next(answered = false) {
+    if (!answered && this.question.open && this.mode === 8) this.question.abandon((s) => this.publishAnswer(s));
     const c = this.queue.takeNext();
     if (c === null) {
       this.card = this.queue.current;
@@ -113,7 +128,10 @@ export class Display {
     this.media.hide();
     this.scene = null;
     if (c.mode === 7) this.scene = S.parse(c.scene);
-    if (c.mode === 5) this.media.show(c.url, c.liveSeconds, Date.now());
+    if (c.mode === 5) {
+      if (this.square) this.media.caption = squareCaption(c);
+      this.media.show(c.url, c.liveSeconds, Date.now());
+    }
     if (c.mode === 10) this.agenda = parseAgenda(c.body);
     if (c.mode === 13) this.list = parseList(c.body);
     this.log(`card ${c.mode} on screen, ${this.queue.waiting.length} waiting, ${this.queue.history.length} back`);
@@ -250,10 +268,14 @@ export class Display {
   }
 
   question_(text, options, values) {
+    // Square: a question answered but still showing its pressed button (150 ms) must not
+    // take the new one with it; the box never has an answered question on screen.
+    const answered = this.mode === 8 && !this.question.open;
+    this.pressed = null; // the new question shows no pressed button and takes taps at once
     this.question.prepare(this.mode, text, options, values, (s) => this.publishAnswer(s));
-    const c = makeCard({ mode: 8, title: this.question.text, ms: 120000 });
+    const c = makeCard({ mode: 8, title: this.question.text, ms: this.square ? SQUARE.questionMs : 120000 });
     this.queue.enqueue(c, NOW);
-    this.next();
+    this.next(answered);
     this.sound.ask();
     return { answer: "pending", question: text };
   }
@@ -292,7 +314,10 @@ export class Display {
       this.queue.current = makeCard({ mode: 0 });
       this.card = this.queue.current;
     }
-    this.queue.enqueue(makeCard({ mode: 6, event: "timer", title: "Zeit ist um", body: name || "Timer", ms: 30000 }), NOW);
+    const done = this.square
+      ? makeCard({ mode: 6, event: "timer", title: "Fertig", body: name || "Timer", ms: SQUARE.doneMs })
+      : makeCard({ mode: 6, event: "timer", title: "Zeit ist um", body: name || "Timer", ms: 30000 });
+    this.queue.enqueue(done, NOW);
     this.next();
     this.sound.chime();
     this.log(`timer ended: ${name}`);
@@ -364,6 +389,12 @@ export class Display {
   // here goes by the clock, so the rate changes nothing but the smoothness.
   tick() {
     const now = this.now();
+    if (this.pressed && now >= this.pressed.until) { // square: the pressed button has shown
+      const { number } = this.pressed;
+      this.pressed = null;
+      // Only the answered question leaves; a newer one that came meanwhile stays up.
+      if (this.mode === 8 && this.question.number === number) this.next();
+    }
     if (this.mode !== 0 && now > this.until) {
       this.log(`card ${this.mode} gone after ${Math.round(now - this.since)} ms`);
       this.next();
@@ -388,6 +419,10 @@ export class Display {
     const r = this.renderer;
     const now = this.now();
     const clock = this.clock();
+    if (this.square) {
+      this.squareView.render(r, this, now, clock);
+      return;
+    }
     r.begin();
     if (this.mode === 7 && this.scene) {
       this.sceneDrawer.draw(r, this.scene, this.version, now - this.since, clock);
@@ -427,6 +462,15 @@ export class Display {
     this.log(`touch ${t.x0 | 0}, ${t.y0 | 0} -> ${t.x1 | 0}, ${t.y1 | 0} for ${held | 0} ms on mode ${mode}`);
     if (mode === 8) { // only the buttons answer
       const qs = this.question;
+      if (this.square) { // the button shows ORANGE for 150 ms, then the next card
+        if (this.pressed || !qs.open) return;
+        const i = squareButtonAt(qs.options.length, t.x1, t.y1);
+        if (i < 0) return;
+        const a = qs.choose(i, (s) => this.publishAnswer(s));
+        this.answerCount++;
+        this.pressed = { i, until: now + SQUARE.pressMs, number: qs.number };
+        return a;
+      }
       const i = questionButtonAt(qs.options.length, t.x1, t.y1);
       if (i < 0) return;
       const a = qs.choose(i, (s) => this.publishAnswer(s));
@@ -436,7 +480,8 @@ export class Display {
     }
     if (mode === 7 && held < 700 && this.scene) { // a button in a scene
       const st = now - this.since;
-      const i = S.buttonAt(this.scene, t.x1, t.y1, st, this.scene.frameAt(st));
+      const [sx, sy] = this.square ? toScene(t.x1, t.y1) : [t.x1, t.y1];
+      const i = S.buttonAt(this.scene, sx, sy, st, this.scene.frameAt(st));
       if (i >= 0) {
         const a = this.scene.items[i].text;
         this.giveAnswer(a, "Szene");
@@ -466,7 +511,7 @@ export class Display {
       }
       return; // on the ready screen the box starts listening; this display has no microphone
     }
-    if (t.y0 < 30 && mode !== 12) { // the top bar: the display about itself
+    if (t.y0 < (this.square ? SQUARE.topBarH : 30) && mode !== 12) { // the top bar: the display about itself
       this.info();
       return;
     }

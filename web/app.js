@@ -9,7 +9,11 @@
 //    the way back), with a generation number that ends the old one.
 //  * A first visit without stored settings is sent to demo mode (settings.js,
 //    landingTarget) before anything starts, so the hosted page shows the display at once.
+//  * The layout (320 x 240 of the box, or 480 x 480, `?layout=square` or the setting) is
+//    chosen once at the start: renderer, display and stage are built for it. A change in
+//    the settings reloads the page.
 import { Renderer, allFonts, W, H } from "./render.js";
+import { SQUARE_W, SQUARE_H, squareFonts } from "./square.js";
 import { Figure } from "./figure.js";
 import { FigureSource, FIGURE_NAMES } from "./figure_frames.js";
 import { WeatherIcons } from "./weather.js";
@@ -17,11 +21,11 @@ import { MediaOverlay } from "./media.js";
 import { Display, VERSION } from "./display.js";
 import { Sounds } from "./audio.js";
 import { HaClient, EVENT_WEB, DEFAULT_DEVICE } from "./ha.js";
-import { Demo } from "./demo.js";
+import { Demo, SQUARE_DEMO_CARDS } from "./demo.js";
 import { floatDocument, floatVideo, unfloatVideo, hasDocumentPip, hasVideoPip, Kiosk } from "./pip.js";
 import { FrameClock, BOX_FPS, fitScale, normaliseFps } from "./pace.js";
 import {
-  DEFAULTS, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, insecureFromHttps, MIXED_CONTENT_NOTE,
+  DEFAULTS, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload, insecureFromHttps, MIXED_CONTENT_NOTE,
 } from "./settings.js";
 
 const $ = (id) => document.getElementById(id);
@@ -40,9 +44,16 @@ function storage() {
   }
 }
 let settings = loadSettings(storage());
+const layout = layoutFor(location.search, settings);
+const square = layout === "square";
+// The logical size of the display: the box's 320 x 240, or 480 x 480.
+const LW = square ? SQUARE_W : W;
+const LH = square ? SQUARE_H : H;
+document.documentElement.classList.toggle("square", square);
+const fonts = () => (square ? [...allFonts(), ...squareFonts()] : allFonts());
 
 const log = (line) => console.info("[muse] " + line);
-const renderer = new Renderer(canvas);
+const renderer = new Renderer(canvas, { width: LW, height: LH });
 const figure = new FigureSource({ placeholder: new Figure(), log });
 const weather = new WeatherIcons();
 const media = new MediaOverlay(overlayEl);
@@ -58,7 +69,7 @@ const frames = new FrameClock(fpsFor(location.search, settings));
 figure.smooth = frames.fps > BOX_FPS;
 
 const display = new Display({
-  renderer, figure, weather, media,
+  renderer, figure, weather, media, layout,
   now: () => performance.now(),
   clock: () => new Date(),
   name: settings.name || "Muse",
@@ -83,17 +94,17 @@ function browserName() {
 // --------------------------------------------------------------- scaling --
 
 // The stage in whole CSS pixels, the canvas backing store in device pixels: the 320 x 240
-// logical layout stays, the text is drawn at the screen's own resolution.
+// (or 480 x 480) logical layout stays, the text is drawn at the screen's own resolution.
 function fit() {
   const host = hostWindow;
   const rect = stage.parentElement.getBoundingClientRect();
   const dpr = host.devicePixelRatio || 1;
-  const k = fitScale(rect.width, rect.height, W, H, settings.integer);
-  stage.style.width = `${Math.round(W * k)}px`;
-  stage.style.height = `${Math.round(H * k)}px`;
+  const k = fitScale(rect.width, rect.height, LW, LH, settings.integer);
+  stage.style.width = `${Math.round(LW * k)}px`;
+  stage.style.height = `${Math.round(LH * k)}px`;
   renderer.resize(k * dpr);
   media.rescale(k);
-  display.displayInfo = `${Math.round(W * k * dpr)} x ${Math.round(H * k * dpr)} px`;
+  display.displayInfo = `${Math.round(LW * k * dpr)} x ${Math.round(LH * k * dpr)} px`;
   display.browserInfo = `${browserName()}  ·  ${frames.fps} Bilder/s`;
   render();
 }
@@ -188,7 +199,7 @@ function setFps(fps) {
 
 function logical(ev) {
   const rect = canvas.getBoundingClientRect();
-  return [((ev.clientX - rect.left) / rect.width) * W, ((ev.clientY - rect.top) / rect.height) * H];
+  return [((ev.clientX - rect.left) / rect.width) * LW, ((ev.clientY - rect.top) / rect.height) * LH];
 }
 function bindTouch(el) {
   el.addEventListener("pointerdown", (ev) => {
@@ -302,6 +313,7 @@ function openSettings() {
   form.integer.checked = settings.integer;
   form.sound.checked = settings.sound;
   form.bare.checked = settings.bare;
+  form.layout.value = settings.layout;
   updateDialog();
   dialog.showModal();
 }
@@ -322,9 +334,21 @@ form.addEventListener("submit", (ev) => {
     integer: form.integer.checked,
     sound: form.sound.checked,
     bare: form.bare.checked,
+    layout: form.layout.value === "square" ? "square" : "box",
   };
   if (!saveSettings(storage(), settings)) say("Dieser Browser speichert nichts: die Einstellungen gelten nur bis zum Neuladen.");
   dialog.close();
+  // Another layout than the one on screen (a ?layout= of the URL counts): the page starts
+  // again with it, without the ?layout=, which would win.
+  const reload = layoutReload(location.href, layout, settings.layout);
+  if (reload) {
+    const u = new URL(reload);
+    if (demoMode && settings.url && settings.token && (settings.url !== before.url || settings.token !== before.token)) {
+      u.searchParams.delete("demo");
+    }
+    location.href = u.toString();
+    return;
+  }
   // New credentials in demo mode: leave the demo for the real connection.
   if (demoMode && settings.url && settings.token && (settings.url !== before.url || settings.token !== before.token)) {
     const u = new URL(location.href);
@@ -356,13 +380,13 @@ async function toggleFloat() {
     await unfloatVideo(video);
     return;
   }
-  const k = parseFloat(stage.style.width) / W || 1;
+  const k = parseFloat(stage.style.width) / LW || 1;
   if (hasDocumentPip()) {
     try {
       pipWindow = await floatDocument(stage, {
-        width: Math.round(W * Math.min(k, 2)),
-        height: Math.round(H * Math.min(k, 2)),
-        fonts: allFonts(),
+        width: Math.round(LW * Math.min(k, square ? 1.5 : 2)),
+        height: Math.round(LH * Math.min(k, square ? 1.5 : 2)),
+        fonts: fonts(),
         onMove: (win) => {
           hostWindow = win;
           if (win !== window) win.addEventListener("resize", fit);
@@ -454,7 +478,7 @@ async function start() {
     location.replace(target);
     return;
   }
-  await Promise.all(allFonts().map((f) => document.fonts.load(f).catch(() => null)));
+  await Promise.all(fonts().map((f) => document.fonts.load(f).catch(() => null)));
   await document.fonts.ready;
   fontsReady = true;
   applyBare();
@@ -472,6 +496,8 @@ async function start() {
         return res.text();
       },
       log,
+      extraCards: square ? SQUARE_DEMO_CARDS : [],
+      endQuestions: square,
     });
     demo.start();
   } else {
@@ -481,7 +507,7 @@ async function start() {
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     navigator.serviceWorker.register("./sw.js").catch((e) => log("service worker not registered: " + e.message));
   }
-  log(`Muse Web Screen ${VERSION}; ${frames.fps} frames a second; muse_web events: ${EVENT_WEB}`);
+  log(`Muse Web Screen ${VERSION}; ${layout} layout ${LW} x ${LH}; ${frames.fps} frames a second; muse_web events: ${EVENT_WEB}`);
 }
 start();
 

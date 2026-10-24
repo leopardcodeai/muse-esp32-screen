@@ -1,11 +1,110 @@
-<p align="center"><img src="docs/hero/hero.jpg" width="900" alt="A small black smart display with a round blue cartoon character and a weather card on its screen, on a desk at dusk beside a phone and a laptop"></p>
-<p align="center"><sub>An impression, not a photo: made with an image model on 7 October 2026 (the prompt and the model are in <a href="docs/hero/hero.openai.txt">docs/hero/hero.openai.txt</a>). The real ESP32-S3-BOX-3 is squarer. Everything else on this page is rendered from the code.</sub></p>
-
 # Muse ESP32-S3-BOX-3 Screen
 
-> **Try it in the browser:** [muse-web-screen.vercel.app](https://muse-web-screen.vercel.app), the same cards and scenes as the box, in demo mode or connected to your Home Assistant. **No box yet?** [Try it today, without a box](docs/TRY_WITHOUT_A_BOX.md): the demo, your own Home Assistant, and your agent, step by step.
->
-> **Read the story behind it:** [An always-on AI agent needs a body in the house](https://blog.leopardcode.ai/en/esp32-box-as-the-body-of-an-always-on-agent/) (English) · [Ein KI-Agent, der immer da ist, braucht einen Körper im Haus](https://blog.leopardcode.ai/de/esp32-box-as-the-body-of-an-always-on-agent/) (Deutsch), on blog.leopardcode.ai.
+**An open-source face for your AI assistant: it shows cards, asks questions with buttons, counts timers and draws its own scenes on a 2.4 inch ESP32-S3-BOX-3, or in a browser tab with no hardware at all.**
+
+[![Live demo](https://img.shields.io/badge/live_demo-muse--web--screen.vercel.app-0A84FF)](https://muse-web-screen.vercel.app)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-34C759)](LICENSE)
+[![ESPHome 2026.9.1](https://img.shields.io/badge/ESPHome-2026.9.1-1C1C1E)](https://esphome.io)
+[![Home Assistant 2026.9](https://img.shields.io/badge/Home_Assistant-2026.9-18BCF2)](https://www.home-assistant.io)
+
+<p align="center"><img src="docs/images/hero.gif" width="640" alt="The display cycling through cards: the figure on the ready screen, a status line, the weather, a question with two buttons, a tea timer, the doorbell, a shopping list, a birthday scene and a celebration"></p>
+<p align="center"><sub>Recorded from Muse Web Screen, the browser twin of the box, which draws the same cards with the same code. The status words on screen are German by default (<a href="docs/LOCALIZATION.md">docs/LOCALIZATION.md</a>); the text an assistant sends can be any language.</sub></p>
+
+<p align="center"><a href="https://muse-web-screen.vercel.app"><b>Open the live demo</b></a> · <a href="docs/TRY_WITHOUT_A_BOX.md">Try it without a box</a> · <a href="#build-your-own">Build your own</a> · <a href="https://blog.leopardcode.ai/en/esp32-box-as-the-body-of-an-always-on-agent/">Read the story</a></p>
+
+## What it does
+
+- **Shows what the assistant says:** text, a value, the weather, the doorbell, photos, GIFs, a live camera, a route on OpenStreetMap, the day's appointments, a list, a timer, confetti. Each is one Home Assistant action with two to four fields.
+- **Asks back:** yes or no, or up to four choices as buttons; the tap goes back to the assistant as the action's response and as a sensor.
+- **Lets the assistant draw:** `muse_draw` takes a scene in a small text language (shapes, gradients, text, 273 icons, the figure, particles, motion), so the assistant designs the screen itself.
+- **Listens and talks:** the wake word runs on the box, the conversation goes through Home Assistant's voice pipeline, local or cloud.
+- **Feels the room:** with the sensor dock, a 24 GHz radar sees someone arrive and a climate sensor reads temperature and humidity.
+- **Works with any assistant:** Meta's Muse, Claude, or any agent that can call Home Assistant. Nothing in the firmware is tied to one of them.
+
+## Try it in 30 seconds
+
+1. Open **[muse-web-screen.vercel.app](https://muse-web-screen.vercel.app)**. It starts in demo mode: twelve scenes and a round of sample cards, no account, no setup.
+2. Send it a card of your own from the browser console (View, Developer, JavaScript Console):
+
+   ```js
+   muse.dispatch("ask", {question: "Open the door?", yes_label: "Yes", no_label: "No"})
+   ```
+
+3. Want it on your own Home Assistant and driven by your agent, still without a box? **[docs/TRY_WITHOUT_A_BOX.md](docs/TRY_WITHOUT_A_BOX.md)** walks through it in three steps.
+
+<p align="center"><img src="docs/images/cards.png" width="900" alt="Eight screens with the action that drew each: the ready screen, the weather, a question with buttons drawn as a scene, a tea timer, the doorbell, a shopping list, a birthday scene, a celebration"></p>
+
+## Build your own
+
+**Hardware** (details and sources: [Hardware](#hardware)):
+
+- an **Espressif ESP32-S3-BOX-3** (the 2023 board, not the BOX or BOX-Lite); the BOX-3B kit was listed at 43.75 USD at DigiKey on 7 October 2026
+- optional but most of the fun: the **BOX-3-SENSOR** dock (radar, climate sensor, battery holder, IR)
+- a USB-C data cable for the first flash, and **Home Assistant 2026.9** or newer with **ESPHome 2026.9.1** or newer
+
+**Flash** (the full seven steps: [Quick start](#quick-start); unboxing and download mode: [docs/BOX3_SETUP.md](docs/BOX3_SETUP.md)):
+
+```bash
+git clone https://github.com/leopardcodeai/muse-esp32-s3-box-3-screen.git
+cd muse-esp32-s3-box-3-screen/firmware
+cp secrets.yaml.example secrets.yaml     # Wi-Fi, hotspot password, API key
+esphome run muse-esp32-s3-box-3-screen.yaml
+```
+
+Then add the box in Home Assistant (Settings, Devices and services), pick a voice pipeline, and paste [docs/ASSISTANT_PROMPT.md](docs/ASSISTANT_PROMPT.md) into your assistant once. A coding agent can do the flashing for you: [docs/FLASHING_WITH_CLAUDE_CODE.md](docs/FLASHING_WITH_CLAUDE_CODE.md).
+
+**Your own character.** The figure is replaceable: one PNG of any character becomes the full set of animations with `tools/make_figure.py --from-image`, for the box and for the browser. Three steps: **[docs/OWN_FIGURE.md](docs/OWN_FIGURE.md)**.
+
+## How it works
+
+```mermaid
+flowchart LR
+  A["AI assistant<br/>Muse, Claude, any agent"] -- "REST, MCP or Assist:<br/>esphome.*_muse_* actions" --> HA["Home Assistant"]
+  HA -- "ESPHome native API,<br/>encrypted, on the LAN" --> BOX["ESP32-S3-BOX-3<br/>screen, speaker, mics, radar"]
+  HA -- "websocket events:<br/>call_service or muse_web" --> WEB["Muse Web Screen<br/>in the browser"]
+  BOX -. "taps, sensors, voice" .-> HA
+  WEB -. "muse_web_answer" .-> HA
+  HA -. "action response" .-> A
+```
+
+The assistant never talks to the box directly. It calls Home Assistant actions with a long-lived token; Home Assistant passes them to the box over ESPHome's encrypted API, and Muse Web Screen in a browser mirrors every call by listening to Home Assistant's events (or to a `muse_web` event of its own, for a house without a box). The box is one ESPHome configuration, five C++ headers and a handful of tools; everything that differs from house to house is a substitution or a secret. The full picture with the house's devices: [How it fits together](#how-it-fits-together).
+
+**The actions**, 21 in all (fields, responses and examples: [docs/ACTIONS.md](docs/ACTIONS.md); the table: [Actions](#actions)):
+
+| Group | Actions (`esphome.<device>_` + name) |
+|---|---|
+| Show | `muse_show_text`, `muse_show_value`, `muse_show_weather`, `muse_show_event`, `muse_show_image`, `muse_show_live`, `muse_show_route`, `muse_show_agenda`, `muse_show_list`, `muse_celebrate` |
+| Ask | `muse_ask`, `muse_choose`, `muse_wait_answer` |
+| Draw | `muse_draw` ([the scene language](docs/SCENES.md)) |
+| Time | `muse_show_timer`, `muse_cancel_timer` |
+| Status and control | `muse_set_status`, `muse_set_status_text`, `muse_clear`, `muse_get_state`, `muse_hw_check` |
+
+## Roadmap
+
+- **ESP-Mosaico port, in progress:** the same display on an ESP32-S31 board with a 2.16 inch 480 x 480 touch display. Not in this repository yet.
+- **Square layout, in progress:** one 480 x 480 design shared by the Mosaico firmware and a square mode of Muse Web Screen (`?layout=square`). The spec: [docs/SQUARE_LAYOUT.md](docs/SQUARE_LAYOUT.md). The 320 x 240 layout of the BOX-3 stays as it is.
+- **Your own character:** `tools/make_figure.py --from-image` with `--size 280 --avatar 84` already makes frames for the square layout ([docs/OWN_FIGURE.md](docs/OWN_FIGURE.md)).
+- **Open for contributions:** ports to the ESP32-S3-BOX and BOX-Lite (other codecs, touch controller and pins), the screen's strings in other languages ([docs/LOCALIZATION.md](docs/LOCALIZATION.md)), and photos of real boxes for `docs/photos/`.
+
+## Contributing
+
+Issues and pull requests are welcome. A bug report helps most with the ESPHome version, the way you flashed, and the box's log around the moment it went wrong. Before a pull request:
+
+- run the tests: `node --test web/test`, the parser tests in `tools/tests/`, and `tools/test_render_scene.py` (commands under [Development](#development));
+- re-render the previews when a scene changes, and run `python3 tools/check_private.py`, which refuses tokens, private addresses and artwork that is not the project's;
+- coding agents read [AGENTS.md](AGENTS.md) or [CLAUDE.md](CLAUDE.md) first.
+
+## License
+
+Apache License 2.0 ([LICENSE](LICENSE)); third-party work under its own licences in [NOTICE](NOTICE) and [below](#licence-and-third-party-work). "Muse" is Meta's assistant and trademark; this project is not affiliated with, endorsed by or supported by Meta, and it ships its own character instead of Meta's artwork. Made by [LeopardCode.AI](https://leopardcode.ai), Dr.-Ing. Alexander Brunker, as a Labs project.
+
+---
+
+# Reference
+
+Everything below is the full documentation: the hardware, every action and entity, the scene language, measurements, privacy, troubleshooting and sources.
+
+**Read the story behind it:** [An always-on AI agent needs a body in the house](https://blog.leopardcode.ai/en/esp32-box-as-the-body-of-an-always-on-agent/) (English) · [Ein KI-Agent, der immer da ist, braucht einen Körper im Haus](https://blog.leopardcode.ai/de/esp32-box-as-the-body-of-an-always-on-agent/) (Deutsch), on blog.leopardcode.ai.
 
 One assistant, many hands. An Espressif ESP32-S3-BOX-3 (a 2.4 inch touch screen, two microphones, a speaker, and a dock with radar, climate sensor and battery) becomes the face, voice and ears of an AI assistant in the house. The assistant draws the screen itself in a small drawing language, asks back with buttons, counts timers, shows routes on OpenStreetMap, GIFs, photos and live cameras, hears its wake word on the device and talks through Home Assistant's voice pipeline. Built with ESPHome and Home Assistant, driven by Meta's Muse, by Claude, or by any agent that can call an API.
 
@@ -15,7 +114,7 @@ The whole thing is one ESPHome configuration, five C++ headers and a handful of 
 
 ## Contents
 
-- [What it does](#what-it-does)
+- [Features in detail](#features-in-detail)
 - [The screen in pictures](#the-screen-in-pictures)
 - [How it fits together](#how-it-fits-together)
 - [Who talks to it](#who-talks-to-it)
@@ -39,7 +138,7 @@ The whole thing is one ESPHome configuration, five C++ headers and a handful of 
 - [Licence and third-party work](#licence-and-third-party-work)
 - [Sources](#sources)
 
-## What it does
+## Features in detail
 
 - **Shows what the assistant says.** Text, a value with a unit, the weather with an animated icon, an event from the house, a photo, a GIF, a live camera view, a route on a map, the day's appointments, a list with ticks, a timer, a celebration with confetti. Each is one Home Assistant action with two to four fields ([docs/ACTIONS.md](docs/ACTIONS.md)).
 - **Lets the assistant draw.** `muse_draw` takes a scene in a drawing language of its own: shapes, gradients, text in six sizes, 273 icons, its figure, particles, frames, motion. The box answers with what it did not understand, line by line, with the closest valid word ([docs/SCENES.md](docs/SCENES.md)).
@@ -53,6 +152,9 @@ The whole thing is one ESPHome configuration, five C++ headers and a handful of 
 - **Keeps the house in the house.** Home Assistant and the box talk on the LAN over an encrypted API. Only pictures from the web, routes (OpenStreetMap) and music streams leave; nothing is sent to anyone else ([docs/PRIVACY.md](docs/PRIVACY.md)).
 
 ## The screen in pictures
+
+<p align="center"><img src="docs/hero/hero.jpg" width="900" alt="A small black smart display with a round blue cartoon character and a weather card on its screen, on a desk at dusk beside a phone and a laptop"></p>
+<p align="center"><sub>An impression, not a photo: made with an image model on 7 October 2026 (the prompt and the model are in <a href="docs/hero/hero.openai.txt">docs/hero/hero.openai.txt</a>). The real ESP32-S3-BOX-3 is squarer. The pictures of the display on this page are rendered from the code.</sub></p>
 
 <p align="center">
   <img src="docs/previews/party.gif" width="320" alt="A birthday scene the assistant drew itself: confetti, a cake, the figure waving in a round frame">
@@ -186,7 +288,7 @@ The agent runs `esphome run`, watches the log, and reports. It never needs your 
 
 **Your own overlay.** The cleanest way to keep a house-specific setup is one small YAML that includes `muse-esp32-s3-box-3-screen.yaml` as a package and overrides what differs: your names for the entities (`!extend` by id, every entity has one), a fixed IP, Meta's figure, the optional TV remote. The firmware stays untouched and `git pull` brings new features. How, with a complete example: [docs/HOME_OVERLAY.md](docs/HOME_OVERLAY.md).
 
-**The project's figure.** The box ships its own character: a glossy, soft 3D, round blue creature with big dark eyes, a tuft on top and tiny hands, the one on the hero picture. An image model (OpenAI's `gpt-image-2.5-flare`, 8 October 2026) drew it once from that picture and then in five poses (neutral, blink, wave, thinking, celebrating), each an edit of the first so the character stays the same; the PNGs and their prompts are in [`tools/figure_source/`](tools/figure_source/) (`tools/make_figure_source.py` asks again, on purpose only). `tools/make_figure.py` turns the poses into the box's animations: a bob and a blink for idle, a sway for wave, an orbiting spark for working, sparkles for making, confetti for the celebration, 16 or 18 frames each, dithered to RGB565.
+**The project's figure.** The box ships its own character: a glossy, soft 3D, round blue creature with big dark eyes, a tuft on top and tiny hands, the one on the hero picture. An image model (OpenAI's `gpt-image-2.5-flare`, 8 October 2026) drew it once from that picture and then in five poses (neutral, blink, wave, thinking, celebrating), each an edit of the first so the character stays the same; the PNGs and their prompts are in [`tools/figure_source/`](tools/figure_source/) (`tools/make_figure_source.py` asks again, on purpose only). `tools/make_figure.py` turns the poses into the box's animations: a bob and a blink for idle, a sway for wave, an orbiting spark for working, sparkles for making, confetti for the celebration, 16 or 18 frames each, dithered to RGB565. A character of your own from a single PNG: `tools/make_figure.py --from-image` ([docs/OWN_FIGURE.md](docs/OWN_FIGURE.md)).
 
 **Meta's figure.** The animations of the Muse app are Meta's artwork and are not in this repository. If you have the Muse app installed, `tools/make_muse_assets.py` cuts the app's own videos into `firmware/figure/muse_*.png`, which `.gitignore` keeps out of git; set `figure_prefix: "muse_"` and rebuild. The app's typeface (Optimistic) is not used, because its licence forbids altering it.
 
@@ -360,7 +462,7 @@ Two findings behind those numbers that cost real time: with mbedTLS in internal 
 
 **Why ESPHome and not Meta's gadget SDK on this board?** The SDK pairs the box to the Muse app as a gadget and leaves the dock, the battery, the IR and the wake word out [8]; the Muse app itself rolled out in the US first [9]. ESPHome gives the box to Home Assistant, which exists in every country and already knows the house. The two are not exclusive; this one has no Meta account in the loop.
 
-**Can it show my own figure?** Yes: six animated PNGs of 160 x 160 and a 72 x 72 avatar, the names in `firmware/figure/`. `tools/make_figure.py` is the template: it animates five still poses of a character (any PNGs with a transparent background in `tools/figure_source/`) and dithers the frames to RGB565 so gradients do not band.
+**Can it show my own figure?** Yes: six animated PNGs of 160 x 160 and a 72 x 72 avatar, the names in `firmware/figure/`. `tools/make_figure.py` is the template: it animates five still poses of a character (any PNGs with a transparent background in `tools/figure_source/`) and dithers the frames to RGB565 so gradients do not band. With `--from-image` it takes a single picture for every pose, with `--prefix own_` it writes beside the project's figure; the three steps for the box and the browser are in [docs/OWN_FIGURE.md](docs/OWN_FIGURE.md).
 
 **Why German on the screen?** Because the house is. [docs/LOCALIZATION.md](docs/LOCALIZATION.md) lists every string; the actions carry whatever language the assistant writes.
 
@@ -390,12 +492,14 @@ muse-esp32-s3-box-3-screen/
   web/                       the display as a web app for a Mac: the same cards and scenes on a canvas, fed through
                              Home Assistant's websocket, installable as a Dock app, demo mode, Node tests (web/README.md)
   scenes/                    scenes to send as they are, and the sources of the previews
-  docs/                      actions, scenes, hardware, setup, flashing with an agent, privacy, the overlay, the diagram, previews
+  docs/                      actions, scenes, hardware, setup, flashing with an agent, privacy, the overlay, your own figure, the diagram, previews,
+                             images/ (the README's pictures, recorded from Muse Web Screen)
   tools/
     muse_screen.py              a command line for every action over the REST API
     render_scene.py          renders a scene to PNG or GIF exactly as the box would
     check_private.py         refuses private data before a commit
-    make_figure.py           the figure's animations from the poses in figure_source/ (make_figure_source.py made those)
+    make_figure.py           the figure's animations from the poses in figure_source/ (make_figure_source.py made those),
+                             or from one picture of your own (--from-image, --size, --prefix, --out)
     make_icon_table.py, make_sounds.py, make_weather_icons.py, make_muse_assets.py, make_hero_image.py
     tests/                   host tests of the parser and the text fitting (ASan, UBSan)
   CLAUDE.md, AGENTS.md       the rules and the flash flow for coding agents

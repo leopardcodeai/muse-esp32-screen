@@ -42,6 +42,7 @@ export class CardQueue {
     this.history = []; // cards that were on screen, newest last
     this.current = makeCard({ mode: 0 }); // the card on screen (mode 0: the status)
     this.requeued = false; // the card on screen went back into the line; take_next must not keep it
+    this.max = QUEUE_MAX; // how many may wait (the square layout keeps 8)
   }
 
   get showing() {
@@ -62,7 +63,7 @@ export class CardQueue {
     const showing = this.showing;
     if (placement === WAIT) {
       this.waiting.push(c);
-      if (this.waiting.length > QUEUE_MAX) this.waiting.pop();
+      if (this.waiting.length > this.max) this.waiting.pop();
       return false;
     }
     if (placement === NOW && showing !== 0 && showing !== 8 && !this.current.conv) {
@@ -70,6 +71,9 @@ export class CardQueue {
       this.requeued = true;
     }
     this.waiting.unshift(c);
+    // A smaller layout limit (the square's 8) holds after an urgent card too; the end of the
+    // line goes. The box keeps firmware/muse.h's rule, which caps only cards that wait.
+    if (this.max < QUEUE_MAX) while (this.waiting.length > this.max) this.waiting.pop();
     return true;
   }
 

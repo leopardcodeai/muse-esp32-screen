@@ -86,6 +86,23 @@ html.kiosk #stage, .pip-body #stage { box-shadow: none; }
   background: var(--page);
 }
 
+/* The square layout (square.js): the picture covers the panel, fades in, and carries its
+   message as a caption on a half-white strip at the bottom. */
+#overlay .photo.framed { object-fit: cover; background: var(--card); animation: square-fade-in 220ms ease-out both; }
+#overlay .caption {
+  position: absolute;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: square-fade-in 220ms ease-out both;
+}
+@keyframes square-fade-in { from { opacity: 0; } to { opacity: 1; } }
+html.square .stage-placeholder { width: 480px; height: 480px; }
+
 /* The video of the Float fallback: present for the browser, invisible for the person. */
 #pip-video {
   position: absolute;

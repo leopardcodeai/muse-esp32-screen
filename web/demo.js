@@ -23,9 +23,20 @@ export const DEMO_CARDS = [
   ["set_status", { status: "ready" }],
 ];
 
+// Cards only the square layout's demo adds (before the last set_status), so that it
+// shows every card type; the box's demo stays as it was.
+export const SQUARE_DEMO_CARDS = [
+  ["show_image", { title: "Ein Bild", message: "Bilder füllen die Fläche", url: "icons/icon-512.png" }],
+  ["show_route", { title: "Zum Bahnhof", from: "zuhause", to: "Hauptbahnhof", mode: "bike" }],
+];
+
 export class Demo {
-  constructor(display, { fetchText, stepMs = 7000, log = () => {} }) {
+  constructor(display, { fetchText, stepMs = 7000, log = () => {}, extraCards = [], endQuestions = false }) {
     this.display = display;
+    this.extraCards = extraCards;
+    // The square demo ends a question that is still open before its next item (answered
+    // "none"), so the card after a question is not left waiting behind it.
+    this.endQuestions = endQuestions;
     this.fetchText = fetchText;
     this.stepMs = stepMs;
     this.log = log;
@@ -46,7 +57,9 @@ export class Demo {
     }
     this.sequence = [
       ...DEMO_SCENES.filter((n) => this.scenes.has(n)).map((n) => ["draw", { scene: this.scenes.get(n) }]),
-      ...DEMO_CARDS,
+      ...DEMO_CARDS.slice(0, -1),
+      ...this.extraCards,
+      ...DEMO_CARDS.slice(-1),
     ];
     this.index = 0;
     this.step();
@@ -58,7 +71,7 @@ export class Demo {
     this.index++;
     // The line is emptied first, so the demo shows one item after another.
     d.queue.clear();
-    if (d.mode !== 0 && d.mode !== 11 && d.mode !== 8) d.next();
+    if (d.mode !== 0 && d.mode !== 11 && (d.mode !== 8 || this.endQuestions)) d.next();
     d.dispatch(action, fields);
     let wait = this.stepMs;
     if (action === "show_timer") wait = 15000 + 4000;

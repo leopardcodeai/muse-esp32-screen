@@ -160,13 +160,14 @@ export class FigureSource {
 
   // Draws like Figure.draw(): the owner's frame when it is there, else the project's,
   // else the figure drawn in code.
-  draw(r, sub, t, x0, y0, stepMs = STEP_MS) {
+  // `drawSize` (optional) draws the frame that many px wide (the square layout's figure).
+  draw(r, sub, t, x0, y0, stepMs = STEP_MS, drawSize = 0) {
     const frames = this.frames.get(sub) || this.defaults.get(sub);
     if (!frames) {
-      this.placeholder.draw(r, sub, t, x0, y0, stepMs);
+      this.placeholder.draw(r, sub, t, x0, y0, stepMs, drawSize);
       return;
     }
-    const size = sub === "avatar" ? AVATAR : SIZE;
+    const size = drawSize > 0 ? drawSize : sub === "avatar" ? AVATAR : SIZE;
     const ctx = r.ctx;
     ctx.save();
     ctx.imageSmoothingEnabled = true;

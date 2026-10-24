@@ -13,9 +13,11 @@ import { normaliseFps, DEFAULT_FPS } from "./pace.js";
 
 export const SETTINGS_KEY = "muse-web-settings";
 export const FIGURE_SOURCES = ["placeholder", "url"];
+// "box": the box's 320 x 240; "square": 480 x 480 (docs/SQUARE_LAYOUT.md, square.js).
+export const LAYOUTS = ["box", "square"];
 export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
-  fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false,
+  fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "box",
 });
 
 // The stored settings over the defaults, cleaned.
@@ -31,6 +33,7 @@ export function loadSettings(storage) {
   s.fps = normaliseFps(s.fps);
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
   s.bare = s.bare === true;
+  if (!LAYOUTS.includes(s.layout)) s.layout = DEFAULTS.layout;
   return s;
 }
 
@@ -66,6 +69,23 @@ export function landingTarget(href, stored) {
 export function fpsFor(search, settings) {
   const p = new URLSearchParams(search);
   return p.has("fps") ? normaliseFps(p.get("fps"), settings.fps) : normaliseFps(settings.fps);
+}
+
+// The layout of this visit: `?layout=box|square` in the URL, else the setting.
+export function layoutFor(search, settings) {
+  const p = new URLSearchParams(search);
+  const want = p.has("layout") ? String(p.get("layout")).trim().toLowerCase() : settings.layout;
+  return LAYOUTS.includes(want) ? want : LAYOUTS.includes(settings.layout) ? settings.layout : DEFAULTS.layout;
+}
+
+// The page to load after the settings were saved with layout `chosen`, or null when the
+// visit's `active` layout (layoutFor: a ?layout= of the URL, else the setting) is already
+// it. The ?layout= goes, so the saved choice is what the page starts with.
+export function layoutReload(href, active, chosen) {
+  if (chosen === active) return null;
+  const u = new URL(href);
+  u.searchParams.delete("layout");
+  return u.toString();
 }
 
 // The host of a URL in lower case, or "" when it is none.

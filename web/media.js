@@ -25,6 +25,12 @@ export class MediaOverlay {
     this.box = null; // {x, y, w, h} in logical px of the picture on screen
     this.k = 1;
     this.serial = 0;
+    // A layout of its own (square.js) sets `frame` to {x, y, w, h, radius}: the picture
+    // then covers that box instead of being fitted into the box's 300 x 168, and
+    // `caption` ({text, color}) shows as a strip at its bottom. Unset, nothing changes.
+    this.frame = null;
+    this.caption = null;
+    this.captionEl = null;
   }
 
   // Shows the picture at `url`; `liveSeconds` > 0 reloads it once a second that long.
@@ -50,6 +56,7 @@ export class MediaOverlay {
       img.style.visibility = "hidden";
     });
     img.style.visibility = "hidden";
+    if (this.frame) img.classList.add("framed");
     img.src = liveSeconds > 0 ? bust(url, now) : url;
     this.container.appendChild(img);
     this.img = img;
@@ -72,6 +79,13 @@ export class MediaOverlay {
 
   // The box fits the picture into 300 x 168 and centres it there; a smaller one stays.
   fit(img) {
+    if (this.frame) {
+      const f = this.frame;
+      this.box = { x: f.x, y: f.y, w: f.w, h: f.h };
+      this.place();
+      this.showCaption();
+      return;
+    }
     const s = Math.min(1, PHOTO_W / img.naturalWidth, PHOTO_H / img.naturalHeight);
     const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
     this.box = { x: 160 - Math.floor(w / 2), y: PHOTO_TOP + Math.floor((PHOTO_H - h) / 2), w, h };
@@ -84,8 +98,32 @@ export class MediaOverlay {
     const b = this.box, k = this.k;
     Object.assign(this.img.style, {
       left: `${b.x * k}px`, top: `${b.y * k}px`, width: `${b.w * k}px`, height: `${b.h * k}px`,
-      borderRadius: `${12 * k}px`,
+      borderRadius: `${(this.frame ? this.frame.radius : 12) * k}px`,
     });
+    if (this.captionEl && this.frame) {
+      const f = this.frame, h = f.captionH || 44;
+      Object.assign(this.captionEl.style, {
+        left: `${f.x * k}px`, top: `${(f.y + f.h - h) * k}px`, width: `${f.w * k}px`, height: `${h * k}px`,
+        lineHeight: `${h * k}px`, padding: `0 ${20 * k}px`, fontSize: `${(f.captionPx || 20) * k}px`,
+        borderRadius: `0 0 ${f.radius * k}px ${f.radius * k}px`,
+      });
+    }
+  }
+
+  // The caption strip of a framed picture, once the picture is there.
+  // A live view loads again every second; the one strip stays.
+  showCaption() {
+    if (!this.frame || !this.caption || !this.caption.text) return;
+    let el = this.captionEl;
+    if (!el) {
+      el = this.container.ownerDocument.createElement("div");
+      el.className = "caption";
+      this.container.appendChild(el);
+      this.captionEl = el;
+    }
+    el.textContent = this.caption.text;
+    el.style.color = this.caption.color || "";
+    this.place();
   }
 
   rescale(k) {
@@ -102,6 +140,10 @@ export class MediaOverlay {
     if (this.img) {
       this.img.remove();
       this.img = null;
+    }
+    if (this.captionEl) {
+      this.captionEl.remove();
+      this.captionEl = null;
     }
     this.state = "none";
     this.box = null;

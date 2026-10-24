@@ -10,12 +10,13 @@
 // seen on the next visit. The project's figure (figure-default/) is part of the shell;
 // the owner's own figure frames are never cached here: they come from another origin,
 // which this worker leaves alone.
-const VERSION = "muse-web-screen-1.3.0";
+const VERSION = "muse-web-screen-1.4.0";
 const SHELL = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./app.js", "./display.js", "./cards.js", "./draw.js", "./render.js", "./figure.js", "./scene.js", "./icons.js",
   "./particles.js", "./text.js", "./tables.js", "./queue.js", "./timers.js", "./weather.js", "./media.js",
   "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_frames.js",
+  "./square.js",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./figure-default/idle.png", "./figure-default/wave.png", "./figure-default/working.png",
   "./figure-default/making.png", "./figure-default/confetti.png", "./figure-default/avatar.png",

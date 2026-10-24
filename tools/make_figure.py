@@ -47,10 +47,32 @@ Pitfalls:
   * Changing a frame changes its checksum: run `python3 tools/check_private.py
     --record-figure` afterwards, then the web copies (web/figure-default/) and the
     previews follow (README "Make it yours").
+  * The checksums in tools/figure_checksums.txt hold for the Pillow and zlib that wrote
+    the files. Another Pillow writes the same pixels into different bytes; compare the
+    decoded frames, not the files, when you check a rebuild on another machine.
+Your own character (docs/OWN_FIGURE.md):
+  --from-image PATH uses one picture of any character for every pose (neutral, blink,
+  wave, working, celebrate) with the same motion: bob, sway, the orbiting spark, the
+  sparkles and the confetti. A transparent background is best; a picture without one has
+  its flat background cut away from the edges inwards (the colour of its border, within
+  --tolerance). The character is scaled to fit 110 x 110 of the 160 frame, whatever its
+  proportions. --out names the folder (default firmware/figure), --prefix the start of
+  every file name (`own_` gives own_idle.png and so on, the name the firmware's
+  `figure_prefix` substitution takes; the web display loads muse_<name>.png from its
+  folder, so give it `--prefix muse_ --out web/local`). --size and --avatar set the
+  output sizes (160 and 72 on the BOX-3; 280 and 84 for the square 480 x 480 layout,
+  docs/SQUARE_LAYOUT.md). The motion is drawn on the same 160 frame and only the last
+  reduction changes, so every size moves alike. With --from-image an existing file is
+  never overwritten unless --force is given: firmware/figure holds the project's figure
+  and, on some machines, Meta's frames.
+  Without these flags the output is the project's figure, byte for byte as before.
 Usage (Pillow and numpy come in through uv):
   uv run --python 3.14 --with pillow --with numpy tools/make_figure.py --dry-run
   uv run --python 3.14 --with pillow --with numpy tools/make_figure.py
   uv run --python 3.14 --with pillow --with numpy tools/make_figure.py --only wave --sheet /tmp/wave.png
+  uv run --python 3.14 --with pillow --with numpy tools/make_figure.py --from-image my.png --prefix own_
+  uv run --python 3.14 --with pillow --with numpy tools/make_figure.py --from-image my.png --prefix muse_ --out web/local
+  uv run --python 3.14 --with pillow --with numpy tools/make_figure.py --from-image my.png --size 280 --avatar 84 --out /tmp/square
 """
 from __future__ import annotations
 
@@ -87,19 +109,69 @@ CONFETTI = [(255, 59, 48), (255, 149, 0), (255, 204, 0), (52, 199, 89), (48, 176
             (175, 82, 222), (255, 45, 85)]
 POSES = ["neutral", "blink", "wave", "working", "celebrate"]
 
+# Set by main() from the command line; the defaults give the project's figure unchanged.
+SINGLE: Path | None = None  # --from-image: one picture for every pose
+TOLERANCE = 40              # --tolerance: how far a pixel may be from the border colour and still be background
+OUT_SIZE = SIZE             # --size: the frames' side as written
+OUT_AVATAR = AVATAR         # --avatar: the avatar's side as written
+
 
 # ------------------------------------------------------------------ the poses --
+
+def cut_background(im: Image.Image, tolerance: float) -> Image.Image:
+    """RGBA with the picture's flat background made transparent, unless it already has transparency.
+    The background is the median colour of the border; every pixel within `tolerance` of it that is
+    connected to the border goes, so a white shirt inside a white background stays."""
+    im = im.convert("RGBA")
+    a = np.asarray(im.getchannel("A"))
+    if (a < 128).mean() > 0.01:
+        return im
+    rgb = np.asarray(im.convert("RGB"), dtype=np.float32)
+    border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
+    bg = np.median(border, axis=0)
+    near = np.linalg.norm(rgb - bg, axis=2) <= tolerance
+    edge = np.concatenate([near[0], near[-1], near[:, 0], near[:, -1]])
+    if edge.mean() < 0.9:
+        raise SystemExit("the picture has no transparency and no flat background at its edges: "
+                         "give a PNG with a transparent background, or raise --tolerance")
+    mask = Image.fromarray((near * 255).astype(np.uint8)).copy()  # a copy: fromarray may share a read-only buffer
+    h, w = near.shape
+    seeds = [(x, 0) for x in range(w)] + [(x, h - 1) for x in range(w)] + \
+            [(0, y) for y in range(h)] + [(w - 1, y) for y in range(h)]
+    for xy in seeds:
+        if mask.getpixel(xy) == 255:
+            ImageDraw.floodfill(mask, xy, 128, thresh=0)
+    alpha = Image.fromarray(np.where(np.asarray(mask) == 128, 0, 255).astype(np.uint8))
+    alpha = alpha.filter(ImageFilter.GaussianBlur(max(1.0, max(w, h) / 512)))  # a soft edge, no stair steps
+    im.putalpha(alpha)
+    return im
+
 
 @lru_cache(maxsize=None)
 def pose(name: str) -> Image.Image:
     """A pose as RGBA with the faint alpha haze of the generator cleared."""
-    path = SRC / f"{name}.png"
-    if not path.exists():
-        raise SystemExit(f"{path.relative_to(ROOT)} is missing: run tools/make_figure_source.py first")
-    im = Image.open(path).convert("RGBA")
+    if SINGLE is not None:
+        if not SINGLE.exists():
+            raise SystemExit(f"{SINGLE} is missing")
+        im = cut_background(Image.open(SINGLE), TOLERANCE)
+        if (np.asarray(im.getchannel("A")) > 127).sum() == 0:
+            raise SystemExit(f"{SINGLE}: nothing left after the background was cut away")
+    else:
+        path = SRC / f"{name}.png"
+        if not path.exists():
+            raise SystemExit(f"{path.relative_to(ROOT)} is missing: run tools/make_figure_source.py first")
+        im = Image.open(path).convert("RGBA")
     a = np.asarray(im.getchannel("A")).astype(np.float32)
     a = np.clip((a - 10) * 255 / 245, 0, 255).astype(np.uint8)
     im.putalpha(Image.fromarray(a))
+    if SINGLE is not None:
+        # Any picture: cut its transparent padding away, or a small character on a large canvas is
+        # scaled up with the whole canvas in prepared() (gigabytes for a 3000 px PNG). A margin of
+        # transparency stays for the Lanczos kernel; crop() pads with transparent pixels. The
+        # project's poses are left whole, so the default output stays byte for byte the same.
+        x0, y0, x1, y1 = im.getchannel("A").getbbox()
+        m = 8
+        im = im.crop((x0 - m, y0 - m, x1 + m, y1 + m))
     return im
 
 
@@ -119,7 +191,7 @@ def register(name: str, n: int = 512, reach: int = 40) -> tuple[float, float, fl
     """(s, dx, dy) that put pose `name` onto the neutral pose: p_neutral = C + s * (p - C) + (dx, dy),
     in source pixels around the picture centre C. Found as the scale and shift whose silhouettes
     overlap best (intersection over union), the shift by FFT cross-correlation for every scale."""
-    if name == "neutral":
+    if name == "neutral" or SINGLE is not None:  # one picture for every pose: nothing to register
         return 1.0, 0.0, 0.0
     fixed = silhouette(pose("neutral"), n)
     moving = Image.fromarray((silhouette(pose(name), n) * 255).astype(np.uint8))
@@ -148,7 +220,18 @@ def base_transform() -> tuple[float, float, float]:
     """Neutral source pixels to frame pixels at 4x: (scale, offset x, offset y)."""
     x0, y0, x1, y1 = bbox(pose("neutral"))
     s = FIGURE_H * SUPER / (y1 - y0)
-    return s, CENTRE[0] * SUPER - s * (x0 + x1) / 2, CENTRE[1] * SUPER - s * (y0 + y1) / 2
+    if SINGLE is not None:  # any character: a wide one must fit the frame too
+        s = min(s, FIGURE_H * SUPER / (x1 - x0))
+    cy = CENTRE[1] + stand_shift(s, y1 - y0)
+    return s, CENTRE[0] * SUPER - s * (x0 + x1) / 2, cy * SUPER - s * (y0 + y1) / 2
+
+
+def stand_shift(s: float, height: float) -> float:
+    """Frame pixels a character lower than FIGURE_H moves down, so that it stands on the shadow (0 for the
+    project's figure, which is FIGURE_H high by definition)."""
+    if SINGLE is None:
+        return 0.0
+    return (FIGURE_H - s * height / SUPER) / 2
 
 
 @lru_cache(maxsize=None)
@@ -247,8 +330,10 @@ def vignette(img: Image.Image) -> Image.Image:
     return Image.composite(img.convert("RGB"), page, mask)
 
 
-def finish(img: Image.Image, size: int = SIZE) -> Image.Image:
-    """Vignette, reduce, dither to RGB565; the plain page stays exactly the page colour (see the pitfalls)."""
+def finish(img: Image.Image, size: int | None = None) -> Image.Image:
+    """Vignette, reduce to `size` (default OUT_SIZE), dither to RGB565; the plain page stays exactly the
+    page colour (see the pitfalls)."""
+    size = OUT_SIZE if size is None else size
     small = vignette(img).resize((size, size), Image.LANCZOS)
     rgb = np.asarray(small, dtype=np.int16)
     page = (np.abs(rgb - np.array(PAGE, dtype=np.int16)) <= 1).all(axis=2)
@@ -285,7 +370,7 @@ def frame_working(i: int) -> Image.Image:
     s0, _, _ = base_transform()
     rx = (x1 - x0) * s0 / SUPER * 0.56
     ry = rx * 0.26
-    head_y = CENTRE[1] - FIGURE_H * 0.37 - 1.8 * e
+    head_y = CENTRE[1] - FIGURE_H * 0.37 - 1.8 * e + 2 * stand_shift(s0, y1 - y0)  # a lower character, a lower orbit
     sx_, sy_ = CENTRE[0] + rx * math.cos(phi), head_y + ry * math.sin(phi)
     front = math.sin(phi) > 0
     size = 5.8 + 1.0 * math.sin(phi * 3) + (0.6 if front else -0.8)
@@ -375,9 +460,11 @@ def avatar() -> Image.Image:
     k = 58 / FIGURE_H
     w = round(SIZE * SUPER * k)
     small = big.convert("RGBa").resize((w, w), Image.LANCZOS).convert("RGBA")
-    cx, cy = CENTRE[0] * SUPER * k, CENTRE[1] * SUPER * k
+    s0, _, _ = base_transform()
+    _, y0, _, y1 = bbox(pose("neutral"))
+    cx, cy = CENTRE[0] * SUPER * k, (CENTRE[1] + stand_shift(s0, y1 - y0)) * SUPER * k
     img.alpha_composite(small, (round(AVATAR * SUPER / 2 - cx), round(AVATAR * SUPER / 2 + 1 * SUPER - cy)))
-    return finish(img, AVATAR)
+    return finish(img, OUT_AVATAR)
 
 
 ANIMATIONS = {"idle": (frame_idle, FRAMES, 0), "wave": (frame_wave, FRAMES, 0), "working": (frame_working, FRAMES, 0),
@@ -387,37 +474,64 @@ ANIMATIONS = {"idle": (frame_idle, FRAMES, 0), "wave": (frame_wave, FRAMES, 0), 
 def sheet(images: dict[str, list[Image.Image]], path: Path, scale: int = 2):
     """Every frame of every animation in a row each, for a look at the motion."""
     cols = max(len(v) for v in images.values())
-    out = Image.new("RGB", (cols * SIZE * scale, len(images) * SIZE * scale), (255, 255, 255))
+    cell = max(f.width for v in images.values() for f in v)
+    out = Image.new("RGB", (cols * cell * scale, len(images) * cell * scale), (255, 255, 255))
     for r, frames in enumerate(images.values()):
         for c, f in enumerate(frames):
-            out.paste(f.resize((f.width * scale, f.height * scale), Image.NEAREST), (c * SIZE * scale, r * SIZE * scale))
+            out.paste(f.resize((f.width * scale, f.height * scale), Image.NEAREST), (c * cell * scale, r * cell * scale))
     out.save(path)
 
 
 def main() -> int:
+    global SINGLE, TOLERANCE, OUT_SIZE, OUT_AVATAR
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dry-run", action="store_true", help="list what would be written, write nothing")
     ap.add_argument("--only", choices=list(ANIMATIONS) + ["avatar"], action="append", help="only this file (repeatable)")
     ap.add_argument("--sheet", type=Path, help="also write every frame side by side to this PNG")
+    ap.add_argument("--from-image", type=Path, metavar="PATH",
+                    help="one picture of your own character for every pose (docs/OWN_FIGURE.md)")
+    ap.add_argument("--tolerance", type=float, default=TOLERANCE,
+                    help=f"with --from-image: colour distance of the flat background that is cut away (default {TOLERANCE})")
+    ap.add_argument("--out", type=Path, default=OUT, help="folder for the files (default firmware/figure)")
+    ap.add_argument("--prefix", default="", help='start of every file name, for example "own_" (default none)')
+    ap.add_argument("--size", type=int, default=SIZE, help=f"side of the animation frames (default {SIZE}; 280 for 480 x 480)")
+    ap.add_argument("--avatar", type=int, default=AVATAR, help=f"side of the avatar (default {AVATAR}; 84 for 480 x 480)")
+    ap.add_argument("--force", action="store_true", help="with --from-image: overwrite files that already exist")
     args = ap.parse_args()
+    if not (16 <= args.size <= 640 and 16 <= args.avatar <= 640):
+        print("--size and --avatar take 16 to 640 pixels", file=sys.stderr)
+        return 2
+    SINGLE, TOLERANCE, OUT_SIZE, OUT_AVATAR = args.from_image, args.tolerance, args.size, args.avatar
+    out = args.out if args.out.is_absolute() else Path.cwd() / args.out
     names = args.only or list(ANIMATIONS) + ["avatar"]
-    for p in POSES:
-        if not (SRC / f"{p}.png").exists():
-            print(f"tools/figure_source/{p}.png is missing: run tools/make_figure_source.py", file=sys.stderr)
+    if SINGLE is None:
+        for p in POSES:
+            if not (SRC / f"{p}.png").exists():
+                print(f"tools/figure_source/{p}.png is missing: run tools/make_figure_source.py", file=sys.stderr)
+                return 2
+    elif not SINGLE.is_file():
+        print(f"{SINGLE} is not a file", file=sys.stderr)
+        return 2
+    else:
+        taken = [out / f"{args.prefix}{n}.png" for n in names if (out / f"{args.prefix}{n}.png").exists()]
+        if taken and not args.force and not args.dry_run:
+            print(f"{taken[0]} exists; choose another --out or --prefix, or add --force", file=sys.stderr)
             return 2
     total, drawn = 0, {}
     for name in names:
+        target = out / f"{args.prefix}{name}.png"
         if name == "avatar":
-            print(f"  avatar.png: {AVATAR} x {AVATAR}, a still")
-            total += AVATAR * AVATAR * 2
+            print(f"  {target.name}: {OUT_AVATAR} x {OUT_AVATAR}, a still")
+            total += OUT_AVATAR * OUT_AVATAR * 2
             if not args.dry_run:
                 im = avatar()
-                im.save(OUT / "avatar.png", optimize=True)
+                out.mkdir(parents=True, exist_ok=True)
+                im.save(target, optimize=True)
                 drawn["avatar"] = [im]
             continue
         fn, n, loop = ANIMATIONS[name]
-        total += n * SIZE * SIZE * 2
-        print(f"  {name}.png: {n} frames of {SIZE} x {SIZE}" + (", played once" if loop else ", ping-pong"))
+        total += n * OUT_SIZE * OUT_SIZE * 2
+        print(f"  {target.name}: {n} frames of {OUT_SIZE} x {OUT_SIZE}" + (", played once" if loop else ", ping-pong"))
         if args.dry_run:
             continue
         frames = [fn(i) for i in range(n)]
@@ -425,14 +539,15 @@ def main() -> int:
         if same:  # Pillow would merge them and the file would hold fewer frames than the box expects
             print(f"{name}: frame {same[0]} equals the one before it; change the motion", file=sys.stderr)
             return 1
-        OUT.mkdir(parents=True, exist_ok=True)
-        frames[0].save(OUT / f"{name}.png", save_all=True, append_images=frames[1:], duration=round(1000 / FPS),
+        out.mkdir(parents=True, exist_ok=True)
+        frames[0].save(target, save_all=True, append_images=frames[1:], duration=round(1000 / FPS),
                        loop=loop)
         drawn[name] = frames
-    if not args.dry_run:
+    if not args.dry_run and SINGLE is None:
         for p in POSES:
             s, dx, dy = register(p)
             print(f"  registered {p} on neutral: scale {s:.3f}, shift {dx:+.1f} {dy:+.1f} px")
+    print(f"written to {out}" if not args.dry_run else f"would write to {out}")
     print(f"flash for these files as RGB565: {total:,} bytes")
     if args.sheet and drawn:
         sheet(drawn, args.sheet)
