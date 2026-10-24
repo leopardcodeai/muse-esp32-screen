@@ -5,14 +5,17 @@
 // are the square layout's own. It is the web twin of the ESP-Mosaico firmware's screen
 // and what the Muse camera add-on for Home Assistant renders.
 //
-// Layout: a status pill top left and the "+N" badge of waiting cards top right on every
-// screen; the ready screen (and the celebration) shows the figure at 280 px with an idle
-// line and a sub-line; every card has an avatar or a coloured disc, a title of up to two
-// lines and a white panel of 432 x 272 with the card's content.
+// Layout: a top bar like a phone's status bar on every screen, as the box's drawTopBar
+// draws it (the name top left with the soonest timer and the "+N" of waiting cards right
+// after it, the clock in the middle, a dot for the connection on the right); the ready
+// screen shows the figure at 280 px with one status bubble under it, as the box's
+// drawStatus shows its pill; the celebration puts a title and a message in the bubble's
+// place; every card has an avatar or a coloured disc, a title of up to two lines and a
+// white panel of 432 x 272 with the card's content.
 //
 // Motion (SQUARE_LAYOUT.md, Motion): a new card slides up 24 px and fades in over 220 ms
 // (ease-out) while the one before fades out over 160 ms (a snapshot of the last picture
-// drawn over it); the pill's dot pulses while listening or thinking; the timer arc moves
+// drawn over it); the bubble's dot pulses while listening or thinking; the timer arc moves
 // on every frame; a celebration throws a burst of confetti and lets it fall.
 //
 // Pitfalls:
@@ -26,7 +29,7 @@
 //    second measures no text it measured before.
 //  * The figure's frames are opaque squares in the page colour; the ready screen and the
 //    celebration stand on the page, so the square is invisible there.
-import { wrap, fitLine, timeLeft, clockText, DAYS, MONTHS, WEATHER } from "./text.js";
+import { wrap, fitLine, timeLeft, clockText, WEATHER } from "./text.js";
 import { PILLS, event as eventIcon } from "./tables.js";
 import { particles, rnd, PALETTE } from "./particles.js";
 import { css, iconFont, INTER, PAGE, INK, SUB, CARD, TXT, SHADOW, WHITE, ORANGE, W as BOX_W, H as BOX_H } from "./render.js";
@@ -38,18 +41,22 @@ export const SQUARE_W = 480;
 export const SQUARE_H = 480;
 
 // The regions of SQUARE_LAYOUT.md, in logical px.
-export const PILL = { x: 24, y: 20, h: 44, minW: 160, maxW: 300, radius: 22 };
-export const BADGE = { right: 456, y: 20, h: 44, radius: 22 };
-export const FIGURE = { x: 100, y: 76, size: 280 };
-export const IDLE_LINE = { x: 24, y: 368, w: 432, h: 44 };
-export const IDLE_SUB = { x: 24, y: 414, w: 432, h: 44 };
-export const AVATAR = { x: 24, y: 80, size: 84 };
-export const TITLE = { x: 124, y: 80, w: 332, h: 84, lineH: 38 };
-export const PANEL = { x: 24, y: 184, w: 432, h: 272, radius: 28 };
+export const TOP_BAR = { h: 62 }; // everything below it is the screen's content
+export const NAME = { x: 24, y: 10, w: 120, h: 44 };
+export const CLOCK = { x: 165, y: 12, w: 150, h: 40 };
+export const DOT = { x: 444, y: 26, size: 12 };
+export const BADGE = { x: 116, y: 16, w: 64, h: 32, radius: 16, gap: 8 };
+export const FIGURE = { x: 100, y: 62, size: 280 };
+export const BUBBLE = { x: 105, y: 358, w: 270, h: 52, radius: 26, dotX: 20, dot: 12, textX: 40, textW: 214 };
+export const CELEBRATION = { titleY: 350, bodyY: 402, w: 432 };
+export const AVATAR = { x: 24, y: 72, size: 84 };
+export const TITLE = { x: 124, y: 72, w: 332, h: 84, lineH: 38 };
+export const PANEL = { x: 24, y: 176, w: 432, h: 272, radius: 28 };
 
 const F = (weight, px) => `${weight} ${px}px ${INTER}`;
 export const SQUARE_FONTS = {
-  pill: F(700, 19), badge: F(800, 19), idle: F(800, 30), sub: F(500, 20), title: F(800, 30), body: F(500, 24),
+  name: F(800, 30), clock: F(700, 28), badge: F(800, 19), status: F(700, 21), celebrate: F(800, 32),
+  sub: F(500, 20), title: F(800, 30), body: F(500, 24),
   value: F(800, 104), unit: F(700, 30), rowTime: F(700, 20), rowText: F(500, 22), question: F(700, 24),
   button: F(700, 20), timer: F(800, 44), label: F(500, 18),
 };
@@ -89,7 +96,7 @@ export const SQUARE = {
   inMs: 220,
   outMs: 160,
   slide: 24,
-  topBarH: PILL.y + PILL.h + 4, // a tap above this line shows the display about itself
+  topBarH: TOP_BAR.h, // a tap above this line shows the display about itself
   photo: { x: PANEL.x, y: PANEL.y, w: PANEL.w, h: PANEL.h, radius: PANEL.radius, captionH: 44, captionPx: 20 },
   // A card's time on screen: 20 s, a celebration 6 s; a live view keeps its seconds.
   cardMs(card) {
@@ -142,12 +149,17 @@ const G_LIST = 0xF0756, G_CALENDAR = 0xF00F0, G_TIMER = 0xF051B, G_HEART = 0xF02
 const ROUTE_GLYPH = { bike: 0xF00A3, foot: 0xF0583, car: 0xF010B };
 const ELL = "…";
 
+// The connection's dot, in the colours of the box's top bar.
+export function connectionColor(c) {
+  return c === "on" ? [52, 199, 89] : c === "connecting" ? ORANGE : c === "demo" ? [48, 176, 199] : [255, 59, 48];
+}
+
 const easeOut = (p) => 1 - (1 - p) ** 3;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
-// The pill's text: the default of the status, or set_status_text's label while that
-// status holds (the same rule as the box's pill in cards.js).
-export function pillLabel(d) {
+// The status bubble's text: the default of the status, or set_status_text's label while
+// that status holds (the same rule as the box's pill in cards.js).
+export function statusLabel(d) {
   const state = d.status >= 0 && d.status <= 6 ? d.status : 0;
   if (state !== d.labelState) {
     if (state !== d.statusTextState) d.statusText = "";
@@ -211,7 +223,9 @@ export class SquareView {
   // Everything a still picture depends on.
   signature(d, now, clock, size, k) {
     const fig = d.figure || {};
-    const parts = [size, k, this.key, d.status, pillLabel(d), d.queue.waiting.length, d.name,
+    const soonest = d.timers.soonest();
+    const parts = [size, k, this.key, d.status, statusLabel(d), d.queue.waiting.length, d.name,
+      d.connection, soonest ? `${soonest.name}:${soonest.left}` : "",
       d.media ? d.media.state : "", clock.getHours(), clock.getMinutes(), clock.getDate(),
       fig.defaults ? fig.defaults.size : -1, fig.frames ? fig.frames.size : -1];
     if (d.mode === 0) parts.push(poseOf(d.status), Math.floor((now - d.animSince) / CARD_STEP_MS));
@@ -240,8 +254,7 @@ export class SquareView {
     const ctx = r.ctx;
     r.begin();
     r.fill(PAGE);
-    this.drawPill(r, d, now);
-    this.drawBadge(r, d);
+    this.drawTopBar(r, d, clock);
     const e = easeOut(clamp01(tin / SQUARE.inMs));
     const slide = SQUARE.slide * (1 - e);
     ctx.save();
@@ -254,8 +267,8 @@ export class SquareView {
     }
     ctx.restore();
     if (tout < SQUARE.outMs && this.ghost) {
-      // The content before, fading out over the new one (the pill row stays as it is).
-      const top = Math.floor((PILL.y + PILL.h + 4) * r.k);
+      // The content before, fading out over the new one (the top bar stays as it is).
+      const top = Math.floor(TOP_BAR.h * r.k);
       const w = r.canvas.width, h = r.canvas.height - top;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -306,28 +319,32 @@ export class SquareView {
 
   // ------------------------------------------------------------- the top --
 
-  drawPill(r, d, now) {
-    const state = d.status >= 0 && d.status <= 6 ? d.status : 0;
-    const font = SQUARE_FONTS.pill;
-    const label = this.fit(r, "pill", pillLabel(d), font, PILL.maxW - 58);
-    const w = Math.max(PILL.minW, Math.min(PILL.maxW, Math.round(r.width(label, font)) + 58));
-    const { x, y, h } = PILL;
-    this.shadowed(r, 8, 2, 0.10, () => r.roundRect(x, y, w, h, PILL.radius, CARD));
-    let k = 1;
-    if (state === 1 || state === 2) k = 1 + 0.3 * (0.5 - 0.5 * Math.cos((2 * Math.PI * now) / 1200));
-    r.circle(x + 18, y + h / 2, 6 * k, PILLS[state].color);
-    r.print(x + 40, y + h / 2, font, INK, "CL", label);
-  }
-
-  drawBadge(r, d) {
-    const n = d.queue.waiting.length;
-    if (n <= 0) return;
-    const text = `+${n}`;
-    const font = SQUARE_FONTS.badge;
-    const w = Math.max(BADGE.h, Math.round(r.width(text, font)) + 32);
-    const x = BADGE.right - w;
-    r.roundRect(x, BADGE.y, w, BADGE.h, BADGE.radius, ORANGE);
-    r.print(x + w / 2, BADGE.y + BADGE.h / 2, font, WHITE, "C", text);
+  // The top bar as the box's drawTopBar draws it: the name on the left with the soonest
+  // timer and the orange "+N" of waiting cards right after it, the clock in the middle,
+  // the connection's dot on the right. With both chips the clock would sit under the
+  // second one, so it then moves right of them (12 px apart).
+  drawTopBar(r, d, clock) {
+    const mid = NAME.y + NAME.h / 2;
+    const name = this.fit(r, "name", d.name, SQUARE_FONTS.name, NAME.w);
+    r.print(NAME.x, mid, SQUARE_FONTS.name, INK, "CL", name);
+    r.circle(DOT.x + DOT.size / 2, DOT.y + DOT.size / 2, DOT.size / 2, connectionColor(d.connection));
+    // The chips start at 116, or right after a name wider than "Muse".
+    let x = Math.max(BADGE.x, Math.ceil(NAME.x + r.width(name, SQUARE_FONTS.name)) + BADGE.gap);
+    const chip = (text) => {
+      const w = Math.max(BADGE.w, Math.round(r.width(text, SQUARE_FONTS.badge)) + 28);
+      r.roundRect(x, BADGE.y, w, BADGE.h, BADGE.radius, ORANGE);
+      r.print(x + w / 2, BADGE.y + BADGE.h / 2, SQUARE_FONTS.badge, WHITE, "C", text);
+      x += w + BADGE.gap;
+    };
+    const soonest = d.timers.soonest();
+    if (soonest && d.mode !== 11) chip(timeLeft(soonest.left));
+    const waiting = d.queue.waiting.length;
+    if (waiting > 0 && d.mode !== 0) chip(`+${waiting}`);
+    // The clock in the middle; when both chips reach into it, it moves right of them.
+    const time = clockText(clock);
+    const half = r.width(time, SQUARE_FONTS.clock) / 2;
+    const cx = Math.max(CLOCK.x + CLOCK.w / 2, Math.ceil(x + 4 + half));
+    r.print(cx, CLOCK.y + CLOCK.h / 2, SQUARE_FONTS.clock, INK, "C", time);
   }
 
   // ------------------------------------------------- ready and celebration --
@@ -347,11 +364,21 @@ export class SquareView {
     this.figure(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size);
     ctx.restore();
     if (cuddle > 0) this.drawHearts(r, cuddle);
-    const line = this.fit(r, "idle", PILLS[state >= 0 && state <= 6 ? state : 0].text, SQUARE_FONTS.idle, IDLE_LINE.w);
-    r.print(IDLE_LINE.x + IDLE_LINE.w / 2, IDLE_LINE.y + IDLE_LINE.h / 2, SQUARE_FONTS.idle, INK, "C", line);
-    const when = `${clockText(clock)}  ·  ${DAYS[clock.getDay()]}, ${clock.getDate()}. ${MONTHS[clock.getMonth()]}`;
-    const sub = this.fit(r, "sub", when, SQUARE_FONTS.sub, IDLE_SUB.w);
-    r.print(IDLE_SUB.x + IDLE_SUB.w / 2, IDLE_SUB.y + IDLE_SUB.h / 2, SQUARE_FONTS.sub, SUB, "C", sub);
+    this.drawBubble(r, d, now);
+  }
+
+  // The one status bubble under the figure: a dot in the status colour (it pulses while
+  // listening or thinking) and the status text, as the box's pill under its figure.
+  drawBubble(r, d, now) {
+    const state = d.status >= 0 && d.status <= 6 ? d.status : 0;
+    const b = BUBBLE;
+    const font = SQUARE_FONTS.status;
+    this.shadowed(r, 8, 2, 0.10, () => r.roundRect(b.x, b.y, b.w, b.h, b.radius, CARD));
+    let k = 1;
+    if (state === 1 || state === 2) k = 1 + 0.3 * (0.5 - 0.5 * Math.cos((2 * Math.PI * now) / 1200));
+    r.circle(b.x + b.dotX + b.dot / 2, b.y + b.h / 2, (b.dot / 2) * k, PILLS[state].color);
+    const label = this.fit(r, "status", statusLabel(d), font, b.textW);
+    r.print(b.x + b.textX + b.textW / 2, b.y + b.h / 2, font, INK, "C", label);
   }
 
   // Cuddled (a tap on the ready screen): hearts rise for 2.6 s, as on the box.
@@ -365,16 +392,16 @@ export class SquareView {
     }
   }
 
-  // The ready layout with the confetti pose, the title and the message; a burst of
+  // The ready layout with the confetti pose, the title and the message in the bubble's
+  // place; a burst of
   // confetti from the figure, then confetti falling (the particle formula of the box).
   drawCelebration(r, d, now) {
     const c = d.card;
     const t = now - d.since;
     this.figure(r, d, "confetti", t, FIGURE.x, FIGURE.y, FIGURE.size);
-    const title = this.fit(r, "title", c.title, SQUARE_FONTS.idle, IDLE_LINE.w);
-    r.print(IDLE_LINE.x + IDLE_LINE.w / 2, IDLE_LINE.y + IDLE_LINE.h / 2, SQUARE_FONTS.idle, INK, "C", title);
-    const body = this.fit(r, "body", c.body, SQUARE_FONTS.sub, IDLE_SUB.w);
-    r.print(IDLE_SUB.x + IDLE_SUB.w / 2, IDLE_SUB.y + IDLE_SUB.h / 2, SQUARE_FONTS.sub, SUB, "C", body);
+    const cx = SQUARE_W / 2, w = CELEBRATION.w;
+    r.print(cx, CELEBRATION.titleY, SQUARE_FONTS.celebrate, INK, "TC", this.fit(r, "title", c.title, SQUARE_FONTS.celebrate, w));
+    r.print(cx, CELEBRATION.bodyY, SQUARE_FONTS.sub, SUB, "TC", this.fit(r, "body", c.body, SQUARE_FONTS.sub, w));
     this.drawConfetti(r, t, d.until - now);
   }
 
@@ -635,7 +662,7 @@ export class SquareView {
     if (d.timers.size > 1) r.print(cx, 244, SQUARE_FONTS.sub, SUB, "C", `+${d.timers.size - 1} weitere`);
   }
 
-  // The display about itself (a tap on the pill).
+  // The display about itself (a tap on the top bar).
   drawInfo(r, d, now) {
     const up = Math.floor(now / 1000);
     const values = [

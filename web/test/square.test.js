@@ -1,11 +1,12 @@
 // square.test.js: the square layout's behaviour (docs/SQUARE_LAYOUT.md) on the same
 // state machine, with a fake clock: its times, the queue of 8, the question buttons with
-// their 150 ms press, "Fertig" after a timer, scene taps mapped into the panel, and the
-// layout setting.
+// their 150 ms press, "Fertig" after a timer, scene taps mapped into the panel, the
+// layout setting, and what a frame draws: the top bar like the box's and one status.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Display } from "../display.js";
-import { SQUARE, squareButton, squareButtonAt, toScene, SCENE_BOX, PANEL, weatherGlyph, squareCaption } from "../square.js";
+import { SQUARE, squareButton, squareButtonAt, toScene, SCENE_BOX, PANEL, weatherGlyph, squareCaption,
+  SquareView, TOP_BAR, NAME, CLOCK, BADGE, FIGURE, BUBBLE, CELEBRATION } from "../square.js";
 import { WEATHER } from "../text.js";
 import { DEFAULTS, loadSettings, layoutFor } from "../settings.js";
 
@@ -110,7 +111,7 @@ test("a timer ends with Fertig for 5 s", () => {
   assert.equal(d.mode, 0);
 });
 
-test("a tap on the pill shows the display about itself, on the panel the next card", () => {
+test("a tap on the top bar shows the display about itself, on the panel the next card", () => {
   const { d } = make();
   d.dispatch("show_text", { title: "A", message: "a" });
   d.dispatch("show_text", { title: "B", message: "b" });
@@ -142,4 +143,78 @@ test("the layout setting and ?layout=", () => {
   assert.equal(layoutFor("?layout=nonsense", { ...DEFAULTS, layout: "square" }), "square");
   assert.equal(layoutFor("", { ...DEFAULTS, layout: "square" }), "square");
   assert.equal(layoutFor("", DEFAULTS), "box");
+});
+
+// A renderer that records what is drawn instead of drawing it (text is 10 px a character).
+function recorder() {
+  const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => ((t[k] = v), true) });
+  const calls = [];
+  return {
+    calls, ctx, k: 1, canvas: { width: 480, height: 480 },
+    begin() {}, fill() {}, roundRectPath() {}, ringArc() {}, line() {},
+    width: (text) => String(text).length * 10,
+    widthOf: () => (text) => String(text).length * 10,
+    print: (x, y, font, color, align, text) => calls.push({ op: "print", x, y, font, align, text }),
+    roundRect: (x, y, w, h, radius) => calls.push({ op: "rect", x, y, w, h, radius }),
+    circle: (x, y, radius) => calls.push({ op: "circle", x, y, radius }),
+  };
+}
+
+function frame(d, at) {
+  const r = recorder();
+  const fig = { draws: [], draw(_r, sub, t, x, y, step, size) { this.draws.push({ sub, x, y, size }); } };
+  d.figure = fig;
+  new SquareView().render(r, d, at, new Date(2026, 9, 24, 12, 0));
+  return { calls: r.calls, figure: fig.draws, texts: r.calls.filter((c) => c.op === "print").map((c) => c.text) };
+}
+
+test("the ready screen: the top bar like the box's, the figure, and Bereit once in the bubble", () => {
+  const { d, clock } = make();
+  const { calls, figure, texts } = frame(d, clock.t);
+  assert.equal(texts.filter((t) => t === "Bereit").length, 1, "the status shows once");
+  const name = calls.find((c) => c.text === "Muse");
+  assert.deepEqual([name.x, name.y, name.align], [NAME.x, NAME.y + NAME.h / 2, "CL"]);
+  const time = calls.find((c) => c.text === "12:00");
+  assert.deepEqual([time.x, time.y, time.align], [CLOCK.x + CLOCK.w / 2, CLOCK.y + CLOCK.h / 2, "C"]);
+  assert.ok(calls.some((c) => c.op === "circle" && c.x === 450 && c.y === 32 && c.radius === 6), "the connection dot");
+  assert.deepEqual(figure[0], { sub: "idle", x: FIGURE.x, y: FIGURE.y, size: FIGURE.size });
+  const bubble = calls.find((c) => c.op === "rect" && c.w === BUBBLE.w);
+  assert.deepEqual([bubble.x, bubble.y, bubble.h, bubble.radius], [105, 358, 52, 26]);
+  const label = calls.find((c) => c.text === "Bereit");
+  assert.deepEqual([label.x, label.y], [BUBBLE.x + 147, BUBBLE.y + 26]);
+  assert.ok(calls.every((c) => c.op !== "rect" || c.y >= TOP_BAR.h), "no pill in the top bar");
+});
+
+test("a card: the timer chip and +N right after the name, the content below the top bar", () => {
+  const { d, clock } = make();
+  d.dispatch("show_timer", { label: "Tee", duration: "5 min" });
+  d.dispatch("show_text", { title: "A", message: "a" });
+  d.dispatch("show_text", { title: "B", message: "b" });
+  d.tick();
+  assert.equal(d.mode, 11);
+  d.next();
+  assert.equal(d.mode, 1);
+  const { calls, figure } = frame(d, clock.t);
+  const chips = calls.filter((c) => c.op === "rect" && c.y === BADGE.y && c.h === BADGE.h);
+  assert.equal(chips.length, 2, "timer chip and queue badge");
+  assert.equal(chips[0].x, BADGE.x);
+  assert.equal(chips[1].x, chips[0].x + chips[0].w + BADGE.gap);
+  assert.ok(calls.some((c) => c.text === "+1"));
+  const time = calls.find((c) => c.text === "12:00");
+  assert.ok(time.x - 25 >= chips[1].x + chips[1].w + 12, "the clock moves right of both chips");
+  assert.deepEqual([figure[0].sub, figure[0].x, figure[0].y], ["avatar", 24, 72]);
+  assert.ok(calls.some((c) => c.op === "rect" && c.x === 24 && c.y === 176 && c.w === 432 && c.h === 272), "the panel");
+});
+
+test("the celebration: title and message in the bubble's place, no bubble", () => {
+  const { d, clock } = make();
+  d.dispatch("celebrate", { title: "Geschafft", message: "Alles erledigt" });
+  assert.equal(d.mode, 3);
+  const { calls, texts } = frame(d, clock.t);
+  const title = calls.find((c) => c.text === "Geschafft");
+  assert.deepEqual([title.x, title.y, title.align], [240, CELEBRATION.titleY, "TC"]);
+  const body = calls.find((c) => c.text === "Alles erledigt");
+  assert.deepEqual([body.x, body.y], [240, CELEBRATION.bodyY]);
+  assert.ok(!texts.includes("Bereit"));
+  assert.ok(!calls.some((c) => c.op === "rect" && c.w === BUBBLE.w));
 });
