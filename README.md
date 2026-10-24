@@ -12,7 +12,7 @@
 <p align="center"><img src="docs/images/hero.gif" width="640" alt="The display cycling through cards: the figure on the ready screen, a status line, the weather, a question with two buttons, a tea timer, the doorbell, a shopping list, a birthday scene and a celebration"></p>
 <p align="center"><sub>Recorded from Muse Web Screen, the browser twin of the box, which draws the same cards with the same code. The status words on screen are German by default (<a href="docs/LOCALIZATION.md">docs/LOCALIZATION.md</a>); the text an assistant sends can be any language.</sub></p>
 
-<p align="center"><a href="https://muse-web-screen.vercel.app"><b>Open the live demo</b></a> · <a href="docs/TRY_WITHOUT_A_BOX.md">Try it without a box</a> · <a href="#build-your-own">Build your own</a> · <a href="https://blog.leopardcode.ai/en/esp32-box-as-the-body-of-an-always-on-agent/">Read the story</a></p>
+<p align="center"><a href="https://muse-web-screen.vercel.app"><b>Open the live demo</b></a> · <a href="docs/TRY_WITHOUT_A_BOX.md">Try it without a box</a> · <a href="#build-your-own">Build your own</a> · <a href="https://blog.leopardcode.ai/en/esp32-box-as-the-body-of-an-always-on-agent/">Read the story</a> · <a href="#the-project-in-numbers">The project in numbers</a></p>
 
 ## What it does
 
@@ -587,3 +587,20 @@ Every statement about hardware, services and other projects above refers to one 
 25. OpenStreetMap, *Copyright and License*: https://www.openstreetmap.org/copyright (Open Database License).
 26. Wikimedia Foundation, *Maps Terms of Use*: https://foundation.wikimedia.org/wiki/Policy:Maps_Terms_of_Use ("Wikimedia Maps may not be used by third-party services outside of the Wikimedia projects"), the reason for the change in 4.1.
 27. Claude Duet, read on 24 October 2026: MacRumors, *Anthropic Launches Claude Duet, a Proactive AI Agent*, 21 October 2026: https://macrumors.com/2026/10/21/anthropic-claude-duet/ ; iPhone in Canada, *Claude Duet Is Anthropic's Answer to Muse, Grok Bot and OpenAI Dots*, 21 October 2026: https://iphoneincanada.ca/2026/10/21/claude-duet-proactive-ai-agent-app (research preview through a waitlist, Pro and Max in the US, built around Opus 5.5, a morning brief, checks every few hours, approval before it acts).
+
+## The project in numbers
+
+How much AI work went into this, counted on 24 October 2026:
+
+| | |
+|---|---|
+| AI work | 187 messages from the owner, 3,294 tool calls, 69 of them failed (2.1 %), 18 subagents, 15 days between 16 August and 24 October 2026 |
+| Tokens | 1.10 billion processed, 98 % of them cache reads; 3.15 million written by the models (Opus 5.5 most, then Fable 5.1, Opus 5, Opus 4.8, Sonnet 5.5) |
+| At API list prices | about $494: $373 for the Muse phase since 6 October, $121 for the StackChan firmware on the same box before it. Paid on a subscription, so this is what it would cost on the API |
+| Commits | 40 in six repositories: 8 public, 14 history, 11 ESP workspace, 3 ESP-Mosaico, 4 Home Assistant |
+| Code | 26,113 lines in 244 files in the public repository, generated tables included |
+| Versions | 8 firmware releases (3.0.0 to 4.3.0), Muse Web Screen 1.0 to 1.4.0 |
+| Tests | 103 web tests, 13 Python tests, 2 C++ host test programs; all pass |
+| Mistakes on record | 6 findings in the last outside review (4 fixed, 2 open), 2 wrong turns written down in the CHANGELOG |
+
+*Method: counted from the local Claude Code transcripts, whole sessions in the project folders plus every turn in mixed sessions whose message or at least a third of its tool calls name the project; prices from Anthropic's API list, October 2026.*
