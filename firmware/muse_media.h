@@ -197,7 +197,7 @@ inline bool http_get_once(const std::string &url, Download &d, size_t max, uint3
     cfg.crt_bundle_attach = esp_crt_bundle_attach;
     // The map and routing services want a way to reach whoever sends the request; without
     // a URL here a map service answered 403 (07.10.2026).
-    cfg.user_agent = "Muse-ESP32-S3-BOX-3-Screen/4.3 (ESPHome; +https://github.com/leopardcodeai/muse-esp32-screen)";
+    cfg.user_agent = "Muse-ESP32-Screen/4.3 (ESPHome; +https://github.com/leopardcodeai/muse-esp32-screen)";
     cfg.max_redirection_count = 5;
     cfg.event_handler = on_http_event;
     cfg.user_data = &d;

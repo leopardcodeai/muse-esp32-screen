@@ -1,5 +1,5 @@
 
-# Muse ESP32-S3-BOX-3 Screen: the ESP32-S3-BOX-3 as the face, voice and ears of an AI assistant.
+# Muse ESP32 Screen, firmware of the ESP32-S3-BOX-3: the box as the face, voice and ears of an AI assistant.
 # Everything that differs from house to house is a substitution or a secret; the rest is
 # the firmware. Docs: ../README.md, ../docs/. Build: esphome compile firmware/muse-esp32-s3-box-3-screen.yaml
 substitutions:

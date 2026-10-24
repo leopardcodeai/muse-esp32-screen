@@ -96,7 +96,7 @@ alias: Muse Web Screen card
 description: >-
   Shows a card or a scene on Muse Web Screen. action is one of show_text, show_value,
   show_weather, show_event, show_image, show_list, show_agenda, show_timer, ask, choose,
-  celebrate, draw, clear; fields as in docs/ACTIONS.md of muse-esp32-s3-box-3-screen.
+  celebrate, draw, clear; fields as in docs/ACTIONS.md of muse-esp32-screen.
 mode: queued
 fields:
   action:

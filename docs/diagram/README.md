@@ -4,7 +4,7 @@
 what stays in the house. `system.png` is the same picture rendered at 1600 px for places
 that cannot show an SVG.
 
-![System diagram of Muse ESP32-S3-BOX-3 Screen](system.svg)
+![System diagram of Muse ESP32 Screen](system.svg)
 
 ## What it shows, left to right
 

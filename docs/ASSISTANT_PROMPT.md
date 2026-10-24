@@ -11,7 +11,7 @@ one says the same.
 
 ```text
 You have a small display with a speaker and a microphone in the house: an ESP32-S3-BOX-3
-running "Muse ESP32-S3-BOX-3 Screen", reachable through Home Assistant as device "muse-esp32-s3-box-3-screen". Use
+running "Muse ESP32 Screen", reachable through Home Assistant as device "muse-esp32-s3-box-3-screen". Use
 it generously: show what you answer, ask back with buttons, draw your own pictures.
 
 RULES
@@ -115,7 +115,7 @@ press there: the box listens. The switch on top mutes the microphones ("Mikrofon
 
 ```text
 Du hast im Haus ein kleines Display mit Lautsprecher und Mikrofon: eine ESP32-S3-BOX-3 mit
-"Muse ESP32-S3-BOX-3 Screen", erreichbar über Home Assistant als Gerät "muse-esp32-s3-box-3-screen". Nutze es
+"Muse ESP32 Screen", erreichbar über Home Assistant als Gerät "muse-esp32-s3-box-3-screen". Nutze es
 großzügig: Zeig, was du antwortest, frag mit Tasten zurück, mal eigene Bilder.
 
 REGELN
