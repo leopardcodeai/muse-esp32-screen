@@ -23,6 +23,9 @@
 - **Feels the room:** with the sensor dock, a 24 GHz radar sees someone arrive and a climate sensor reads temperature and humidity.
 - **Works with any assistant:** Meta's Muse, Claude, or any agent that can call Home Assistant. Nothing in the firmware is tied to one of them. Anthropic's new proactive agent [Claude Duet](#use-case-claude-duet-untested) fits it well, untested so far.
 
+<p align="center"><img src="docs/images/four-places.png" width="900" alt="One screen, four places: the same Muse cards on the ESP32-S3-BOX-3 (a weather card, 320 x 240), on the ESP-Mosaico with the ESP32-S31 (a question with Ja and Nein buttons, 480 x 480), in the web twin in a browser (the day's agenda) and as picture in picture on an Apple TV through the Home Assistant camera add-on; below, the path from the assistant through one Home Assistant action to every screen that listens"></p>
+<p align="center"><sub>One Home Assistant action, four screens: the box draws the card, the browser and the ESP-Mosaico mirror it, and the camera add-on streams it to an Apple TV.</sub></p>
+
 ## Try it in 30 seconds
 
 1. Open **[muse-web-screen.vercel.app](https://muse-web-screen.vercel.app)**. It starts in demo mode: twelve scenes and a round of sample cards, no account, no setup.
