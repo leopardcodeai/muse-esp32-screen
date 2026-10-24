@@ -130,12 +130,15 @@ export function drawValue(r, d) {
 }
 
 // Confetti plays once, then holds its last frame (a step per 200 ms, like the box).
+// The figure starts at y 30 below the top bar, like the ready screen's: its frame is
+// filled with the page colour and would cover the clock and the timer chip (y 8 to 29).
+export const CELEBRATION = { figureY: 30, titleY: 192, bodyY: 218 };
 export function drawCelebration(r, d, now) {
   const c = d.card;
-  d.figure.draw(r, "confetti", now - d.since, 80, 22, CARD_STEP_MS);
-  r.print(160, 186, cardFont("title"), INK, "TC", c.title);
+  d.figure.draw(r, "confetti", now - d.since, 80, CELEBRATION.figureY, CARD_STEP_MS);
+  r.print(160, CELEBRATION.titleY, cardFont("title"), INK, "TC", c.title);
   const body = wrap(c.body, r.widthOf(cardFont("body")), 290);
-  if (body.length) r.print(160, 212, cardFont("body"), SUB, "TC", body[0]);
+  if (body.length) r.print(160, CELEBRATION.bodyY, cardFont("body"), SUB, "TC", body[0]);
 }
 
 // Weather: big icon, temperature and condition, the forecast below.

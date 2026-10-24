@@ -110,7 +110,7 @@ test("FigureSource: the project's frames are the default, the owner's go first, 
   const drawn = [];
   const r2d = { ctx: { save() {}, restore() {}, drawImage: (img, x, y, w, h) => drawn.push([img, x, y, w, h]) } };
   src.draw(r2d, "wave", 2 * STEP_MS, 80, 30);
-  src.draw(r2d, "confetti", 0, 80, 22);
+  src.draw(r2d, "confetti", 0, 80, 30);
   assert.deepEqual(drawn, [["./figure-default/wave.png#2", 80, 30, 160, 160]]);
   assert.deepEqual(placeholderCalls, ["confetti"], "what the project lacks is drawn in code");
   await src.use("http://127.0.0.1:8322");

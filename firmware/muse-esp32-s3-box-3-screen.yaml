@@ -1492,7 +1492,9 @@ display:
         return;
       }
       if (mode == 3) {
-        // Confetti plays once, then holds its last frame.
+        // Confetti plays once, then holds its last frame. The figure starts at y 30 below
+        // the top bar, like the ready screen's: its page-coloured frame would cover the
+        // clock and the timer chip (y 8 to 29). Same positions in web/cards.js.
         static uint32_t burst = 0;
         auto *confetti = id(muse_confetti);
         if (now - burst >= 160 &&
@@ -1500,11 +1502,11 @@ display:
           burst = now;
           confetti->next_frame();
         }
-        it.image(80, 22, confetti);
-        it.print(160, 186, id(m_title), INK, TextAlign::TOP_CENTER, id(muse_title).c_str(), BG);
+        it.image(80, 30, confetti);
+        it.print(160, 192, id(m_title), INK, TextAlign::TOP_CENTER, id(muse_title).c_str(), BG);
         auto body = muse::wrap(it, id(muse_body), id(m_body), 290);
         if (!body.empty())
-          it.print(160, 212, id(m_body), SUB, TextAlign::TOP_CENTER, body[0].c_str(), BG);
+          it.print(160, 218, id(m_body), SUB, TextAlign::TOP_CENTER, body[0].c_str(), BG);
         return;
       }
       if (mode == 4) {

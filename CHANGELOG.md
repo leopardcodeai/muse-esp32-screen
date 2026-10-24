@@ -2,13 +2,14 @@
 
 The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-screen.yaml`; the box reports it in `muse_get_state` and on its info screen. Dates are the day the firmware ran on the box. Wrong turns are recorded, because the same mistake comes back otherwise.
 
-## Muse Web Screen 1.4.0, 24 October 2026 (firmware unchanged at 4.3.0)
+## Muse Web Screen 1.4.0, 24 October 2026 (firmware 4.3.0 with one layout fix for the next flash)
 
 - The project is called Muse ESP32 Screen and lives at github.com/leopardcodeai/muse-esp32-screen, because it now targets more than one ESP32 board (the ESP32-S3-BOX-3 and the ESP32-S31 of Espressif's ESP-Mosaico). Every earlier address redirects. Device names, action names and the firmware file stay as they are.
 - Square layout, 480 x 480 (`index.html?layout=square` or the new Layout setting), for the ESP-Mosaico port and the camera add-on: every action, cards slide in and fade out, the pill dot pulses while listening or thinking, the timer arc moves smoothly, celebrate adds a confetti burst, and nothing is redrawn while nothing moves. The 320 x 240 layout renders pixel for pixel as before. Design: docs/SQUARE_LAYOUT.md.
 - Your own character: `tools/make_figure.py --from-image` turns one picture into the full set of animations for the box and the browser (docs/OWN_FIGURE.md); `--size` and `--avatar` serve the square layout.
 - Fixed after a review: the square's queue limit also holds after urgent cards; a question arriving within the 150 ms of a button press is no longer advanced by that press; a layout chosen in the settings applies even when the URL forces another; a large picture with a small character no longer needs a gigabyte in `--from-image`.
 - README rewritten for people new to the project, with pictures in docs/images/.
+- The celebration on the 320 x 240 layout draws its figure at y 30 instead of 22, below the top bar like the ready screen's, with the title at y 192 (was 186) and the body at y 218 (was 212): the figure's page-coloured frame had covered the lower part of the clock and the timer chip, as the hero GIF showed. Fixed the same way in the web twin (`web/cards.js`) and the firmware (`muse-esp32-s3-box-3-screen.yaml`); `web/test/cards.test.js` keeps both at the same positions. The firmware change takes effect with the next flash; the box keeps showing the old positions until then. The hero GIF and the cards picture are recorded again.
 
 ## 4.3.0, 8 October 2026
 
