@@ -16,7 +16,7 @@ substitutions:
   # the tiles require. Your own tile server or a provider with a key goes here too.
   map_tiles: "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
   # The still picture of your doorbell (or any camera) under Home Assistant's www folder,
-  # shown by muse_show_image with an empty url.
+  # the default URL of the firmware's image component.
   doorbell_image: "/local/doorbell_latest.jpg"
   # "" draws the project's own figure from figure/; "muse_" the animations that
   # tools/make_muse_assets.py cuts out of the Muse app as figure/muse_*.png (Meta's
@@ -55,7 +55,7 @@ esphome:
         - script.execute: audio_init
   project:
     name: "leopardcodeai.muse_esp32_s3_box_3_screen"
-    version: "4.3.0"
+    version: "4.3.1"
 
 # Optional parts live in packages/. Uncomment a line to take one in: the Samsung TV
 # remote through the dock's IR (not needed for anything else the box does).
@@ -260,6 +260,33 @@ api:
             c.body = muse::clean(message, id(m_body)).text;
             c.url = url.str();
             c.ms = 90000;
+            const auto &now_on = muse::current_card();
+            c.event = (!c.title.empty() && now_on.title == c.title && !now_on.event.empty()) ? now_on.event : "info";
+            const int showing = id(muse_mode);
+            muse::placed_now() = muse::enqueue(c, muse::place(c, showing, false), showing);
+            if (muse::placed_now()) id(muse_next).execute();
+            else ESP_LOGI("muse", "photo waits, %u in line", (unsigned) muse::queue().size());
+        - api.respond:
+            data: !lambda |-
+              root["on_screen"] = muse::placed_now();
+              root["waiting"] = (int) muse::queue().size();
+    # The same photo card with a duration of its own: `seconds` from 1 to 600 replaces
+    # the fixed 90 s of muse_show_image. Without a URL, or when the download fails,
+    # title and message show as an event card, like muse_show_image.
+    - action: muse_show_image_timed
+      variables:
+        title: string
+        message: string
+        url: string
+        seconds: int
+      then:
+        - lambda: |-
+            muse::Card c;
+            c.mode = url.empty() ? 6 : 5;
+            c.title = muse::clean(title, id(m_title)).text;
+            c.body = muse::clean(message, id(m_body)).text;
+            c.url = url.str();
+            c.ms = (seconds < 1 ? 1 : seconds > 600 ? 600 : seconds) * 1000;
             const auto &now_on = muse::current_card();
             c.event = (!c.title.empty() && now_on.title == c.title && !now_on.event.empty()) ? now_on.event : "info";
             const int showing = id(muse_mode);
