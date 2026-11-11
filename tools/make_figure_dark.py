@@ -69,7 +69,7 @@ def flatten(rgb: np.ndarray, tolerance: int, blur: float) -> np.ndarray:
 
 
 def vignette(image: Image.Image, inner: float = 0.74, outer: float = 1.0,
-             bottom: float = 0.82) -> Image.Image:
+             bottom: float = 0.78) -> Image.Image:
     """An even, round fade to black, with an earlier fade at the bottom edge.
 
     The figure's own frames end flat at the bottom; the extra bottom ramp hides that
