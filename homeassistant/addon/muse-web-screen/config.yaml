@@ -1,0 +1,25 @@
+name: Muse Web Screen
+version: "1.0.0"
+slug: muse_web_screen
+description: Muse Web Screen over HTTPS, with Home Assistant's websocket proxied
+url: https://github.com/leopardcodeai/muse-esp32-screen
+arch:
+  - aarch64
+  - amd64
+  - armv7
+  - armhf
+  - i386
+startup: services
+init: false
+ports:
+  8322/tcp: 8322
+ports_description:
+  8322/tcp: Muse Web Screen (HTTPS)
+map:
+  - config:ro
+  - ssl:ro
+options:
+  ha_url: "http://homeassistant:8123"
+schema:
+  ha_url: url
+webui: "https://[HOST]:[PORT:8322]/"

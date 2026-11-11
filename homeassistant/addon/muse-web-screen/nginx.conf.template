@@ -1,0 +1,69 @@
+# nginx.conf.template: HTTPS for the web app, and the /api/ proxy to Home Assistant.
+#
+# __HA_URL__ is replaced by run.sh from the add-on option ha_url. Keep the two slashes
+# in proxy_pass: location /api/ maps /api/websocket to <ha_url>/api/websocket.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 8322 ssl;
+    server_name _;
+
+    ssl_certificate     /ssl/muse-web.crt;
+    ssl_certificate_key /ssl/muse-web.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    server_tokens off;
+
+    root /config/www/muse-web;
+    index index.html;
+
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' https: http: data: blob:; connect-src 'self' https: wss: ws:; media-src 'self' blob: mediastream:; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), fullscreen=(self), picture-in-picture=(self), screen-wake-lock=(self)" always;
+
+    location = /sw.js {
+        expires -1;
+        try_files $uri =404;
+    }
+
+    location = /manifest.webmanifest {
+        default_type application/manifest+json;
+        expires -1;
+        try_files $uri =404;
+    }
+
+    location = /index.html {
+        expires -1;
+        try_files $uri =404;
+    }
+
+    location /icons/ {
+        expires 30d;
+        try_files $uri =404;
+    }
+
+    # The page is HTTPS; Home Assistant may still be HTTP. The browser talks to this
+    # add-on, and nginx forwards the websocket and any REST calls to ha_url.
+    location /api/ {
+        proxy_pass __HA_URL__/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Origin "";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        # No X-Forwarded-For: Home Assistant answers 400 when an untrusted proxy adds it.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    location / {
+        expires -1;
+        try_files $uri $uri/ /index.html;
+    }
+}

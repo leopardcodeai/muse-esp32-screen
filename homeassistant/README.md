@@ -8,6 +8,10 @@ Every argument is mandatory in Home Assistant, send `""` where nothing is meant.
   live view, someone comes home, waste tomorrow). Replace the entity ids.
 - `scripts/muse_weather.yaml`: today's weather as a card; the assistant can call
   `script.muse_weather` instead of composing the weather itself.
+- `addon/muse-web-screen/`: an optional local Home Assistant add-on that serves the web
+  app over HTTPS on port 8322 and proxies Home Assistant's websocket, so Chrome can
+  install it as an app even when Home Assistant itself runs on HTTP. See
+  `addon/muse-web-screen/DOCS.md`.
 - An assistant (Muse, Claude, a Grok bot, anything that can call Home Assistant) uses
   the same actions; see `../docs/ASSISTANT_PROMPT.md` for the text that teaches it, and
   `../tools/muse_screen.py` for a command line that wraps them.
