@@ -49,6 +49,22 @@ server {
 
     # The page is HTTPS; Home Assistant may still be HTTP. The browser talks to this
     # add-on, and nginx forwards the websocket and any REST calls to ha_url.
+    # Home Assistant's /local/ files for the HTTPS page: the chart renderer writes
+    # /config/www/muse_images/, and a picture URL from HA must not be mixed content.
+    location /ha-local/ {
+        alias /config/www/;
+        expires -1;
+    }
+
+    # The owner's figure frames can be read from the page's own origin at home and from
+    # the Tailscale address away (web/settings.js has both folder URLs).
+    location /local/ {
+        expires -1;
+        add_header Access-Control-Allow-Origin "*" always;
+        try_files $uri =404;
+    }
+
+    # The page is HTTPS; Home Assistant may still be HTTP. The browser talks to this
     location /api/ {
         proxy_pass __HA_URL__/api/;
         proxy_http_version 1.1;

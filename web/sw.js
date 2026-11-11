@@ -10,20 +10,44 @@
 // seen on the next visit. The project's figure (figure-default/) is part of the shell;
 // the owner's own figure frames are never cached here: they come from another origin,
 // which this worker leaves alone.
-const VERSION = "muse-web-screen-1.6.0";
+const VERSION = "muse-web-screen-1.6.2";
 const SHELL = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./app.js", "./display.js", "./cards.js", "./draw.js", "./render.js", "./figure.js", "./scene.js", "./icons.js",
   "./particles.js", "./text.js", "./tables.js", "./queue.js", "./timers.js", "./weather.js", "./media.js",
   "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_frames.js",
-  "./square.js",
+  "./square.js", "./theme.js",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./figure-default/idle.png", "./figure-default/wave.png", "./figure-default/working.png",
   "./figure-default/making.png", "./figure-default/confetti.png", "./figure-default/avatar.png",
+  "./figure-default/dark/idle.png", "./figure-default/dark/wave.png", "./figure-default/dark/working.png",
+  "./figure-default/dark/making.png", "./figure-default/dark/confetti.png", "./figure-default/dark/avatar.png",
+];
+
+// The owner's Muse figure is private and lives under /local; it is not in the public
+// shell list, but an installed app must still show it when the LAN address is gone.
+// Each file is optional: on the public site the requests 404 and are skipped.
+const PRIVATE = [
+  "./local/muse_idle.png", "./local/muse_wave.png", "./local/muse_working.png",
+  "./local/muse_making.png", "./local/muse_confetti.png", "./local/muse_avatar.png",
+  "./local/dark/muse_idle.png", "./local/dark/muse_wave.png", "./local/dark/muse_working.png",
+  "./local/dark/muse_making.png", "./local/dark/muse_confetti.png", "./local/dark/muse_avatar.png",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil((async () => {
+    const cache = await caches.open(VERSION);
+    await cache.addAll(SHELL);
+    await Promise.allSettled(PRIVATE.map(async (url) => {
+      try {
+        const res = await fetch(url, { cache: "no-cache" });
+        if (res.ok) await cache.put(url, res);
+      } catch {
+        // no owner figure on this host: the project's figure stands in
+      }
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
@@ -39,7 +63,8 @@ self.addEventListener("fetch", (event) => {
   const scope = new URL("./", self.location.href).pathname;
   if (!url.pathname.startsWith(scope)) return;
   const rel = "./" + url.pathname.slice(scope.length);
-  const shell = rel === "./" || SHELL.includes(rel) || rel.startsWith("./demo/");
+  const shell = rel === "./" || SHELL.includes(rel) || rel.startsWith("./demo/")
+    || rel.startsWith("./local/muse_") || rel.startsWith("./local/dark/muse_");
   if (!shell) return;
   event.respondWith(
     fetch(event.request).then((res) => {

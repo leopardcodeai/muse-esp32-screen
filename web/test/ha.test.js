@@ -32,6 +32,18 @@ test("mapCallService(): only esphome calls of <device>_muse_*", () => {
   assert.equal(mapCallService(null), null);
 });
 
+test("the web receives show_image_timed and show_chart from the box's service names", () => {
+  assert.deepEqual(mapCallService({ domain: "esphome", service: `${D}_muse_show_image_timed`,
+    service_data: { title: "T", message: "M", url: "http://x/y.png", seconds: 30 } }),
+  { action: "show_image_timed", fields: { title: "T", message: "M", url: "http://x/y.png", seconds: 30 } });
+  assert.deepEqual(mapCallService({ domain: "esphome", service: `${D}_muse_show_chart`,
+    service_data: { title: "C", message: "M", url: "http://x/c.png", seconds: 45 } }),
+  { action: "show_chart", fields: { title: "C", message: "M", url: "http://x/c.png", seconds: 45 } });
+  assert.deepEqual(mapMessage({ type: "event", event: { event_type: "call_service",
+    data: { domain: "esphome", service: `${D}_muse_show_chart`, service_data: { url: "http://x/c.png" } } } }),
+  { action: "show_chart", fields: { url: "http://x/c.png" } });
+});
+
 test("mapMuseWeb() and mapMessage()", () => {
   assert.deepEqual(mapMuseWeb({ action: "show_text", title: "a", message: "b" }), { action: "show_text", fields: { title: "a", message: "b" } });
   assert.deepEqual(mapMuseWeb({ action: "muse_show_value", label: "l", value: "1", unit: "u" }), { action: "show_value", fields: { label: "l", value: "1", unit: "u" } });
@@ -201,4 +213,27 @@ test("an https page passes the hint, and a browser without WebSocketInit gets th
   assert.deepEqual(made, [["ws://ha.example.com:8123/api/websocket", { targetAddressSpace: "local" }]]);
   assert.ok(await run(OldSocket), "falls back to the plain constructor");
   assert.deepEqual(made, [["ws://ha.example.com:8123/api/websocket", undefined]]);
+});
+
+test("urls: a closed LAN socket is followed by the Tailscale address", async () => {
+  FakeSocket.instances = [];
+  let made = 0;
+  class FailFirst extends FakeSocket {
+    constructor(url) {
+      super(url);
+      if (++made === 1) queueMicrotask(() => this.onclose?.());
+    }
+  }
+  const c = new HaClient({
+    urls: ["https://lan.example:8322", "https://tail.example:8322"],
+    token: "test-token", device: D, WebSocketImpl: FailFirst, onState: () => {},
+    setTimeout: (fn) => { queueMicrotask(fn); return 0; }, clearTimeout: () => {},
+  });
+  c.connect();
+  await settle(); await settle(); await settle();
+  assert.equal(c.usedUrl, "https://tail.example:8322");
+  assert.deepEqual(FakeSocket.instances.map((s) => s.url),
+    ["wss://lan.example:8322/api/websocket", "wss://tail.example:8322/api/websocket"]);
+  assert.ok(c.authenticated);
+  c.close();
 });

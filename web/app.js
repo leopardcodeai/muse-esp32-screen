@@ -293,7 +293,7 @@ function connect() {
     log("an http Home Assistant URL from an https page: browsers may block it as mixed content (see the settings)");
   }
   ha = new HaClient({
-    url: settings.url,
+    urls: [settings.url, settings.urlAway].filter(Boolean),
     token: settings.token,
     device: settings.device || DEFAULT_DEVICE,
     pageProtocol: location.protocol,
@@ -372,13 +372,20 @@ async function useFigure() {
   const forcePlaceholder = params.get("figure") === "placeholder";
   const url = !forcePlaceholder && settings.figureSource === "url" ? settings.figureUrl : "";
   figureStatus.textContent = url ? "lädt …" : "";
-  const r = await figure.use(url);
+  let used = url;
+  let r = await figure.use(url);
   if (r.stale) return;
-  if (url) {
-    log(`figure from ${url}: ${r.loaded} of ${FIGURE_NAMES.length} loaded${r.failed.length ? ", missing " + r.failed.join(", ") : ""}`);
+  if (url && r.loaded === 0 && settings.figureUrlAway && settings.figureUrlAway !== url) {
+    log(`figure from ${url} did not answer; trying ${settings.figureUrlAway}`);
+    used = settings.figureUrlAway;
+    r = await figure.use(used);
+    if (r.stale) return;
+  }
+  if (used) {
+    log(`figure from ${used}: ${r.loaded} of ${FIGURE_NAMES.length} loaded${r.failed.length ? ", missing " + r.failed.join(", ") : ""}`);
     if (r.loaded === 0) say("Die eigenen Bilder der Figur kamen nicht an: die Anzeige zeigt die Figur des Projekts (Konsole und Einstellungen sagen mehr).");
   }
-  figureStatus.textContent = url ? figure.describe() + (r.failed.length && r.loaded ? `, fehlt: ${r.failed.join(", ")}` : "") : "";
+  figureStatus.textContent = used ? figure.describe() + (r.failed.length && r.loaded ? `, fehlt: ${r.failed.join(", ")}` : "") : "";
 }
 
 // ------------------------------------------------------------- settings --
@@ -395,9 +402,11 @@ function updateDialog() {
   mixedNote.hidden = !insecureFromHttps(location.protocol, form.url.value);
   const own = form.figureSource.value === "url";
   $("figure-url-row").hidden = !own;
+  $("figure-url-away-row").hidden = !own;
 }
 function openSettings() {
   form.url.value = settings.url;
+  form.urlAway.value = settings.urlAway;
   form.token.value = settings.token;
   form.device.value = settings.device;
   form.inputText.value = settings.inputText;
@@ -405,6 +414,7 @@ function openSettings() {
   form.fps.value = String(settings.fps);
   form.figureSource.value = settings.figureSource;
   form.figureUrl.value = settings.figureUrl;
+  form.figureUrlAway.value = settings.figureUrlAway;
   form.integer.checked = settings.integer;
   form.sound.checked = settings.sound;
   form.bare.checked = settings.bare;
@@ -421,6 +431,7 @@ form.addEventListener("submit", (ev) => {
   const before = settings;
   settings = {
     url: form.url.value.trim(),
+    urlAway: form.urlAway.value.trim(),
     token: form.token.value.trim(),
     device: form.device.value.trim() || DEFAULT_DEVICE,
     inputText: form.inputText.value.trim(),
@@ -428,6 +439,7 @@ form.addEventListener("submit", (ev) => {
     fps: normaliseFps(form.fps.value),
     figureSource: form.figureSource.value === "url" && form.figureUrl.value.trim() ? "url" : "placeholder",
     figureUrl: form.figureUrl.value.trim(),
+    figureUrlAway: form.figureUrlAway.value.trim(),
     integer: form.integer.checked,
     sound: form.sound.checked,
     bare: form.bare.checked,
@@ -470,8 +482,8 @@ form.addEventListener("submit", (ev) => {
   applyBare();
   if (settings.fps !== before.fps) setFps(settings.fps); // a ?fps= of the URL holds until the setting changes
   else fit();
-  if (settings.figureSource !== before.figureSource || settings.figureUrl !== before.figureUrl) useFigure();
-  if (settings.url !== before.url || settings.token !== before.token || settings.device !== before.device || !ha) connect();
+  if (settings.figureSource !== before.figureSource || settings.figureUrl !== before.figureUrl || settings.figureUrlAway !== before.figureUrlAway) useFigure();
+  if (settings.url !== before.url || settings.urlAway !== before.urlAway || settings.token !== before.token || settings.device !== before.device || !ha) connect();
 });
 $("settings-cancel").addEventListener("click", () => dialog.close());
 $("btn-settings").addEventListener("click", openSettings);

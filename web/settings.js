@@ -23,7 +23,7 @@ export const LAYOUT_VERSION = 2;
 export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
-  theme: "auto", pixel: false, layoutVersion: LAYOUT_VERSION,
+  theme: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
 });
 
 // The stored settings over the defaults, cleaned.

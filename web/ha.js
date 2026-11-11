@@ -82,7 +82,14 @@ export function mapMessage(msg, device = DEFAULT_DEVICE) {
 
 export class HaClient {
   constructor(opts) {
-    this.url = opts.url;
+    // urls: the same Home Assistant through more than one address, tried in order. The
+    // page stays on its own origin (the installed app); at home the LAN address answers,
+    // away the Tailscale address does (docs/MAC_APP.md, "one app, two networks").
+    this.urls = (Array.isArray(opts.urls) ? opts.urls : [opts.url])
+      .map((u) => String(u || "").trim()).filter(Boolean);
+    this.urlIndex = 0;
+    this.usedUrl = this.urls[0] || opts.url;
+    this.url = this.urls[0] || opts.url;
     this.token = opts.token;
     this.device = opts.device || DEFAULT_DEVICE;
     this.pageProtocol = opts.pageProtocol || ""; // location.protocol of the page
@@ -104,10 +111,15 @@ export class HaClient {
 
   connect() {
     this.closed = false;
+    this.urlIndex = 0;
     this.open();
   }
 
   open() {
+    if (this.urls.length > 1) {
+      this.url = this.urls[this.urlIndex % this.urls.length];
+      this.usedUrl = this.url;
+    }
     const url = websocketUrl(this.url);
     if (!url || !this.WebSocketImpl) {
       this.onState("off", "no URL");
@@ -139,6 +151,12 @@ export class HaClient {
       this.authenticated = false;
       for (const p of this.pending.values()) p.reject(new Error("connection closed"));
       this.pending.clear();
+      if (this.urls.length > 1) {
+        // The address that just failed gets no second chance before the other one; a
+        // LAN-only page that lost the house Wi-Fi reaches Tailscale within a second.
+        this.urlIndex = (this.urlIndex + 1) % this.urls.length;
+        this.backoff = 1000;
+      }
       this.onState("off", "closed");
       this.scheduleRetry();
     };
@@ -182,6 +200,12 @@ export class HaClient {
       this.pending.set(id, { resolve, reject });
       this.send({ id, ...obj });
     });
+  }
+
+  // The state of an entity, for the web screen's last-display restore.
+  async getState(entityId) {
+    const states = await this.command({ type: "get_states" });
+    return (states || []).find((s) => s.entity_id === entityId) || null;
   }
 
   async receive(raw) {

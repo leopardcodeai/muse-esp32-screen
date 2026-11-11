@@ -41,6 +41,10 @@
         <input name="url" type="url" placeholder="http://homeassistant.local:8123" autocomplete="off" spellcheck="false">
         <small id="mixed-note" class="warn" hidden></small>
       </label>
+      <label>Home Assistant URL unterwegs (optional)
+        <input name="urlAway" type="url" placeholder="https://100.75.6.2:8322" autocomplete="off" spellcheck="false">
+        <small>Dieselbe Add-on-Adresse über Tailscale. Zuhause nimmt die App die erste URL, unterwegs diese; die Seite selbst startet aus dem Offline-Cache.</small>
+      </label>
       <label>Langlebiger Zugriffstoken
         <input name="token" type="password" autocomplete="off" spellcheck="false">
         <small>Bleibt im localStorage dieses Browsers auf diesem Rechner. Ein eigener Token für diese Anzeige ist klug.</small>
@@ -86,6 +90,10 @@
       <label id="figure-url-row" hidden>Ordner-URL der Bilder
         <input name="figureUrl" type="url" placeholder="http://127.0.0.1:8322" autocomplete="off" spellcheck="false">
         <small>Lädt <code>muse_idle.png</code>, <code>muse_wave.png</code>, <code>muse_working.png</code>, <code>muse_making.png</code>, <code>muse_confetti.png</code> und <code>muse_avatar.png</code> aus diesem Ordner, nur in diesem Browser; der Server dieser Seite bekommt nichts davon. <span id="figure-status"></span></small>
+      </label>
+      <label id="figure-url-away-row" hidden>Ordner-URL unterwegs (optional)
+        <input name="figureUrlAway" type="url" placeholder="https://100.75.6.2:8322/local" autocomplete="off" spellcheck="false">
+        <small>Derselbe Bilderordner über Tailscale, falls die erste Adresse unterwegs nicht antwortet.</small>
       </label>
       <label class="check"><input name="pixel" type="checkbox"> Pixelgenau 1:1: 480 × 480 ohne Skalierung</label>
       <label class="check"><input name="integer" type="checkbox"> Nur ganzzahlig vergrößern (pixelgenau)</label>
