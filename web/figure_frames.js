@@ -98,6 +98,18 @@ export class FigureSource {
     this.placeholder.smooth = v;
   }
 
+  // One picture, for the light avatar that the dark layout keeps on its white tile.
+  async fetchAvatar(urlOf, opts) {
+    try {
+      const res = await this.fetchImpl(urlOf(), opts);
+      if (!res.ok) return null;
+      const frames = await this.decode(new Uint8Array(await res.arrayBuffer()));
+      return frames && frames.length ? frames : null;
+    } catch {
+      return null;
+    }
+  }
+
   // Fetches and decodes the six pictures `urlOf(name)`; resolves with [name, frames, error].
   async fetchSet(urlOf, opts) {
     return Promise.all(FIGURE_NAMES.map(async (name) => {
@@ -135,6 +147,11 @@ export class FigureSource {
         this.log(`figure ${name} not loaded from ${defaultUrl(name, base)}: ${err ? err.message : "no frames"}`);
       }
     }
+    if (this.dark) {
+      // The small card avatar stays light, like the question view in the light theme.
+      const light = await this.fetchAvatar(() => defaultUrl("avatar", base, false), { credentials: "same-origin" });
+      if (light) loaded.set("avatar", light);
+    }
     this.defaults = loaded;
     this.defaultsFailed = failed;
     this.defaultsLoading = false;
@@ -162,6 +179,11 @@ export class FigureSource {
         this.failed.push(name);
         this.log(`figure ${name} not loaded from ${frameUrl(this.url, name)}: ${err ? err.message : "no frames"}`);
       }
+    }
+    if (this.dark && this.url) {
+      const light = await this.fetchAvatar(() => frameUrl(this.url, "avatar", false),
+        { mode: "cors", cache: "no-cache", credentials: "omit" });
+      if (light) this.frames.set("avatar", light);
     }
     this.loading = false;
     return { loaded: this.frames.size, failed: [...this.failed] };

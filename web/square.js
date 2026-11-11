@@ -479,25 +479,18 @@ export class SquareView {
       const cx = AVATAR.x + AVATAR.size / 2, cy = AVATAR.y + AVATAR.size / 2;
       r.circle(cx, cy, AVATAR.size / 2, disc.color);
       r.print(cx, cy, iconFont(GLYPH_PX), WHITE, "C", String.fromCodePoint(disc.glyph));
-    } else if (figureCard) {
-      r.roundRect(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, [243, 243, 243]);
+    } else if (figureCard || EDGE) {
+      // The small avatar is a light tile, like the question view in the light theme; the
+      // dark theme loads the light avatar for this one spot. The large figure stays black.
+      const tile = [243, 243, 243];
+      r.roundRect(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, tile);
       const ctx = r.ctx;
       ctx.save();
       r.roundRectPath(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20);
       ctx.clip();
       this.figure(r, d, "avatar", 0, AVATAR.x, AVATAR.y, AVATAR.size);
       ctx.restore();
-      if (EDGE) r.roundRectOutline(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, 1, EDGE);
-    } else if (EDGE) {
-      // The figure frames carry the light page as their background; on black they become
-      // a rounded sticker instead of a bright square.
-      const ctx = r.ctx;
-      ctx.save();
-      r.roundRectPath(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20);
-      ctx.clip();
-      this.figure(r, d, "avatar", 0, AVATAR.x, AVATAR.y, AVATAR.size);
-      ctx.restore();
-      r.roundRectOutline(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, 1, EDGE);
+      r.roundRectOutline(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, 1, [218, 218, 223]);
     } else {
       this.figure(r, d, "avatar", 0, AVATAR.x, AVATAR.y, AVATAR.size);
     }
