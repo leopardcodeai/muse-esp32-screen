@@ -14,8 +14,8 @@ muse_box_set_status:
     continue_on_error: true
     data:
       status: '{{ status }}'
-muse_esp32_screen_set_status:
-  alias: Muse ESP32 screen set status
+muse_screen_set_status:
+  alias: Muse screen set status
   mode: parallel
   max: 20
   fields:
@@ -61,8 +61,8 @@ muse_box_set_status_text:
     data:
       status: '{{ status }}'
       label: '{{ label }}'
-muse_esp32_screen_set_status_text:
-  alias: Muse ESP32 screen set status with label
+muse_screen_set_status_text:
+  alias: Muse screen set status with label
   mode: parallel
   max: 20
   fields:
@@ -115,8 +115,8 @@ muse_box_show_text:
     data:
       title: '{{ title }}'
       message: '{{ message }}'
-muse_esp32_screen_show_text:
-  alias: Muse ESP32 screen show text
+muse_screen_show_text:
+  alias: Muse screen show text
   mode: parallel
   max: 20
   fields:
@@ -175,8 +175,8 @@ muse_box_show_value:
       label: '{{ label }}'
       value: '{{ value }}'
       unit: '{{ unit }}'
-muse_esp32_screen_show_value:
-  alias: Muse ESP32 screen show value
+muse_screen_show_value:
+  alias: Muse screen show value
   mode: parallel
   max: 20
   fields:
@@ -242,8 +242,8 @@ muse_box_show_weather:
       condition: '{{ condition }}'
       temperature: '{{ temperature }}'
       message: '{{ message }}'
-muse_esp32_screen_show_weather:
-  alias: Muse ESP32 screen show weather
+muse_screen_show_weather:
+  alias: Muse screen show weather
   mode: parallel
   max: 20
   fields:
@@ -309,8 +309,8 @@ muse_box_show_event:
       icon: '{{ icon }}'
       title: '{{ title }}'
       message: '{{ message }}'
-muse_esp32_screen_show_event:
-  alias: Muse ESP32 screen show event
+muse_screen_show_event:
+  alias: Muse screen show event
   mode: parallel
   max: 20
   fields:
@@ -376,8 +376,8 @@ muse_box_show_image:
       title: '{{ title }}'
       message: '{{ message }}'
       url: '{{ url }}'
-muse_esp32_screen_show_image:
-  alias: Muse ESP32 screen show image
+muse_screen_show_image:
+  alias: Muse screen show image
   mode: parallel
   max: 20
   fields:
@@ -449,8 +449,8 @@ muse_box_show_image_timed:
       message: '{{ message }}'
       url: '{{ url }}'
       seconds: '{{ seconds }}'
-muse_esp32_screen_show_image_timed:
-  alias: Muse ESP32 screen show image for seconds
+muse_screen_show_image_timed:
+  alias: Muse screen show image for seconds
   mode: parallel
   max: 20
   fields:
@@ -523,8 +523,8 @@ muse_box_show_live:
       title: '{{ title }}'
       url: '{{ url }}'
       seconds: '{{ seconds }}'
-muse_esp32_screen_show_live:
-  alias: Muse ESP32 screen show live view
+muse_screen_show_live:
+  alias: Muse screen show live view
   mode: parallel
   max: 20
   fields:
@@ -596,8 +596,8 @@ muse_box_show_route:
       from: '{{ from }}'
       to: '{{ to }}'
       mode: '{{ mode }}'
-muse_esp32_screen_show_route:
-  alias: Muse ESP32 screen show route
+muse_screen_show_route:
+  alias: Muse screen show route
   mode: parallel
   max: 20
   fields:
@@ -665,8 +665,8 @@ muse_box_show_agenda:
     data:
       title: '{{ title }}'
       events: '{{ events }}'
-muse_esp32_screen_show_agenda:
-  alias: Muse ESP32 screen show agenda
+muse_screen_show_agenda:
+  alias: Muse screen show agenda
   mode: parallel
   max: 20
   fields:
@@ -721,8 +721,8 @@ muse_box_show_list:
     data:
       title: '{{ title }}'
       items: '{{ items }}'
-muse_esp32_screen_show_list:
-  alias: Muse ESP32 screen show list
+muse_screen_show_list:
+  alias: Muse screen show list
   mode: parallel
   max: 20
   fields:
@@ -776,8 +776,8 @@ muse_box_show_timer:
     data:
       label: '{{ label }}'
       duration: '{{ duration }}'
-muse_esp32_screen_show_timer:
-  alias: Muse ESP32 screen show timer
+muse_screen_show_timer:
+  alias: Muse screen show timer
   mode: parallel
   max: 20
   fields:
@@ -824,8 +824,8 @@ muse_box_cancel_timer:
     continue_on_error: true
     data:
       label: '{{ label }}'
-muse_esp32_screen_cancel_timer:
-  alias: Muse ESP32 screen cancel timer
+muse_screen_cancel_timer:
+  alias: Muse screen cancel timer
   mode: parallel
   max: 20
   fields:
@@ -877,8 +877,8 @@ muse_box_ask:
       question: '{{ question }}'
       yes_label: '{{ yes_label }}'
       no_label: '{{ no_label }}'
-muse_esp32_screen_ask:
-  alias: Muse ESP32 screen ask yes or no
+muse_screen_ask:
+  alias: Muse screen ask yes or no
   mode: parallel
   max: 20
   fields:
@@ -938,8 +938,8 @@ muse_box_choose:
     data:
       question: '{{ question }}'
       options: '{{ options }}'
-muse_esp32_screen_choose:
-  alias: Muse ESP32 screen ask with choices
+muse_screen_choose:
+  alias: Muse screen ask with choices
   mode: parallel
   max: 20
   fields:
@@ -992,8 +992,8 @@ muse_box_celebrate:
     data:
       title: '{{ title }}'
       message: '{{ message }}'
-muse_esp32_screen_celebrate:
-  alias: Muse ESP32 screen celebrate
+muse_screen_celebrate:
+  alias: Muse screen celebrate
   mode: parallel
   max: 20
   fields:
@@ -1041,8 +1041,8 @@ muse_box_draw:
     continue_on_error: true
     data:
       scene: '{{ scene }}'
-muse_esp32_screen_draw:
-  alias: Muse ESP32 screen draw a scene
+muse_screen_draw:
+  alias: Muse screen draw a scene
   mode: parallel
   max: 20
   fields:
@@ -1076,8 +1076,8 @@ muse_box_clear:
   sequence:
   - action: esphome.muse_esp32boxs3_screen_muse_clear
     continue_on_error: true
-muse_esp32_screen_clear:
-  alias: Muse ESP32 screen clear every card
+muse_screen_clear:
+  alias: Muse screen clear every card
   mode: parallel
   max: 20
   fields: {}

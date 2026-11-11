@@ -79,9 +79,9 @@ you want it to start after a normal restart.
 
 ## 5. Checks after the first boot
 
-- In Home Assistant, call `script.muse_esp32_screen_show_text` with a title and a
+- In Home Assistant, call `script.muse_screen_show_text` with a title and a
   message. The board must show it through the `muse_web` event.
-- Call `script.muse_esp32_screen_ask`; the question appears with two buttons. A tap
+- Call `script.muse_screen_ask`; the question appears with two buttons. A tap
   sends `muse_mosaico_answer` back; the common answer entity gets
   `<answer>: <question>`.
 - `python3 tools/muse_feed.py demo` in the simulator shows every card without the board.

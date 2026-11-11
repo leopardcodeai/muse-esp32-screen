@@ -9,7 +9,7 @@ Every argument is mandatory in Home Assistant, send `""` where nothing is meant.
   entity ids.
 - `scripts/muse_weather.yaml`: today's weather as a card; the assistant can call
   `script.muse_weather` instead of composing the weather itself.
-- `scripts/muse_esp32_screen.yaml`: the 19 public `script.muse_esp32_screen_*` actions
+- `scripts/muse_screen.yaml`: the 19 public `script.muse_screen_*` actions
   (the same fields as the firmware) plus the `muse_box_*` helpers. Use these: they fire
   the `muse_web` event for the web twin, the ESP-Mosaico app and the camera, then start
   the box helper. A box automation that still calls `esphome.*` directly reaches only the

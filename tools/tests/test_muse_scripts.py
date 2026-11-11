@@ -1,4 +1,4 @@
-"""Tests for the generated muse_esp32_screen Home Assistant scripts (no HA needed).
+"""Tests for the generated muse_screen Home Assistant scripts (no HA needed).
 
 Run from the project folder:
   python3 -m pytest tools/tests/test_muse_scripts.py -q
@@ -20,7 +20,7 @@ def test_every_action_has_a_public_script_and_a_box_helper():
     scripts = gen.build()
     assert len(scripts) == len(gen.ACTIONS) * 2
     for action in gen.ACTIONS:
-        assert f"muse_esp32_screen_{action}" in scripts
+        assert f"muse_screen_{action}" in scripts
         assert f"muse_box_{action}" in scripts
     assert not any("muse_broadcast" in key for key in scripts)
 
@@ -28,7 +28,7 @@ def test_every_action_has_a_public_script_and_a_box_helper():
 def test_the_event_comes_before_the_box_and_never_blocks():
     scripts = gen.build()
     for action, fields in gen.ACTIONS.items():
-        sequence = scripts[f"muse_esp32_screen_{action}"]["sequence"]
+        sequence = scripts[f"muse_screen_{action}"]["sequence"]
         assert sequence[0]["event"] == "muse_web"
         assert sequence[0]["event_data"]["action"] == action
         for name in fields:
@@ -52,7 +52,7 @@ def test_the_box_helper_calls_the_esphome_service():
 
 def test_clear_has_no_fields_and_no_variables():
     scripts = gen.build()
-    assert scripts["muse_esp32_screen_clear"]["fields"] == {}
+    assert scripts["muse_screen_clear"]["fields"] == {}
     assert scripts["muse_box_clear"]["fields"] == {}
     assert "data" not in scripts["muse_box_clear"]["sequence"][0]
 
@@ -60,7 +60,7 @@ def test_clear_has_no_fields_and_no_variables():
 def test_the_yaml_round_trips_and_keeps_the_field_selectors():
     text = yaml.safe_dump(gen.build(), sort_keys=False, allow_unicode=True)
     parsed = yaml.safe_load(text)
-    assert parsed["muse_esp32_screen_show_list"]["fields"]["items"]["selector"]["text"]["multiline"] is True
-    assert parsed["muse_esp32_screen_show_text"]["fields"]["title"]["selector"]["text"] == {}
-    assert parsed["muse_esp32_screen_ask"]["mode"] == "parallel"
-    assert parsed["muse_esp32_screen_ask"]["max"] == 20
+    assert parsed["muse_screen_show_list"]["fields"]["items"]["selector"]["text"]["multiline"] is True
+    assert parsed["muse_screen_show_text"]["fields"]["title"]["selector"]["text"] == {}
+    assert parsed["muse_screen_ask"]["mode"] == "parallel"
+    assert parsed["muse_screen_ask"]["max"] == 20

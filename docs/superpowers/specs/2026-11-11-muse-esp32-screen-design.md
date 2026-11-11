@@ -1,4 +1,4 @@
-# Muse ESP32 Screen: one device layer, Mosaico default, dark AMOLED
+# Muse Screen: one device layer, Mosaico default, dark AMOLED
 
 Status: approved in chat on 11 November 2026. This spec is the source for the
 implementation plan; the German Muse prompt in the appendix is part of the deliverable.
@@ -6,7 +6,7 @@ implementation plan; the German Muse prompt in the appendix is part of the deliv
 ## Goal
 
 One Home Assistant entry point for every Muse screen. Muse calls
-`script.muse_esp32_screen_<action>`; the script fires the `muse_web` event for the browser
+`script.muse_screen_<action>`; the script fires the `muse_web` event for the browser
 twin, the camera/Apple TV view and any webhook, then starts the per-device helpers. The
 ESP-Mosaico (ESP32-S31, 480 x 480 AMOLED) becomes the reference device, the
 ESP32-S3-BOX-3 becomes the second device, and the web app adopts the Mosaico display as
@@ -24,16 +24,16 @@ its default with a switchable dark theme.
 
 | Layer | Name | State |
 |---|---|---|
-| Family / public API | `script.muse_esp32_screen_<action>` | new |
+| Family / public API | `script.muse_screen_<action>` | new |
 | Web event | `muse_web` | unchanged |
 | Web answer event | `muse_web_answer` | unchanged |
-| Common answer sensor | `sensor.muse_esp32_screen_answer` | new |
+| Common answer sensor | `sensor.muse_screen_answer` | new |
 | BOX-3 device helpers | `script.muse_box_<action>` | already live |
 | BOX-3 ESPHome actions | `esphome.muse_esp32boxs3_screen_muse_<action>` (live) / `esphome.muse_esp32_s3_box_3_screen_muse_<action>` (public name) | unchanged |
-| Mosaico device helpers | `script.muse_mosaico_<action>` | future, not in this change |
+| Mosaico app | `~/Coding/esp/apps/muse`, subscribes to `muse_web` over the Home Assistant websocket | app exists, event subscription to add |
 
 `script.muse_broadcast_*` was created on 11 November 2026 and has no external users. It is
-replaced by `script.muse_esp32_screen_*`; no alias is kept.
+replaced by `script.muse_screen_*`; no alias is kept.
 
 The web app keeps `muse_esp32_s3_box_3_screen` as its default device for legacy
 `call_service` events. The `muse_web` event carries no device name, so the new layer does
@@ -46,25 +46,25 @@ All fields are required; send `""` where nothing is meant. Numbers travel as str
 
 | Script | Fields | Shows |
 |---|---|---|
-| `script.muse_esp32_screen_set_status` | `status` | the status animation and pill |
-| `script.muse_esp32_screen_set_status_text` | `status`, `label` | the same, with a custom label |
-| `script.muse_esp32_screen_show_text` | `title`, `message` | text card |
-| `script.muse_esp32_screen_show_value` | `label`, `value`, `unit` | large value |
-| `script.muse_esp32_screen_show_weather` | `condition`, `temperature`, `message` | weather card |
-| `script.muse_esp32_screen_show_event` | `icon`, `title`, `message` | icon disc and text |
-| `script.muse_esp32_screen_show_image` | `title`, `message`, `url` | photo or GIF |
-| `script.muse_esp32_screen_show_image_timed` | `title`, `message`, `url`, `seconds` | photo or GIF for 1 to 600 s |
-| `script.muse_esp32_screen_show_live` | `title`, `url`, `seconds` | live camera view |
-| `script.muse_esp32_screen_show_route` | `title`, `from`, `to`, `mode` | map with the way |
-| `script.muse_esp32_screen_show_agenda` | `title`, `events` | appointments |
-| `script.muse_esp32_screen_show_list` | `title`, `items` | list with ticks |
-| `script.muse_esp32_screen_show_timer` | `label`, `duration` | countdown ring |
-| `script.muse_esp32_screen_cancel_timer` | `label` | ends timers |
-| `script.muse_esp32_screen_ask` | `question`, `yes_label`, `no_label` | question with two buttons |
-| `script.muse_esp32_screen_choose` | `question`, `options` | question with two to four answers |
-| `script.muse_esp32_screen_celebrate` | `title`, `message` | confetti and title |
-| `script.muse_esp32_screen_draw` | `scene` | a scene in the drawing language |
-| `script.muse_esp32_screen_clear` | none | every card gone |
+| `script.muse_screen_set_status` | `status` | the status animation and pill |
+| `script.muse_screen_set_status_text` | `status`, `label` | the same, with a custom label |
+| `script.muse_screen_show_text` | `title`, `message` | text card |
+| `script.muse_screen_show_value` | `label`, `value`, `unit` | large value |
+| `script.muse_screen_show_weather` | `condition`, `temperature`, `message` | weather card |
+| `script.muse_screen_show_event` | `icon`, `title`, `message` | icon disc and text |
+| `script.muse_screen_show_image` | `title`, `message`, `url` | photo or GIF |
+| `script.muse_screen_show_image_timed` | `title`, `message`, `url`, `seconds` | photo or GIF for 1 to 600 s |
+| `script.muse_screen_show_live` | `title`, `url`, `seconds` | live camera view |
+| `script.muse_screen_show_route` | `title`, `from`, `to`, `mode` | map with the way |
+| `script.muse_screen_show_agenda` | `title`, `events` | appointments |
+| `script.muse_screen_show_list` | `title`, `items` | list with ticks |
+| `script.muse_screen_show_timer` | `label`, `duration` | countdown ring |
+| `script.muse_screen_cancel_timer` | `label` | ends timers |
+| `script.muse_screen_ask` | `question`, `yes_label`, `no_label` | question with two buttons |
+| `script.muse_screen_choose` | `question`, `options` | question with two to four answers |
+| `script.muse_screen_celebrate` | `title`, `message` | confetti and title |
+| `script.muse_screen_draw` | `scene` | a scene in the drawing language |
+| `script.muse_screen_clear` | none | every card gone |
 
 `wait_answer`, `get_state` and `hw_check` stay device-specific: they return a response
 and, for `wait_answer`, must wait on the device that shows the question. The prompt names
@@ -93,8 +93,8 @@ or a scene button's text), `question` (the question or `Szene`), and `action` (`
 ### Answer sensors
 
 - `sensor.muse_web_screen_antwort` and `input_text.muse_web_answer` stay as they are.
-- New `input_text.muse_esp32_screen_answer` plus
-  `sensor.muse_esp32_screen_answer` mirror the latest answer from any screen in the form
+- New `input_text.muse_screen_answer` plus
+  `sensor.muse_screen_answer` mirror the latest answer from any screen in the form
   `<answer>: <question>`. The web answer automation writes it; a second automation copies
   the BOX-3 answer sensor when it changes. The BOX-3 entity id is a single marked line in
   the package because it depends on the device name: `sensor.muse_esp32boxs3_screen_antwort`
@@ -105,11 +105,18 @@ or a scene button's text), `question` (the question or `Szene`), and `action` (`
 
 Each public script runs in `parallel` mode with `max: 20`:
 
-1. `event: muse_web` with the payload.
-2. One `script.turn_on` per device helper, with `variables:` nested under `data:`.
-3. A `choose` guard before each device call:
-   `{{ states('script.muse_box_ask') not in ['unknown', 'unavailable'] }}` so an absent
-   Mosaico helper is skipped instead of failing the call.
+1. `event: muse_web` with the payload. The browser twin, the camera/Apple TV view and the
+   ESP-Mosaico app all listen to this event; a webhook can, too.
+2. One `script.turn_on` for the BOX-3 helper, with `variables:` nested under `data:`.
+3. A `choose` guard before the box call:
+   `{{ states('script.muse_box_ask') not in ['unknown', 'unavailable'] }}` so a house
+   without a box skips it instead of failing the call.
+
+The Mosaico app carries no Home Assistant script: it is an ESP-IDF app with its own
+websocket client, like the browser. It subscribes to `muse_web` and maps the event's
+`action` and fields into its core, which already speaks the same 14 actions as the box.
+Images, live views, routes and scenes show its text fallback until ported; that is the
+app's existing limit, not a new one.
 
 `script.turn_on` must receive `variables:`, not the fields directly:
 `data: {variables: {question: ...}}`. A flat `data:` returns HTTP 400.
@@ -121,9 +128,11 @@ by `script.turn_on`, the public call returned in 0.021 s and the browser logged 
 after 0.029 s. The same holds for every other action, so the layer never waits for a
 device.
 
-Rejected alternative: one generic `muse_screen` event bus with per-device automations.
-It scales to more devices but loses the service fields, the validation, the script traces
-and the direct `ask`/`choose` response that Muse uses today.
+Rejected alternative: only a generic event bus, with no Home Assistant script. It scales
+to more devices but loses the service fields, the validation, the script traces and the
+direct `ask`/`choose` response that Muse uses today. The chosen hybrid keeps the script as
+the typed entry point and uses the event as the fan-out to devices that are not ESPHome
+devices.
 
 ## 4. Web app: Mosaico default
 
@@ -181,12 +190,19 @@ web keeps full 8-bit colour.
 - `docs/SQUARE_LAYOUT.md`: both palettes, the theme rule, the panel table.
 - `docs/ACTIONS.md`: a "one entry point for all screens" section with the table above and
   a note that `wait_answer`, `get_state` and `hw_check` stay device-specific.
-- `homeassistant/scripts/muse_esp32_screen.yaml`: the 19 scripts plus the box helpers,
+- `homeassistant/scripts/muse_screen.yaml`: the 19 scripts plus the box helpers,
   ready for `scripts.yaml`.
-- `homeassistant/automations/muse_esp32_screen_answer.yaml`: web answer copy and BOX-3
+- `homeassistant/automations/muse_screen_answer.yaml`: web answer copy and BOX-3
   answer copy.
 - `docs/ASSISTANT_PROMPT.md`: the German and English prompt replaced with the text in the
   appendix (English translation of the same content).
+- `docs/MOSAICO.md`: the board install guide, written for the day the board arrives:
+  CoreBoard V1.0 or V1.2, `recover`, `iris system-update`, the Vibe Mode "Save Current
+  Build" step, `tools/provision.py`, and the checks after the first boot. It points at
+  `~/Coding/esp/apps/muse/MUSE_MOSAICO.md` for the app and repeats only the install.
+- `~/Coding/esp/apps/muse/main.c`: subscribe to `muse_web` in addition to `call_service`;
+  the app's own `MUSE_MOSAICO.md` gets the new transport and the checklist. That app is a
+  separate repository (`github.com/leopardcodeai/esp32`), so its commit is separate.
 - Versions: web 1.6.0, add-on 1.0.2, firmware stays 4.3.0 (no firmware change).
 
 ## 7. Error handling
@@ -209,11 +225,11 @@ Host tests:
   layout migration and the 2x backing cap.
 - `pytest tools/` and `python3 tools/check_private.py`.
 
-Live acceptance, all from `script.muse_esp32_screen_*`:
+Live acceptance, all from `script.muse_screen_*`:
 
 - 19 actions reach the web within 300 ms and the box reports the matching mode/title.
 - `ask` returns in under 100 ms; the box shows the question; a web tap writes
-  `sensor.muse_esp32_screen_answer` and `sensor.muse_web_screen_antwort`, a box tap writes
+  `sensor.muse_screen_answer` and `sensor.muse_web_screen_antwort`, a box tap writes
   `sensor.muse_esp32boxs3_screen_antwort` and the common sensor.
 - Reload restores the last card; a short Home Assistant restart reconnects.
 - `?layout=box` still renders the 320 x 240 view pixel for pixel; the BOX-3 app keeps its
@@ -222,6 +238,10 @@ Live acceptance, all from `script.muse_esp32_screen_*`:
   Apple TV.
 - Median frame time at 960 px stage under 20 ms on the Mac; no `[W]` or `[E]` in the box
   log after a flash-free deploy (firmware unchanged).
+- Mosaico without hardware: `./sim.sh --frame` still renders the 480 x 480 ready screen,
+  and the patched `main.c` builds for `esp32s31`. A synthetic `muse_web` event reaches the
+  same core path as a `call_service` event; the install guide names this as a simulator
+  check and leaves the hardware steps marked as untested until the board arrives.
 
 ## Appendix: Muse prompt (German, paste-ready)
 
@@ -235,25 +255,25 @@ ESP32-S3-BOX-3 (320 x 240, das zweite Gerät) und den Muse Web Screen im Browser
 auf dem Apple TV als Kamerabild läuft.
 
 REGELN
-- Ruf immer script.muse_esp32_screen_<aktion> auf, nie die gerätespezifischen
+- Ruf immer script.muse_screen_<aktion> auf, nie die gerätespezifischen
   esphome.*-Aktionen. Ein Aufruf erreicht alle Bildschirme; fehlt ein Gerät, zeigen die
   anderen trotzdem.
 - Jedes Feld ist Pflicht; sende "", wo nichts gemeint ist. Zahlen als Text.
 - Karten stellen sich an: Läuft eine Karte, wartet die nächste ("+N"); ein Tipp zeigt die
-  nächste. Gleicher Titel ersetzt die gezeigte Karte. script.muse_esp32_screen_clear
+  nächste. Gleicher Titel ersetzt die gezeigte Karte. script.muse_screen_clear
   räumt alles ab.
 - Standzeiten: Text, Wert, Ereignis 20 s; Konfetti 30 s; Liste und Kalender ab 30 s;
   Wetter und Route 60 s; Foto 90 s (oder 1 bis 600 s mit show_image_timed); Frage 2 min;
   Timer solange er läuft; Live und Szene wie angegeben.
 - Keine Emojis (die Schrift hat keine), nimm Icons.
-- Antworten landen in sensor.muse_esp32_screen_answer als "<Antwort>: <Frage>".
+- Antworten landen in sensor.muse_screen_answer als "<Antwort>: <Frage>".
 
 1. WENN WIR REDEN
-- Zu Beginn script.muse_esp32_screen_set_status_text mit status "thinking" und label =
+- Zu Beginn script.muse_screen_set_status_text mit status "thinking" und label =
   was du tust ("Ich lese deine E-Mails …").
-- Antwort: script.muse_esp32_screen_show_text (title, message), oder eine Szene
+- Antwort: script.muse_screen_show_text (title, message), oder eine Szene
   (Teil 5), wenn ein Bild mehr sagt.
-- Zum Schluss script.muse_esp32_screen_set_status mit status "ready".
+- Zum Schluss script.muse_screen_set_status mit status "ready".
 - Sprechen: tts.speak mit media_player_entity_id media_player.muse_box_lautsprecher
   (so heißt der Lautsprecher dieser Box in Home Assistant).
 
@@ -284,7 +304,7 @@ REGELN
 - choose: question, options (2 bis 4 Zeilen). Antwortet mit dem gewählten Text oder
   "pending".
 - Beide warten 25 s auf einen Tipp; bei "pending" bleibt die Frage 2 min. Die Antwort
-  steht dann in sensor.muse_esp32_screen_answer.
+  steht dann in sensor.muse_screen_answer.
 - wait_answer und get_state sind Gerätesachen: dafür
   esphome.muse_esp32boxs3_screen_muse_wait_answer bzw. ..._get_state aufrufen.
 

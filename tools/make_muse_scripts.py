@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes the Home Assistant scripts of one Muse screen family.
 
-What: emits `muse_esp32_screen_<action>` (the public entry point) and
+What: emits `muse_screen_<action>` (the public entry point) and
 `muse_box_<action>` (the BOX-3 helper) for every display action. The public script fires
 the `muse_web` event first, then starts the box helper through `script.turn_on` with
 `variables:`. A blocking `ask` on the box therefore never delays the browser, the camera
@@ -33,7 +33,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUT = ROOT / "homeassistant" / "scripts" / "muse_esp32_screen.yaml"
+DEFAULT_OUT = ROOT / "homeassistant" / "scripts" / "muse_screen.yaml"
 DEFAULT_BOX = "muse_esp32boxs3_screen"
 
 # action -> fields in the order the assistant sends them
@@ -118,7 +118,7 @@ def public_script(action: str) -> dict:
     if ACTIONS[action]:
         start["data"] = {"variables": local_fields(action)}
     return {
-        "alias": f"Muse ESP32 screen {NAMES[action].lower()}",
+        "alias": f"Muse screen {NAMES[action].lower()}",
         "mode": "parallel",
         "max": 20,
         "fields": fields(action),
@@ -140,7 +140,7 @@ def build(box_prefix: str = DEFAULT_BOX) -> dict:
     scripts = {}
     for action in ACTIONS:
         scripts[f"muse_box_{action}"] = box_script(action, box_prefix)
-        scripts[f"muse_esp32_screen_{action}"] = public_script(action)
+        scripts[f"muse_screen_{action}"] = public_script(action)
     return scripts
 
 
