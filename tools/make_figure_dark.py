@@ -31,7 +31,7 @@ from collections import deque
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 NAMES = ("idle", "wave", "working", "making", "confetti", "avatar")
 
@@ -68,13 +68,25 @@ def flatten(rgb: np.ndarray, tolerance: int, blur: float) -> np.ndarray:
     return (rgb.astype(np.float32) * a[..., None]).clip(0, 255).astype(np.uint8)
 
 
-def convert(src: Path, out: Path, tolerance: int, blur: float) -> tuple[int, int]:
+def round_avatar(image: Image.Image, feather: float = 1.5) -> Image.Image:
+    """A clean circle, so the avatar's own light rim does not glow on black."""
+    w, h = image.size
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).ellipse((1, 1, w - 2, h - 2), fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(feather))
+    return Image.composite(image, Image.new("RGB", (w, h), (0, 0, 0)), mask)
+
+
+def convert(src: Path, out: Path, tolerance: int, blur: float, round_avatar_image: bool = True) -> tuple[int, int]:
     image = Image.open(src)
     frames = []
     durations = []
     for index in range(getattr(image, "n_frames", 1)):
         image.seek(index)
-        frames.append(Image.fromarray(flatten(np.asarray(image.convert("RGB")), tolerance, blur)))
+        frame = Image.fromarray(flatten(np.asarray(image.convert("RGB")), tolerance, blur))
+        if round_avatar_image and out.stem == "avatar":
+            frame = round_avatar(frame)
+        frames.append(frame)
         durations.append(image.info.get("duration", 167))
     if len(frames) == 1:
         frames[0].save(out)
@@ -90,6 +102,8 @@ def main() -> None:
     parser.add_argument("--prefix", default="")
     parser.add_argument("--tolerance", type=int, default=18)
     parser.add_argument("--blur", type=float, default=1.2)
+    parser.add_argument("--no-avatar-round", action="store_true",
+                        help="keep the avatar's square frame instead of a clean circle")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -103,7 +117,7 @@ def main() -> None:
         if args.dry_run:
             print(f"would write {dst}")
             continue
-        count, size = convert(src, dst, args.tolerance, args.blur)
+        count, size = convert(src, dst, args.tolerance, args.blur, not args.no_avatar_round)
         print(f"{dst}  {size} px, {count} frame(s), {dst.stat().st_size // 1024} KiB")
 
 
