@@ -86,8 +86,10 @@ It cuts a figure out of its plain background, sets it on a black macOS icon shap
 the installed app (`~/Applications/Chrome Apps.localized/Muse Web Screen.app`; `--app` for another
 name). The default is the project's figure (`web/icons/icon-512.png`); `--image my_figure.png` takes yours, and `--fade 0.5`
 lets a figure that the picture cuts off at the bottom run softly into the black. The PNG goes to
-`web/local/`, never into git. Quit the app and open it again to see the new icon in the Dock;
-after a Chrome update that resets the icon, run the command once more.
+`web/local/`, never into git; `--png web/local/mac_app_icon.png` sets an already composed icon as
+it is. The script clears the Dock's icon cache and restarts the Dock, so the icon appears even
+when macOS 26 kept the old one; quit the app and open it again if it was running. After a Chrome
+update that rebuilds the app and resets the icon, run the command once more.
 
 ## When something is off
 

@@ -4,7 +4,7 @@
 What: takes a picture of a figure (default: the project's placeholder, web/icons/icon-512.png),
 removes the plain background around it, sets it on a black macOS icon shape, writes the PNG
 to web/local/mac_app_icon.png and puts it on the installed app as its custom Finder and Dock
-icon (NSWorkspace setIcon).
+icon (NSWorkspace setIcon). With --png it sets an already composed icon as it is.
 
 Why: Chrome gives an installed web app the icon of its manifest; on a Mac you may want your
 own, for example your assistant's figure, without changing what the public app ships.
@@ -18,15 +18,21 @@ Pitfalls:
   * Somebody else's artwork (an assistant's mascot) is for your own Mac only: the output goes
     to web/local/, which git and Vercel ignore. Never commit it.
   * Chrome rewrites its app shims now and then (an update, a reinstall); run this again when
-    the Dock shows the manifest icon. The Dock shows the new icon after the app is quit and
-    opened again.
+    the Dock shows the manifest icon.
+  * macOS keeps a Dock icon cache. On macOS 26 the Dock can keep the old icon although the
+    bundle already carries the new one, even across a quit and a relaunch. The script clears
+    that cache and restarts the Dock, which makes the Dock blink once.
 
 Usage (macOS):
   uv run --python 3.14 --with pillow --with numpy --with pyobjc-framework-Cocoa web/tools/set_mac_app_icon.py --dry-run
   uv run --python 3.14 --with pillow --with numpy --with pyobjc-framework-Cocoa web/tools/set_mac_app_icon.py
   uv run --python 3.14 --with pillow --with numpy --with pyobjc-framework-Cocoa web/tools/set_mac_app_icon.py --image my_figure.png --fade 0.5
+  uv run --python 3.14 --with pyobjc-framework-Cocoa web/tools/set_mac_app_icon.py --png web/local/mac_app_icon.png
 """
 import argparse
+import shutil
+import subprocess
+import tempfile
 from collections import deque
 from pathlib import Path
 
@@ -104,24 +110,49 @@ def set_icon(png: Path, app: Path) -> bool:
     return bool(NSWorkspace.sharedWorkspace().setIcon_forFile_options_(image, str(app), 0))
 
 
+def refresh_dock() -> None:
+    """Drops the Dock's icon cache and restarts the Dock, so the new icon shows at once."""
+    cache = Path(tempfile.gettempdir()).parent / "C"
+    for path in (cache / "com.apple.dock.iconcache", cache / "com.apple.iconservices"):
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+    shutil.rmtree(Path.home() / "Library/Caches/com.apple.iconservices.store", ignore_errors=True)
+    subprocess.run(["killall", "Dock"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--image", type=Path, default=DEFAULT_IMAGE, help="a figure on a plain background")
+    ap.add_argument("--png", type=Path, help="an already composed icon; set it as it is")
     ap.add_argument("--app", type=Path, default=DEFAULT_APP, help="the installed app bundle")
     ap.add_argument("--fade", type=float, default=0.0, help="share of the figure that fades into the black at the bottom (0 to 0.8)")
     ap.add_argument("--dry-run", action="store_true", help="say what would happen, write nothing")
     a = ap.parse_args()
-    if not a.image.exists():
-        raise SystemExit(f"{a.image} not found")
+    if not (a.png or a.image).exists():
+        raise SystemExit(f"{a.png or a.image} not found")
     if not a.app.exists():
         raise SystemExit(f"{a.app} not found: install the app from Chrome first (docs/MAC_APP.md)")
     if a.dry_run:
-        print(f"would cut {a.image} out, write {OUT} and set it on {a.app}")
+        print(f"would set {a.png} on {a.app} and refresh the Dock" if a.png
+              else f"would cut {a.image} out, write {OUT} and set it on {a.app}")
         return
-    OUT.parent.mkdir(exist_ok=True)
-    build(a.image, max(0.0, min(0.8, a.fade))).save(OUT)
-    print(f"wrote {OUT}")
-    print("icon set; quit the app and open it again" if set_icon(OUT, a.app) else "setting the icon failed")
+    if a.png:
+        png = a.png
+    else:
+        OUT.parent.mkdir(exist_ok=True)
+        build(a.image, max(0.0, min(0.8, a.fade))).save(OUT)
+        png = OUT
+        print(f"wrote {OUT}")
+    if set_icon(png, a.app):
+        refresh_dock()
+        print("icon set and Dock refreshed; quit the app and open it again to see it in the Dock")
+    else:
+        print("setting the icon failed")
 
 
 if __name__ == "__main__":
