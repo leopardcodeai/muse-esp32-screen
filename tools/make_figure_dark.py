@@ -68,13 +68,22 @@ def flatten(rgb: np.ndarray, tolerance: int, blur: float) -> np.ndarray:
     return (rgb.astype(np.float32) * a[..., None]).clip(0, 255).astype(np.uint8)
 
 
-def vignette(image: Image.Image, inner: float = 0.74, outer: float = 1.0) -> Image.Image:
-    """An even, round fade to black around the figure (inner/outer of the half-size)."""
+def vignette(image: Image.Image, inner: float = 0.74, outer: float = 1.0,
+             bottom: float = 0.82) -> Image.Image:
+    """An even, round fade to black, with an earlier fade at the bottom edge.
+
+    The figure's own frames end flat at the bottom; the extra bottom ramp hides that
+    cut in black instead of showing a horizontal line.
+    """
     w, h = image.size
     yy, xx = np.ogrid[:h, :w]
     radius = np.sqrt((xx - (w - 1) / 2) ** 2 + (yy - (h - 1) / 2) ** 2) / (min(w, h) / 2)
     t = np.clip((outer - radius) / (outer - inner), 0, 1)
     t = t * t * (3 - 2 * t)
+    y_norm = yy / max(1, h - 1)
+    b = np.clip((1 - y_norm) / (1 - bottom), 0, 1)
+    b = b * b * (3 - 2 * b)
+    t = t * b
     return (np.asarray(image, dtype=np.float32) * t[..., None]).clip(0, 255).astype(np.uint8)
 
 
