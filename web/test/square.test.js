@@ -8,7 +8,7 @@ import { Display } from "../display.js";
 import { SQUARE, squareButton, squareButtonAt, toScene, SCENE_BOX, PANEL, weatherGlyph, squareCaption,
   SquareView, TOP_BAR, NAME, CLOCK, BADGE, FIGURE, BUBBLE, CELEBRATION } from "../square.js";
 import { WEATHER } from "../text.js";
-import { DEFAULTS, loadSettings, layoutFor } from "../settings.js";
+import { DEFAULTS, loadSettings, layoutFor, themeFor } from "../settings.js";
 
 function make() {
   const clock = { t: 100000 };
@@ -33,6 +33,10 @@ test("square cards stay 20 s, a celebration 6 s, a question 60 s", () => {
     ["show_text", { title: "T", message: "M" }, 20000],
     ["show_weather", { condition: "sunny", temperature: "20", message: "M" }, 20000],
     ["show_image", { title: "T", message: "M", url: "http://x/y.jpg" }, 20000],
+    ["show_image_timed", { title: "T", message: "M", url: "http://x/y.png", seconds: 30 }, 30000],
+    ["show_image_timed", { title: "T", message: "M", url: "http://x/y.png", seconds: 45 }, 45000],
+    ["show_chart", { title: "C", message: "M", url: "http://x/c.png" }, 30000],
+    ["show_chart", { title: "C", message: "M", url: "http://x/c.png", seconds: 90 }, 90000],
     ["show_live", { title: "T", url: "http://x/y.jpg", seconds: 30 }, 33000],
     ["show_agenda", { title: "", events: "09:00 a" }, 20000],
     ["celebrate", { title: "T", message: "M" }, 6000],
@@ -47,6 +51,34 @@ test("square cards stay 20 s, a celebration 6 s, a question 60 s", () => {
     advance(2);
     assert.equal(d.mode, 0, `${action} gone after ${ms} ms`);
   }
+});
+
+test("a chart is contained in the panel without a caption; a photo covers it", () => {
+  const photo = make();
+  photo.d.dispatch("show_image", { title: "Bild", message: "Text", url: "http://x/y.jpg" });
+  assert.equal(photo.d.mode, 5);
+  assert.equal(photo.d.media.frame.fit, "cover");
+  assert.equal(photo.d.media.frame.w, PANEL.w);
+  assert.deepEqual(photo.d.media.caption, squareCaption({ body: "Text" }));
+  assert.equal(SQUARE.cardMs({ mode: 5, imageSeconds: 0, liveSeconds: 0 }), 20000);
+
+  const chart = make();
+  chart.d.dispatch("show_chart", { title: "Diagramm", message: "Text", url: "http://x/c.png", seconds: 30 });
+  assert.equal(chart.d.mode, 5);
+  assert.equal(chart.d.card.chart, true);
+  assert.equal(chart.d.media.frame.fit, "contain");
+  assert.equal(chart.d.media.frame.w, PANEL.w);
+  assert.equal(chart.d.media.caption, null, "a chart has no caption");
+  assert.equal(SQUARE.cardMs({ mode: 5, imageSeconds: 30, liveSeconds: 0 }), 30000);
+  assert.equal(SQUARE.cardMs({ mode: 5, imageSeconds: 0, liveSeconds: 20, ms: 23000 }), 23000, "a live view keeps its ms");
+});
+
+test("a failed picture says Bild nicht erreichbar in the panel", () => {
+  const { d, clock } = make();
+  d.dispatch("show_chart", { title: "Diagramm", message: "", url: "http://x/c.png" });
+  d.media.state = "failed";
+  const { texts } = frame(d, clock.t);
+  assert.ok(texts.includes("Bild nicht erreichbar"));
 });
 
 test("the square queue keeps 8", () => {
@@ -137,13 +169,27 @@ test("every weather number has a glyph; captions only with a message", () => {
 });
 
 test("the layout setting and ?layout=", () => {
-  assert.equal(DEFAULTS.layout, "box");
-  const mem = { getItem: () => JSON.stringify({ layout: "round" }) };
-  assert.equal(loadSettings(mem).layout, "box");
+  assert.equal(DEFAULTS.layout, "square", "Mosaico is the default");
+  // A browser from before 1.6.0 stored box without the marker: it moves once.
+  const old = { getItem: () => JSON.stringify({ layout: "box" }) };
+  assert.equal(loadSettings(old).layout, "square");
+  // After the move, or after an explicit choice, box is kept.
+  const chosen = { getItem: () => JSON.stringify({ layout: "box", layoutVersion: DEFAULTS.layoutVersion }) };
+  assert.equal(loadSettings(chosen).layout, "box");
+  const round = { getItem: () => JSON.stringify({ layout: "round" }) };
+  assert.equal(loadSettings(round).layout, "square");
   assert.equal(layoutFor("?layout=square", DEFAULTS), "square");
   assert.equal(layoutFor("?layout=nonsense", { ...DEFAULTS, layout: "square" }), "square");
   assert.equal(layoutFor("", { ...DEFAULTS, layout: "square" }), "square");
-  assert.equal(layoutFor("", DEFAULTS), "box");
+  assert.equal(layoutFor("", DEFAULTS), "square");
+});
+
+test("the theme: auto follows the layout, ?theme= wins", () => {
+  assert.equal(themeFor("", DEFAULTS, "square"), "dark");
+  assert.equal(themeFor("", DEFAULTS, "box"), "light");
+  assert.equal(themeFor("", { ...DEFAULTS, theme: "light" }, "square"), "light");
+  assert.equal(themeFor("?theme=dark", { ...DEFAULTS, theme: "light" }, "box"), "dark");
+  assert.equal(themeFor("?theme=nonsense", DEFAULTS, "square"), "dark");
 });
 
 // A renderer that records what is drawn instead of drawing it (text is 10 px a character).

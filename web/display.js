@@ -16,7 +16,15 @@ import { drawTopBar, drawCard } from "./cards.js";
 import { SceneDrawer } from "./draw.js";
 import { SquareView, SQUARE, squareButtonAt, toScene, squareCaption } from "./square.js";
 
-export const VERSION = "1.5.0";
+export const VERSION = "1.6.0";
+
+// The seconds an image card stays: clamp(seconds, 1, 600); 30 when missing or not a number.
+export function clampImageSeconds(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return 30;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 30;
+  return Math.min(600, Math.max(1, n));
+}
 
 export class Display {
   constructor(opts) {
@@ -129,8 +137,12 @@ export class Display {
     this.scene = null;
     if (c.mode === 7) this.scene = S.parse(c.scene);
     if (c.mode === 5) {
-      if (this.square) this.media.caption = squareCaption(c);
-      this.media.show(c.url, c.liveSeconds, Date.now());
+      if (this.square) {
+        // A chart is fitted whole into the panel and carries no caption; a photo covers it.
+        this.media.frame = c.chart ? SQUARE.chartPhoto : SQUARE.photo;
+        this.media.caption = c.chart ? null : squareCaption(c);
+      }
+      this.media.show(c.url, c.liveSeconds, Date.now(), () => this.imageFailed(c));
     }
     if (c.mode === 10) this.agenda = parseAgenda(c.body);
     if (c.mode === 13) this.list = parseList(c.body);
@@ -201,11 +213,44 @@ export class Display {
   // A picture from a URL; without one, title and message show as an event card, with
   // the icon of the card it replaces, so a failed door photo still shows the doorbell.
   showImage(title, message, url) {
+    return this.imageCard(title, message, url, 90000);
+  }
+
+  // A picture that stays `seconds` (1 to 600, 30 when missing).
+  showImageTimed(title, message, url, seconds) {
+    const s = clampImageSeconds(seconds);
+    return this.imageCard(title, message, url, s * 1000, { imageSeconds: s });
+  }
+
+  // A server-rendered chart is a PNG like a photo; the square layout fits it whole into
+  // the panel instead of cropping it, and shows no caption.
+  showChart(title, message, url, seconds) {
+    const s = clampImageSeconds(seconds);
+    return this.imageCard(title, message, url, s * 1000, { imageSeconds: s, chart: true });
+  }
+
+  imageCard(title, message, url, ms, extra = {}) {
     const u = String(url ?? "").trim();
-    const c = makeCard({ mode: u ? 5 : 6, title: clean(title, 2).text, body: clean(message, 1).text, url: u, ms: 90000 });
+    const c = makeCard({ mode: u ? 5 : 6, title: clean(title, 2).text, body: clean(message, 1).text, url: u, ms, ...extra });
     const on = this.card;
     c.event = c.title && on.title === c.title && on.event ? on.event : "info";
     return this.offer(c);
+  }
+
+  // A picture that did not come (an error, or 15 s without an answer): the card becomes
+  // an event card that says so, with the title, event and time left, as the box's
+  // display lambda does. A callback of a card that already left the screen changes nothing.
+  imageFailed(card) {
+    if (this.card !== card || this.mode !== 5) return;
+    const failed = makeCard({
+      mode: 6, event: card.event || "info", title: card.title, body: "Bild nicht erreichbar",
+      ms: Math.max(0, this.until - this.now()), imageSeconds: card.imageSeconds, chart: card.chart,
+    });
+    this.queue.current = failed;
+    this.card = failed;
+    this.version++;
+    this.media.hide();
+    this.log("photo failed: the card becomes an event card");
   }
 
   showLive(title, url, seconds) {
@@ -365,6 +410,8 @@ export class Display {
       case "show_weather": return this.showWeather(s("condition"), s("temperature"), s("message"));
       case "show_event": return this.showEvent(s("icon"), s("title"), s("message"));
       case "show_image": return this.showImage(s("title"), s("message"), s("url"));
+      case "show_image_timed": return this.showImageTimed(s("title"), s("message"), s("url"), f.seconds);
+      case "show_chart": return this.showChart(s("title"), s("message"), s("url"), f.seconds);
       case "show_live": return this.showLive(s("title"), s("url"), f.seconds);
       case "show_route": return this.showRoute(s("title"), s("from"), s("to"), s("mode"));
       case "show_agenda": return this.showAgenda(s("title"), s("events"));

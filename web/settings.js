@@ -15,9 +15,15 @@ export const SETTINGS_KEY = "muse-web-settings";
 export const FIGURE_SOURCES = ["placeholder", "url"];
 // "box": the box's 320 x 240; "square": 480 x 480 (docs/SQUARE_LAYOUT.md, square.js).
 export const LAYOUTS = ["box", "square"];
+// "auto": dark on the square (Mosaico) layout, light on the box layout.
+export const THEMES = ["auto", "dark", "light"];
+// layoutVersion 2 moves a stored box layout once to square, the Mosaico default; an
+// explicit choice after that is kept.
+export const LAYOUT_VERSION = 2;
 export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
-  fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "box",
+  fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
+  theme: "auto", layoutVersion: LAYOUT_VERSION,
 });
 
 // The stored settings over the defaults, cleaned.
@@ -34,6 +40,11 @@ export function loadSettings(storage) {
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
   s.bare = s.bare === true;
   if (!LAYOUTS.includes(s.layout)) s.layout = DEFAULTS.layout;
+  // One-time move to the Mosaico default. A browser that already ran 1.6.0 or later has
+  // the marker and keeps whatever Layout it chose.
+  if ((Number(stored.layoutVersion) || 0) < LAYOUT_VERSION) s.layout = "square";
+  s.layoutVersion = LAYOUT_VERSION;
+  if (!THEMES.includes(s.theme)) s.theme = DEFAULTS.theme;
   return s;
 }
 
@@ -69,6 +80,15 @@ export function landingTarget(href, stored) {
 export function fpsFor(search, settings) {
   const p = new URLSearchParams(search);
   return p.has("fps") ? normaliseFps(p.get("fps"), settings.fps) : normaliseFps(settings.fps);
+}
+
+// The theme of this visit: `?theme=dark|light` in the URL, else the setting. "auto"
+// gives dark on the square (Mosaico) layout and light on the box layout.
+export function themeFor(search, settings, layout) {
+  const p = new URLSearchParams(search);
+  const want = p.has("theme") ? String(p.get("theme")).trim().toLowerCase() : settings.theme;
+  if (want === "dark" || want === "light") return want;
+  return layout === "square" ? "dark" : "light";
 }
 
 // The layout of this visit: `?layout=box|square` in the URL, else the setting.

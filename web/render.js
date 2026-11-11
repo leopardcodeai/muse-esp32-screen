@@ -11,14 +11,35 @@
 //    scene preview and this display agree to the pixel at scale 1.
 export const W = 320;
 export const H = 240;
-export const PAGE = [243, 243, 243];
-export const INK = [28, 28, 30];
-export const SUB = [99, 99, 104];
-export const CARD = [255, 255, 255];
-export const TXT = [44, 44, 46];
-export const SHADOW = [226, 226, 231];
+// The light palette is the box's. setPalette() swaps the tokens for the square layout's
+// dark AMOLED theme (theme.js); the box layout never calls it.
+export let PAGE = [243, 243, 243];
+export let INK = [28, 28, 30];
+export let SUB = [99, 99, 104];
+export let CARD = [255, 255, 255];
+export let TXT = [44, 44, 46];
+export let SHADOW = [226, 226, 231];
 export const WHITE = [255, 255, 255];
-export const ORANGE = [255, 149, 0];
+export let ORANGE = [255, 149, 0];
+// Filled buttons (ask, choose): ink on light, near-white with dark text on the AMOLED.
+export let BUTTON = [28, 28, 30];
+export let BUTTON_TEXT = [255, 255, 255];
+// The dark theme's hairline around cards; null in the light theme, where a shadow does
+// the separating.
+export let EDGE = null;
+
+export function setPalette(p) {
+  PAGE = p.page;
+  INK = p.ink;
+  SUB = p.sub;
+  CARD = p.card;
+  TXT = p.text;
+  SHADOW = p.shadow;
+  ORANGE = p.orange;
+  BUTTON = p.button || p.ink;
+  BUTTON_TEXT = p.buttonText || WHITE;
+  EDGE = p.edge || null;
+}
 
 // The Inter weights behind the six scene text sizes (xs s m l xl xxl), as muse-esp32-s3-box-3-screen.yaml lists them.
 export const TEXT_WEIGHT = [500, 500, 700, 600, 700, 700];

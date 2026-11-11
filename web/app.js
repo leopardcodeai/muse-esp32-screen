@@ -25,8 +25,10 @@ import { Demo, SQUARE_DEMO_CARDS } from "./demo.js";
 import { floatDocument, floatVideo, unfloatVideo, hasDocumentPip, hasVideoPip, Kiosk } from "./pip.js";
 import { FrameClock, BOX_FPS, fitScale, normaliseFps } from "./pace.js";
 import {
-  DEFAULTS, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload, insecureFromHttps, MIXED_CONTENT_NOTE,
+  DEFAULTS, THEMES, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload,
+  themeFor, insecureFromHttps, MIXED_CONTENT_NOTE,
 } from "./settings.js";
+import { applyTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
 const stage = $("stage");
@@ -49,7 +51,12 @@ const square = layout === "square";
 // The logical size of the display: the box's 320 x 240, or 480 x 480.
 const LW = square ? SQUARE_W : W;
 const LH = square ? SQUARE_H : H;
+const theme = themeFor(location.search, settings, layout);
+applyTheme(theme);
+document.documentElement.dataset.theme = theme;
 document.documentElement.classList.toggle("square", square);
+const themeColor = document.querySelector('meta[name="theme-color"]');
+if (themeColor) themeColor.content = theme === "dark" ? "#000000" : "#f3f3f3";
 const fonts = () => (square ? [...allFonts(), ...squareFonts()] : allFonts());
 
 const log = (line) => console.info("[muse] " + line);
@@ -61,6 +68,11 @@ const sounds = new Sounds();
 sounds.enabled = settings.sound;
 let ha = null;
 let demo = null;
+let restored = false;
+let lastActionKey = "";
+let lastActionAt = 0;
+const LAST_STATE_ENTITY = "input_text.muse_web_last";
+const LAST_STATE_KEY = "muse-web-last";
 let hostWindow = window;
 let pipWindow = null;
 let videoPipActive = false;
@@ -95,11 +107,15 @@ function browserName() {
 
 // The stage in whole CSS pixels, the canvas backing store in device pixels: the 320 x 240
 // (or 480 x 480) logical layout stays, the text is drawn at the screen's own resolution.
+let quality = 1;
 function fit() {
   const host = hostWindow;
   const rect = stage.parentElement.getBoundingClientRect();
   const dpr = host.devicePixelRatio || 1;
-  const k = fitScale(rect.width, rect.height, LW, LH, settings.integer);
+  let k = fitScale(rect.width, rect.height, LW, LH, settings.integer);
+  // The Mosaico layout is crisp at 1:1 and stays sharp when a big window scales it up;
+  // 2x is the ceiling, and a slow frame lowers it a step (noteDraw below).
+  if (square) k = Math.min(k, 2) * quality;
   stage.style.width = `${Math.round(LW * k)}px`;
   stage.style.height = `${Math.round(LH * k)}px`;
   renderer.resize(k * dpr);
@@ -125,10 +141,28 @@ function onPixelRatio() {
 
 let lastDraw = 0;
 let fontsReady = false;
+let frameTimes = [];
+// 60 drawn frames decide; a median over 20 ms means the stage costs more than 50 fps,
+// so the square layout drops its backing scale one step instead of stuttering.
+function noteDraw(ms) {
+  if (!square) return;
+  frameTimes.push(ms);
+  if (frameTimes.length > 60) frameTimes.shift();
+  if (frameTimes.length < 60 || quality <= 0.5) return;
+  const median = [...frameTimes].sort((a, b) => a - b)[30];
+  if (median > 20) {
+    quality = Math.max(0.5, quality - 0.25);
+    frameTimes = [];
+    log(`frame budget: ${median.toFixed(1)} ms per picture, backing scale ${quality}`);
+    hostWindow.requestAnimationFrame(fit);
+  }
+}
 function render() {
   if (!fontsReady) return;
+  const started = performance.now();
   display.tick();
   display.render();
+  noteDraw(performance.now() - started);
   lastDraw = performance.now();
   if (bare) sampleEdge(lastDraw);
 }
@@ -250,14 +284,58 @@ function connect() {
     onState: (state, detail) => {
       display.connection = state;
       if (detail) log(`connection ${state}: ${detail}`);
+      if (state === "on" && !restored) {
+        restored = true;
+        restoreLast();
+      }
     },
-    onAction: ({ action, fields }) => {
-      log(`action ${action} ${JSON.stringify(fields).slice(0, 120)}`);
-      display.dispatch(action, fields);
-      render();
-    },
+    onAction: (a) => applyAction(a),
   });
   ha.connect();
+}
+
+// One action from either channel (the box's call_service or a muse_web event). The
+// broadcast scripts call both, so the same action arrives twice within a few ms; the
+// second is dropped. The last action is kept in localStorage for a reload; HA's
+// input_text.muse_web_last is the source that survives another browser.
+function applyAction({ action, fields = {} }) {
+  const sorted = Object.keys(fields).sort().reduce((o, k) => ((o[k] = fields[k]), o), {});
+  const key = action + "?" + JSON.stringify(sorted);
+  const now = performance.now();
+  if (key === lastActionKey && now - lastActionAt < 1200) return;
+  lastActionKey = key;
+  lastActionAt = now;
+  log(`action ${action} ${JSON.stringify(fields).slice(0, 120)}`);
+  display.dispatch(action, fields);
+  render();
+  try {
+    localStorage.setItem(LAST_STATE_KEY, JSON.stringify({ action, fields, at: Date.now() }));
+  } catch {
+    // A browser with storage disabled still shows the live actions.
+  }
+}
+
+async function restoreLast() {
+  let entry = null;
+  try {
+    const state = await ha.getState(LAST_STATE_ENTITY);
+    if (state && state.state) entry = JSON.parse(state.state);
+  } catch (e) {
+    log("last display from HA: " + e.message);
+  }
+  if (!entry) {
+    try {
+      entry = JSON.parse(localStorage.getItem(LAST_STATE_KEY) || "null");
+    } catch {
+      entry = null;
+    }
+  }
+  if (!entry || !entry.action) return;
+  const flat = entry.fields && typeof entry.fields === "object" && !Array.isArray(entry.fields)
+    ? entry.fields
+    : Object.fromEntries(Object.entries(entry).filter(([k]) => k !== "action" && k !== "fields" && k !== "at"));
+  applyAction({ action: entry.action, fields: flat });
+  log(`restored ${entry.action}`);
 }
 
 // ---------------------------------------------------------------- figure --
@@ -314,6 +392,7 @@ function openSettings() {
   form.sound.checked = settings.sound;
   form.bare.checked = settings.bare;
   form.layout.value = settings.layout;
+  form.theme.value = settings.theme;
   updateDialog();
   dialog.showModal();
 }
@@ -335,8 +414,18 @@ form.addEventListener("submit", (ev) => {
     sound: form.sound.checked,
     bare: form.bare.checked,
     layout: form.layout.value === "square" ? "square" : "box",
+    theme: THEMES.includes(form.theme.value) ? form.theme.value : "auto",
+    layoutVersion: DEFAULTS.layoutVersion,
   };
   if (!saveSettings(storage(), settings)) say("Dieser Browser speichert nichts: die Einstellungen gelten nur bis zum Neuladen.");
+  // The theme can change without a reload; the layout still reloads below.
+  const nextTheme = themeFor("", settings, layout);
+  applyTheme(nextTheme);
+  document.documentElement.dataset.theme = nextTheme;
+  if (themeColor) themeColor.content = nextTheme === "dark" ? "#000000" : "#f3f3f3";
+  const clean = new URL(location.href);
+  clean.searchParams.delete("theme");
+  history.replaceState(null, "", clean);
   dialog.close();
   // Another layout than the one on screen (a ?layout= of the URL counts): the page starts
   // again with it, without the ?layout=, which would win.

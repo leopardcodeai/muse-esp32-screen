@@ -32,7 +32,7 @@
 import { wrap, fitLine, timeLeft, clockText, WEATHER } from "./text.js";
 import { PILLS, event as eventIcon } from "./tables.js";
 import { particles, rnd, PALETTE } from "./particles.js";
-import { css, iconFont, INTER, PAGE, INK, SUB, CARD, TXT, SHADOW, WHITE, ORANGE, W as BOX_W, H as BOX_H } from "./render.js";
+import { css, iconFont, INTER, PAGE, INK, SUB, CARD, TXT, SHADOW, WHITE, ORANGE, BUTTON, BUTTON_TEXT, EDGE, W as BOX_W, H as BOX_H } from "./render.js";
 import { Item, mix } from "./scene.js";
 import { CARD_STEP_MS } from "./figure.js";
 import { drawRoute } from "./cards.js";
@@ -99,10 +99,14 @@ export const SQUARE = {
   outMs: 160,
   slide: 24,
   topBarH: TOP_BAR.h, // a tap above this line shows the display about itself
-  photo: { x: PANEL.x, y: PANEL.y, w: PANEL.w, h: PANEL.h, radius: PANEL.radius, captionH: 44, captionPx: 20 },
-  // A card's time on screen: 20 s, a celebration 6 s; a live view keeps its seconds.
+  photo: { x: PANEL.x, y: PANEL.y, w: PANEL.w, h: PANEL.h, radius: PANEL.radius, fit: "cover", captionH: 44, captionPx: 20 },
+  // A chart is a PNG too, but must never be cropped: contain it in the panel, no caption.
+  chartPhoto: { x: PANEL.x, y: PANEL.y, w: PANEL.w, h: PANEL.h, radius: PANEL.radius, fit: "contain" },
+  // A card's time on screen: 20 s, a celebration 6 s; a live view keeps its seconds, and
+  // a timed image or chart (show_image_timed, show_chart) its own.
   cardMs(card) {
     if (card.mode === 3) return SQUARE.celebrateMs;
+    if (card.mode === 5 && card.imageSeconds > 0) return card.imageSeconds * 1000;
     if (card.mode === 5 && card.liveSeconds > 0) return card.ms;
     if (card.mode === 7 || card.mode === 8 || card.mode === 11 || card.mode === 12) return card.ms;
     return SQUARE.dwellMs;
@@ -376,6 +380,7 @@ export class SquareView {
     const b = BUBBLE;
     const font = SQUARE_FONTS.status;
     this.shadowed(r, 8, 2, 0.10, () => r.roundRect(b.x, b.y, b.w, b.h, b.radius, CARD));
+    if (EDGE) r.roundRectOutline(b.x, b.y, b.w, b.h, b.radius, 1, EDGE);
     let k = 1;
     if (state === 1 || state === 2) k = 1 + 0.3 * (0.5 - 0.5 * Math.cos((2 * Math.PI * now) / 1200));
     r.circle(b.x + b.dotX + b.dot / 2, b.y + b.h / 2, (b.dot / 2) * k, PILLS[state].color);
@@ -451,6 +456,16 @@ export class SquareView {
       const cx = AVATAR.x + AVATAR.size / 2, cy = AVATAR.y + AVATAR.size / 2;
       r.circle(cx, cy, AVATAR.size / 2, disc.color);
       r.print(cx, cy, iconFont(GLYPH_PX), WHITE, "C", String.fromCodePoint(disc.glyph));
+    } else if (EDGE) {
+      // The figure frames carry the light page as their background; on black they become
+      // a rounded sticker instead of a bright square.
+      const ctx = r.ctx;
+      ctx.save();
+      r.roundRectPath(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20);
+      ctx.clip();
+      this.figure(r, d, "avatar", 0, AVATAR.x, AVATAR.y, AVATAR.size);
+      ctx.restore();
+      r.roundRectOutline(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, 1, EDGE);
     } else {
       this.figure(r, d, "avatar", 0, AVATAR.x, AVATAR.y, AVATAR.size);
     }
@@ -463,6 +478,8 @@ export class SquareView {
 
   panel(r, color = CARD) {
     this.shadowed(r, 16, 4, 0.08, () => r.roundRect(PANEL.x, PANEL.y, PANEL.w, PANEL.h, PANEL.radius, color));
+    // On black a shadow disappears; a hairline keeps the panel's edge visible.
+    if (EDGE) r.roundRectOutline(PANEL.x, PANEL.y, PANEL.w, PANEL.h, PANEL.radius, 1, EDGE);
   }
 
   // Runs `fn` with the panel's top left corner as the origin.
@@ -610,9 +627,9 @@ export class SquareView {
     for (let i = 0; i < n; i++) {
       const b = squareButton(n, i);
       const on = d.pressed && d.pressed.i === i;
-      r.roundRect(b.x, b.y, b.w, b.h, 28, on ? ORANGE : INK);
+      r.roundRect(b.x, b.y, b.w, b.h, 28, on ? ORANGE : BUTTON);
       const t = this.fit(r, `button${i}`, qs.options[i], SQUARE_FONTS.button, b.w - 24);
-      r.print(b.x + b.w / 2, b.y + b.h / 2, SQUARE_FONTS.button, WHITE, "C", t);
+      r.print(b.x + b.w / 2, b.y + b.h / 2, SQUARE_FONTS.button, on ? WHITE : BUTTON_TEXT, "C", t);
     }
   }
 
