@@ -194,7 +194,9 @@ let lastEdge = 0;
 function applyBare() {
   bare = settings.bare || params.get("bare") === "1";
   document.documentElement.classList.toggle("bare", bare);
-  if (!bare) document.documentElement.classList.remove("show-bar");
+  // The installed app is a display: no toolbar at the bottom edge either. `?bar=1`
+  // keeps the old hover reveal for a browser tab; the keys E, F and K still work.
+  document.documentElement.classList.remove("show-bar");
   fit();
 }
 function sampleEdge(now) {

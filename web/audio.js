@@ -1,19 +1,20 @@
 // audio.js: the display's two sounds, generated with the Web Audio API the way
 // tools/make_sounds.py generates the box's files: the chime when a timer ends (three
-// rising soft tones, 1.1 s) and the "pling" when a question appears (0.35 s). Same
-// notes, lengths and envelope, so both screens sound alike.
+// rising soft bell tones, 1.45 s) and the "pling" when a question appears (0.50 s).
+// Same notes, FM timbre, low-pass and envelope, so both screens sound alike.
 //
 // Pitfalls: a browser plays nothing before the first click or key on the page; unlock()
 // runs on the first user gesture and the sounds stay silent until then.
 const RATE = 16000;
 const SOUNDS = {
-  // C6, E6, G6: a small rising arpeggio, the last tone rings longest.
-  timer: { notes: [[1046.5, 0.0, 0.35, 0.8], [1318.5, 0.22, 0.35, 0.8], [1568.0, 0.44, 0.65, 1.0]], total: 1.1 },
-  // One soft A6 "pling" with its octave above, quieter.
-  ask: { notes: [[1760.0, 0.0, 0.35, 1.0], [3520.0, 0.0, 0.2, 0.25]], total: 0.35 },
+  // C6, E6, G6: a small rising bell arpeggio with a longer, softer tail.
+  timer: { notes: [[1046.5, 0.0, 0.55, 0.8], [1318.5, 0.20, 0.55, 0.8], [1568.0, 0.40, 1.0, 1.0]], total: 1.45 },
+  // One soft A6 bell with a quiet fifth above.
+  ask: { notes: [[1760.0, 0.0, 0.50, 1.0], [2637.0, 0.0, 0.35, 0.18]], total: 0.50 },
 };
 
-// The samples of a sound, as make_sounds.py computes them (soft attack, exponential decay).
+// The samples of a sound, as make_sounds.py computes them: an FM bell, a gentle
+// attack, a one-pole low-pass and a 40 ms fade-out so the buffer never clicks.
 export function samples(name) {
   const { notes, total } = SOUNDS[name];
   const out = new Float32Array(Math.floor(total * RATE));
@@ -22,14 +23,24 @@ export function samples(name) {
     const n = Math.floor(length * RATE);
     for (let i = 0; i < n; i++) {
       const t = i / RATE;
-      const env = Math.min(1, t / 0.012) * Math.exp(-t * 4.5);
-      if (n0 + i < out.length) out[n0 + i] += volume * env * Math.sin(2 * Math.PI * freq * t);
+      const env = Math.min(1, t / 0.008) * Math.exp(-t * 3.2);
+      const mod = 0.9 * Math.exp(-t * 2.2) * Math.sin(2 * Math.PI * freq * 2.0 * t);
+      const car = Math.sin(2 * Math.PI * freq * t + mod)
+        + 0.12 * Math.sin(2 * Math.PI * freq * 2 * t) * Math.exp(-t * 5.0);
+      if (n0 + i < out.length) out[n0 + i] += volume * env * car;
     }
   }
+  let y = 0;
+  for (let i = 0; i < out.length; i++) {
+    y += 0.7 * (out[i] - y);
+    out[i] = y;
+  }
+  const fade = Math.floor(0.04 * RATE);
+  for (let i = 0; i < Math.min(fade, out.length); i++) out[out.length - 1 - i] *= i / fade;
   let peak = 0;
   for (const v of out) peak = Math.max(peak, Math.abs(v));
   peak = peak || 1;
-  for (let i = 0; i < out.length; i++) out[i] = Math.max(-1, Math.min(1, (out[i] / peak) * 0.8));
+  for (let i = 0; i < out.length; i++) out[i] = Math.max(-1, Math.min(1, (out[i] / peak) * 0.65));
   return out;
 }
 

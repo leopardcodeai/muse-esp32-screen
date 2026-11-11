@@ -3,16 +3,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { samples } from "../audio.js";
 
-test("the chime is 1.1 s and the pling 0.35 s at 16 kHz, peaking at 0.8", () => {
+test("the chime is 1.45 s and the pling 0.50 s at 16 kHz, peaking at 0.65", () => {
   const timer = samples("timer"), ask = samples("ask");
-  assert.equal(timer.length, 17600);
-  assert.equal(ask.length, 5600);
+  assert.equal(timer.length, 23200);
+  assert.equal(ask.length, 8000);
   for (const s of [timer, ask]) {
     let peak = 0;
     for (const v of s) peak = Math.max(peak, Math.abs(v));
-    assert.ok(Math.abs(peak - 0.8) < 1e-6);
+    assert.ok(Math.abs(peak - 0.65) < 1e-6);
     assert.equal(s[0], 0, "a soft start, no click");
   }
-  // The third tone of the chime starts at 0.44 s and rings to the end.
-  assert.ok(Math.abs(timer[Math.floor(0.45 * 16000)]) > 0.01);
+  // The third tone of the chime starts at 0.40 s and rings to the end.
+  assert.ok(Math.abs(timer[Math.floor(0.41 * 16000)]) > 0.01);
 });

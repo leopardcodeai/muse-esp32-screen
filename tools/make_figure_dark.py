@@ -68,6 +68,16 @@ def flatten(rgb: np.ndarray, tolerance: int, blur: float) -> np.ndarray:
     return (rgb.astype(np.float32) * a[..., None]).clip(0, 255).astype(np.uint8)
 
 
+def vignette(image: Image.Image, inner: float = 0.74, outer: float = 1.0) -> Image.Image:
+    """An even, round fade to black around the figure (inner/outer of the half-size)."""
+    w, h = image.size
+    yy, xx = np.ogrid[:h, :w]
+    radius = np.sqrt((xx - (w - 1) / 2) ** 2 + (yy - (h - 1) / 2) ** 2) / (min(w, h) / 2)
+    t = np.clip((outer - radius) / (outer - inner), 0, 1)
+    t = t * t * (3 - 2 * t)
+    return (np.asarray(image, dtype=np.float32) * t[..., None]).clip(0, 255).astype(np.uint8)
+
+
 def round_avatar(image: Image.Image, feather: float = 1.5) -> Image.Image:
     """A clean circle, so the avatar's own light rim does not glow on black."""
     w, h = image.size
@@ -77,7 +87,8 @@ def round_avatar(image: Image.Image, feather: float = 1.5) -> Image.Image:
     return Image.composite(image, Image.new("RGB", (w, h), (0, 0, 0)), mask)
 
 
-def convert(src: Path, out: Path, tolerance: int, blur: float, round_avatar_image: bool = True) -> tuple[int, int]:
+def convert(src: Path, out: Path, tolerance: int, blur: float, round_avatar_image: bool = True,
+            vignette_image: bool = True) -> tuple[int, int]:
     image = Image.open(src)
     frames = []
     durations = []
@@ -86,6 +97,8 @@ def convert(src: Path, out: Path, tolerance: int, blur: float, round_avatar_imag
         frame = Image.fromarray(flatten(np.asarray(image.convert("RGB")), tolerance, blur))
         if round_avatar_image and out.stem == "avatar":
             frame = round_avatar(frame)
+        elif vignette_image:
+            frame = Image.fromarray(vignette(frame))
         frames.append(frame)
         durations.append(image.info.get("duration", 167))
     if len(frames) == 1:
@@ -104,6 +117,8 @@ def main() -> None:
     parser.add_argument("--blur", type=float, default=1.2)
     parser.add_argument("--no-avatar-round", action="store_true",
                         help="keep the avatar's square frame instead of a clean circle")
+    parser.add_argument("--no-vignette", action="store_true",
+                        help="keep the figure's own outline instead of the round fade")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -117,7 +132,7 @@ def main() -> None:
         if args.dry_run:
             print(f"would write {dst}")
             continue
-        count, size = convert(src, dst, args.tolerance, args.blur, not args.no_avatar_round)
+        count, size = convert(src, dst, args.tolerance, args.blur, not args.no_avatar_round, not args.no_vignette)
         print(f"{dst}  {size} px, {count} frame(s), {dst.stat().st_size // 1024} KiB")
 
 
