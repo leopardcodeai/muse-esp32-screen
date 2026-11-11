@@ -8,11 +8,13 @@ Plain ES modules, no build step, no npm dependencies. Everything in `web/` is En
 
 No box, and you want to see it work with your Home Assistant today: [../docs/TRY_WITHOUT_A_BOX.md](../docs/TRY_WITHOUT_A_BOX.md).
 
-## Six ways to run it
+## Seven ways to run it
 
-1. **The hosted page.** https://muse-web-screen.vercel.app, a static copy of this folder on Vercel (see [Hosting on Vercel](#hosting-on-vercel)). A first visit without stored settings lands in demo mode (`index.html?demo=1`); "Demo aus" and the settings lead out of it. HTTPS, so Chrome offers "Install" and the wake lock works; reaching a Home Assistant in the LAN from there has limits, see [Connecting from the hosted page](#connecting-from-the-hosted-page).
+1. **Home Assistant OS add-on (recommended for an always-on screen).** Install the local add-on [`homeassistant/addon/muse-web-screen/`](../homeassistant/addon/muse-web-screen/DOCS.md), then open `https://homeassistant.local:8322/`. The add-on serves this folder over HTTPS and proxies Home Assistant's websocket, so Chrome installs it as a real app and the screen keeps working with Home Assistant on HTTP. The Mac may sleep or be closed. The guide covers the certificate, the Samba folders and the settings.
 
-2. **A file server on this Mac.** Any static server serves the folder; the page needs no backend of its own. Then open it in Chrome, Edge or Safari. `http://localhost` counts as a secure origin, so this page may open `ws://` to Home Assistant in the LAN and gets "Install" and the wake lock as well.
+2. **The hosted page.** https://muse-web-screen.vercel.app, a static copy of this folder on Vercel (see [Hosting on Vercel](#hosting-on-vercel)). A first visit without stored settings lands in demo mode (`index.html?demo=1`); "Demo aus" and the settings lead out of it. HTTPS, so Chrome offers "Install" and the wake lock works; reaching a Home Assistant in the LAN from there has limits, see [Connecting from the hosted page](#connecting-from-the-hosted-page).
+
+3. **A file server on this Mac.** Any static server serves the folder; the page needs no backend of its own. Then open it in Chrome, Edge or Safari. `http://localhost` counts as a secure origin, so this page may open `ws://` to Home Assistant in the LAN and gets "Install" and the wake lock as well.
 
    ```bash
    cd web
@@ -20,13 +22,13 @@ No box, and you want to see it work with your Home Assistant today: [../docs/TRY
    open http://localhost:8321/
    ```
 
-3. **Home Assistant's `www` folder.** Copy `web/` to `/config/www/muse-web/` on your Home Assistant and open `http://homeassistant.local:8123/local/muse-web/index.html`. Home Assistant serves the files; the display still talks to Home Assistant through its websocket API, so the settings need the URL and a token like everywhere else. Note that Chrome offers "Install" only on HTTPS or localhost, so over plain HTTP in the LAN use Safari's "Add to Dock" or a file server on the Mac.
+4. **Home Assistant's `www` folder.** Copy `web/` to `/config/www/muse-web/` on your Home Assistant and open `http://homeassistant.local:8123/local/muse-web/index.html`. Home Assistant serves the files; the display still talks to Home Assistant through its websocket API, so the settings need the URL and a token like everywhere else. Note that Chrome offers "Install" only on HTTPS or localhost, so over plain HTTP in the LAN use Safari's "Add to Dock" or a file server on the Mac.
 
-4. **Chrome or Edge, installed as an app.** Open the page, then click the install icon at the right end of the address bar, or choose "Install page as app" from the browser menu [3]. The app opens in its own window without browser chrome, has a Dock icon (the figure) and keeps the settings of that browser profile.
+5. **Chrome or Edge, installed as an app.** Open the page, then click the install icon at the right end of the address bar, or choose "Install page as app" from the browser menu [3]. The app opens in its own window without browser chrome, has a Dock icon (the figure) and keeps the settings of that browser profile.
 
-5. **Safari, Add to Dock.** macOS Sonoma 14 or later: open the page in Safari and choose File, Add to Dock, or the Share button, then Add to Dock [4]. The web app gets its own window, icon and localStorage; the settings have to be entered once more there.
+6. **Safari, Add to Dock.** macOS Sonoma 14 or later: open the page in Safari and choose File, Add to Dock, or the Share button, then Add to Dock [4]. The web app gets its own window, icon and localStorage; the settings have to be entered once more there.
 
-6. **Demo mode.** `index.html?demo=1` needs no Home Assistant: it plays the twelve scenes of `demo/scenes/` (copies of `../scenes/`) and a round of sample cards (text, value, weather, event, a question, a timer of 15 s, a list, an agenda, a choice, a celebration) in a loop, every item for seven seconds, the timer and the questions for their own time. Anyone sees the app within ten seconds, and the rendering can be checked without credentials. A page without stored settings starts here by itself; `?demo=0` stays out.
+7. **Demo mode.** `index.html?demo=1` needs no Home Assistant: it plays the twelve scenes of `demo/scenes/` (copies of `../scenes/`) and a round of sample cards (text, value, weather, event, a question, a timer of 15 s, a list, an agenda, a choice, a celebration) in a loop, every item for seven seconds, the timer and the questions for their own time. Anyone sees the app within ten seconds, and the rendering can be checked without credentials. A page without stored settings starts here by itself; `?demo=0` stays out.
 
 The four buttons under the display: **Float** (always on top), **Kiosk** (full screen), **Demo** (switches demo mode on or off) and **Einstellungen** (the settings). For the browser console there is `muse.dispatch("show_text", {title: "Hallo", message: "Welt"})`, with every action of the table below, and `muse.fps(10)` to switch the frame rate until the next reload.
 
@@ -36,11 +38,11 @@ The four buttons under the display: **Float** (always on top), **Kiosk** (full s
 
 Motion: a card slides up 24 px and fades in over 220 ms while the one before fades out over 160 ms, the status bubble's dot pulses while listening or thinking, the timer arc moves on every frame and a celebration throws confetti. A picture that does not change is not drawn again: the square view compares a signature of what it shows and skips the frame, so a card standing still costs no drawing and the ready screen draws only when the figure steps (every 200 ms). Scenes and the route are the box's pictures scaled into the panel; the 320 x 240 layout is unchanged.
 
-## Your own screen on your Mac (local, with your own figure)
+## Your own screen (Home Assistant OS or a Mac)
 
-Step by step, with the icon and the reasons for Chrome over Safari: [../docs/MAC_APP.md](../docs/MAC_APP.md).
+Step by step, with the icon and the reasons for Chrome over Safari: [../docs/MAC_APP.md](../docs/MAC_APP.md). For an always-on screen use the Home Assistant OS add-on above: it serves the folder over HTTPS and proxies the websocket, so the Mac may sleep and the app still works. The local service below is the fallback for a Mac without Home Assistant OS.
 
-`web/tools/serve_local.sh --install` serves this folder at http://localhost:8321 from a LaunchAgent (127.0.0.1 only, started at login). From there the page may open `ws://` to Home Assistant on your LAN, which a page from https may not. Put your own figure frames into `web/local/` (git and Vercel ignore that folder; for Meta's Muse frames run `tools/make_muse_assets.py` and copy `firmware/figure/muse_*.png`), and set the figure source to `http://localhost:8321/local`.
+`web/tools/serve_local.sh --install` serves this folder at http://localhost:8321 from a LaunchAgent (127.0.0.1 only, started at login). From there the page may open `ws://` to Home Assistant on your LAN, which a page from https may not. Put your own figure frames into `web/local/` (git and Vercel ignore that folder; for Meta's Muse frames run `tools/make_muse_assets.py` and copy `firmware/figure/muse_*.png`), and set the figure source to `http://localhost:8321/local` locally or `https://homeassistant.local:8322/local` with the add-on.
 
 **Nur Display** (setting, or `?bare=1`): no toolbar and no frame; the strip beside the display takes the colour of the display's edge, and the toolbar appears while the pointer is near the bottom edge. Keys: F floats the display above every window (Picture in Picture), K full screen, E settings. Installed from Chrome ("Install page as app"), the app draws into its own title bar (Window Controls Overlay) and only the three window buttons remain. In Chrome the floating window stays clickable (Document Picture-in-Picture); Safari can float only a video of the display, which cannot be clicked.
 

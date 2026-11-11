@@ -2,6 +2,15 @@
 
 The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-screen.yaml`; the box reports it in `muse_get_state` and on its info screen. Dates are the day the firmware ran on the box. Wrong turns are recorded, because the same mistake comes back otherwise.
 
+## Muse Web Screen 1.5.0, 11 November 2026 (Home Assistant add-on, HTTPS)
+
+- Muse Web Screen now installs from an always-on Home Assistant OS: the local add-on [`homeassistant/addon/muse-web-screen/`](homeassistant/addon/muse-web-screen/) serves `web/` at `https://homeassistant.local:8322/` and proxies `/api/` to Home Assistant. The proxy is the point: an HTTPS page may not open a `ws://` socket to a Home Assistant that still runs on HTTP, but it may open `wss://` to the add-on, which forwards to `ha_url`. No Nabu Casa, no change to Home Assistant's own HTTP setup.
+- The Chrome app installed from `http://localhost:8321` keeps working, but the installed app cannot change its origin. Install it once more from `https://homeassistant.local:8322/`; the settings belong to the origin, so the Home Assistant URL and token are entered once there. `docs/MAC_APP.md` has the switch and a console snippet that carries the settings over.
+- Verified on an HTTPS origin with the add-on's proxy: the own figure loads 6 of 6, the service worker registers at `/`, the manifest and icons come from the add-on, and the display reports a connection to Home Assistant 2026.11.1 over `wss://…/api/websocket`.
+- New add-on icon and logo from the project's own figure (`tools/make_addon_icons.py`); the private bundle replaces the icon with the owner's black Muse icon. The Muse Apple Screen camera add-on gets the same family, a play badge and version 0.4.3.
+- `tools/make_ha_bundle.sh` writes the three folders for Home Assistant's Samba shares (`addons`, `config/www`, `ssl`) and keeps the certificate key out of the web root. `web/tools/set_mac_app_icon.py` now clears the Dock icon cache and can set an already composed `--png`; macOS 26 otherwise keeps showing the old icon.
+- Local `serve_local.sh` remains the fallback for a Mac without Home Assistant OS; it still binds to `127.0.0.1:8321` only.
+
 ## Muse Web Screen 1.4.0, 24 October 2026 (firmware 4.3.0 with one layout fix for the next flash)
 
 - The project is called Muse ESP32 Screen and lives at github.com/leopardcodeai/muse-esp32-screen, because it now targets more than one ESP32 board (the ESP32-S3-BOX-3 and the ESP32-S31 of Espressif's ESP-Mosaico). Every earlier address redirects. Device names, action names and the firmware file stay as they are. The project name follows in NOTICE, the assistant prompt, the system diagram, the social preview and the web app's descriptions; the user agent of the box's picture task becomes `Muse-ESP32-Screen/4.3` with the next flash.

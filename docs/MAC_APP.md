@@ -19,7 +19,41 @@ Both can install the page as an app. For a screen that should stay in front, Chr
 So the app below runs from a small local server on `http://localhost`, which may open `ws://`
 to Home Assistant on your LAN like any local program, and it is installed from Chrome.
 
-## 1. The local service
+## 0. On Home Assistant OS (recommended)
+
+If Home Assistant OS runs on an always-on device, use the local add-on
+[`homeassistant/addon/muse-web-screen/`](../homeassistant/addon/muse-web-screen/DOCS.md) and
+open:
+
+```text
+https://homeassistant.local:8322/
+```
+
+The add-on serves `web/` over HTTPS and proxies Home Assistant's websocket, so the app also
+connects when Home Assistant itself runs on HTTP. Chrome can install it as a real app, and
+the Mac may sleep or be closed. The add-on guide covers the certificate, the three Samba
+folders and the add-on configuration.
+
+The settings belong to the origin: the add-on app uses `https://homeassistant.local:8322`,
+the local app below uses `http://localhost:8321`. Switching means installing the app once
+from the add-on URL and entering the Home Assistant URL, token and figure folder there. The
+figure folder is `https://homeassistant.local:8322/local`. To carry the old settings over,
+open the old app's console and run `copy(localStorage.getItem('muse-web-settings'))`, then
+paste the JSON into this snippet in the new origin's console:
+
+```js
+const s = JSON.parse(`<paste the old JSON here>`);
+s.url = "https://homeassistant.local:8322";
+s.figureUrl = "https://homeassistant.local:8322/local";
+localStorage.setItem("muse-web-settings", JSON.stringify(s));
+location.reload();
+```
+
+The token is in that JSON; remove the copied clipboard entry afterwards. After installing
+from the add-on, `web/tools/set_mac_app_icon.py --png web/local/mac_app_icon.png` gives the
+app its black Muse icon again.
+
+## 1. The local service (without Home Assistant OS)
 
 ```bash
 web/tools/serve_local.sh --install
@@ -31,11 +65,12 @@ only, and starts at every login. `--status` tells whether it runs, `--uninstall`
 
 ## 2. Install the app
 
-Open http://localhost:8321/ in Chrome and click the install symbol at the right of the address
-bar, or menu ⋮, *Cast, save and share*, *Install page as app*. Name it as you like; the app gets
-its own window, Dock icon and an entry in `~/Applications/Chrome Apps.localized/`. The settings
-belong to the origin `http://localhost:8321` in your Chrome profile, the tab and the app share
-them.
+Open the add-on URL from section 0, or http://localhost:8321/ without the add-on, in Chrome and
+click the install symbol at the right of the address bar, or menu ⋮, *Cast, save and share*,
+*Install page as app*. Name it as you like; the app gets its own window, Dock icon and an entry
+in `~/Applications/Chrome Apps.localized/`. The settings belong to the origin in your Chrome
+profile, the tab and the app share them: `https://homeassistant.local:8322` for the add-on,
+`http://localhost:8321` for the local service.
 
 ## 3. Settings
 
@@ -43,7 +78,7 @@ Press **E** in the app (or the *Einstellungen* button):
 
 | Field | Value |
 |---|---|
-| Home Assistant URL | the LAN address, for example `http://homeassistant.local:8123` |
+| Home Assistant URL | the LAN address, for example `http://homeassistant.local:8123`; with the add-on use `https://homeassistant.local:8322`, the add-on's proxy, not the HA address |
 | Long-lived access token | create one for this screen only: Home Assistant, your profile, *Security*, *Long-lived access tokens*. Paste it yourself; it stays in this browser's storage on this Mac |
 | Device name | `muse_esp32_s3_box_3_screen`, or the name your box has (the part before `_muse_` in its actions) |
 | Figure source | the project's figure, or your own frames (step 5) |
@@ -99,8 +134,12 @@ update that rebuilds the app and resets the icon, run the command once more.
 | the demo plays instead of your cards | no settings stored for this origin yet | E, enter URL and token, save |
 | cards come, but not from your box's actions | wrong device name | the part before `_muse_` in the box's actions, with underscores |
 | figure status "5 of 6" | one frame missing or not reachable | check the six names in `web/local/`; the app retries once |
-| the title bar does not go away | the app was installed before the manifest asked for it | uninstall and install again from http://localhost:8321/ |
+| the title bar does not go away | the app was installed before the manifest asked for it | uninstall and install again from the URL you use |
 | http://localhost:8321 does not answer | the service is not running, or the folder moved | `web/tools/serve_local.sh --install` again |
+| https://homeassistant.local:8322 does not answer | the add-on is not installed or not started | follow `homeassistant/addon/muse-web-screen/DOCS.md`; start the add-on |
+| Chrome: `ERR_CERT_AUTHORITY_INVALID` at 8322 | the mkcert CA is not in the System keychain | run the `sudo security add-trusted-cert …` command from the add-on guide, then quit and reopen Chrome |
+| the installed app still opens localhost | an installed web app keeps its origin | uninstall the localhost app in Chrome, install it again from `https://homeassistant.local:8322/` |
+| no cards in the add-on app | Home Assistant URL is the HA address, not the proxy | set it to `https://homeassistant.local:8322`, keep the token |
 
 [1] MDN, *Document Picture-in-Picture API*, https://developer.mozilla.org/en-US/docs/Web/API/Document_Picture-in-Picture_API
 [2] MDN, *Window Controls Overlay API*, https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API

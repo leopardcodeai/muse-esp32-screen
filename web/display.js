@@ -16,7 +16,7 @@ import { drawTopBar, drawCard } from "./cards.js";
 import { SceneDrawer } from "./draw.js";
 import { SquareView, SQUARE, squareButtonAt, toScene, squareCaption } from "./square.js";
 
-export const VERSION = "1.4.0";
+export const VERSION = "1.5.0";
 
 export class Display {
   constructor(opts) {
