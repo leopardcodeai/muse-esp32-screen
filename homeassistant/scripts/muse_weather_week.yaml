@@ -1,0 +1,36 @@
+# script.muse_weather_week: next week's high and low temperatures as one chart on
+# every screen. It uses the daily forecast of weather.home and the server-rendered
+# chart (script.muse_show_chart), so the web twin and the box see the same picture.
+alias: "Muse weather week"
+description: >-
+  Seven daily forecasts as a two-line chart (high and low) on the box, the web twin
+  and the camera layout.
+mode: single
+sequence:
+  - action: weather.get_forecasts
+    target:
+      entity_id: weather.forecast_home
+    data:
+      type: daily
+    response_variable: days
+  - variables:
+      fc: "{{ days['weather.forecast_home'].forecast[:7] }}"
+      labels: >-
+        {% set names = ['Mo','Di','Mi','Do','Fr','Sa','So'] %}
+        {% set ns = namespace(labels='') %}
+        {% for d in fc %}
+          {% set day = as_datetime(d.datetime) %}
+          {% set ns.labels = ns.labels ~ (',' if not loop.first else '') ~ names[day.weekday()] ~ ' ' ~ day.strftime('%d.') %}
+        {% endfor %}
+        {{ ns.labels }}
+      highs: "{{ fc | map(attribute='temperature') | map('round', 0) | map('int') | join(',') }}"
+      lows: "{{ fc | map(attribute='templow') | map('round', 0) | map('int') | join(',') }}"
+  - action: script.muse_show_chart
+    data:
+      title: "Wetter nächste Woche"
+      labels: "{{ labels }}"
+      values: "{{ highs }}"
+      values2: "{{ lows }}"
+      type: line
+      target: square
+      seconds: 30

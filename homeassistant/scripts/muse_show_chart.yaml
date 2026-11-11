@@ -1,0 +1,155 @@
+# script.muse_show_chart: a server-rendered chart on the box, the web twin and the
+# camera layout. This file is the body under `muse_show_chart:` in scripts.yaml.
+#
+# The chart is drawn by Home Assistant itself (Pillow, no add-on) through
+# shell_command.muse_chart_render; the PNG lives under /config/www/muse_images and
+# is served as /local/muse_images/<slug>.png?v=<hash>. The version in the URL is
+# the content hash, so the 31-day /local cache never shows an older chart.
+#
+# The title is NOT part of the PNG. The box's image card and the web square
+# layout draw it from the action's title field, which is why the chart itself
+# carries only values, categories and grid.
+#
+# The service below is the live box's prefix (muse_esp32boxs3_screen). The public
+# firmware name muse-esp32-s3-box-3-screen gives
+# esphome.muse_esp32_s3_box_3_screen_muse_show_image_timed and
+# ..._muse_show_text; replace both in a public installation.
+#
+# Call:
+#   action: script.muse_show_chart
+#   data:
+#     title: "Yoga 2019–2026"
+#     labels: "2019,2020,2021,2022,2023,2024,2025,2026"
+#     values: "41,31,8,17,26,20,20,18"
+#     type: bar
+#     target: box
+#     seconds: 30
+alias: "Muse chart"
+description: >-
+  Render a bar or line chart with Pillow and show it on the box; the same picture
+  is announced as a muse_web event for the web twin and the camera layout.
+mode: queued
+max: 5
+fields:
+  title:
+    name: Title
+    description: Shown by the image card; it is deliberately not drawn into the PNG.
+    required: true
+    selector:
+      text:
+  labels:
+    name: Labels
+    description: Comma-separated categories, e.g. 2019,2020,2021.
+    required: true
+    selector:
+      text:
+  values:
+    name: Values
+    description: Comma-separated numbers, one per label, e.g. 41,31,8.
+    required: true
+    selector:
+      text:
+  values2:
+    name: Second values
+    description: Optional second line, e.g. the low temperatures; one number per label.
+    required: false
+    default: ""
+    selector:
+      text:
+  type:
+    name: Chart type
+    description: Bars or a line.
+    required: true
+    selector:
+      select:
+        options:
+          - bar
+          - line
+  target:
+    name: Target
+    description: >-
+      box 300x168, square 432x280, square_hq 864x560 (2x source for the camera
+      layout), wide 1280x720.
+    required: false
+    default: box
+    selector:
+      select:
+        options:
+          - box
+          - square
+          - square_hq
+          - wide
+  seconds:
+    name: Seconds
+    description: How long the image card stays, 1 to 600 seconds.
+    required: false
+    default: 30
+    selector:
+      number:
+        min: 1
+        max: 600
+        unit_of_measurement: s
+sequence:
+  - variables:
+      chart_title: "{{ title | string | trim }}"
+      chart_labels: "{{ labels | string | trim }}"
+      chart_values: "{{ values | string | trim }}"
+      chart_values2: "{{ values2 | default('', true) | string | trim }}"
+      chart_kind: "{{ type | string | trim | lower }}"
+      chart_target: "{{ target | default('box', true) | string | trim | lower }}"
+      chart_seconds: "{{ (seconds | default(30, true) | int(30)) | clamp(1, 600) }}"
+  - action: shell_command.muse_chart_render
+    data:
+      # tojson then base64: the shell_command template splits with shlex, and a
+      # raw JSON string with spaces and quotes would not survive as one argument.
+      spec_b64: >-
+        {{ {'title': chart_title, 'labels': chart_labels, 'values': chart_values,
+            'type': chart_kind, 'target': chart_target}
+           | combine({'values2': chart_values2} if chart_values2 else {})
+           | tojson | base64_encode }}
+    response_variable: chart_render
+    continue_on_error: true
+  - variables:
+      # shell_command returns {stdout, stderr, returncode}; a missing action or a
+      # killed process leaves chart_render undefined, which must not abort the
+      # fallback. The script itself prints one JSON object on every path.
+      chart_raw: >-
+        {% if chart_render is defined and chart_render.stdout is defined %}
+          {{ chart_render.stdout | trim }}
+        {% endif %}
+      chart: >-
+        {{ chart_raw if chart_raw | trim else
+           {'ok': false, 'error': 'no response from the chart renderer'} | tojson }}
+  - if:
+      - condition: template
+        value_template: "{{ (chart | from_json)['ok'] | default(false) }}"
+    then:
+      # Fire the event first: a missing esphome service (no box, or a firmware
+      # without muse_show_image_timed) is a configuration error that even
+      # continue_on_error does not swallow. The web twin and the Apple TV/camera
+      # layout must still hear the picture.
+      - event: muse_web
+        event_data:
+          action: show_image_timed
+          title: "{{ chart_title }}"
+          message: ""
+          url: "{{ (chart | from_json)['url'] | default('') }}"
+          seconds: "{{ chart_seconds | int }}"
+      - action: esphome.muse_esp32boxs3_screen_muse_show_image_timed
+        continue_on_error: true
+        data:
+          title: "{{ chart_title }}"
+          message: ""
+          url: "{{ (chart | from_json)['url'] | default('') }}"
+          seconds: "{{ chart_seconds | int }}"
+    else:
+      - event: muse_web
+        event_data:
+          action: show_text
+          title: "{{ chart_title }}"
+          message: "Keine Daten"
+      - action: esphome.muse_esp32boxs3_screen_muse_show_text
+        continue_on_error: true
+        data:
+          title: "{{ chart_title }}"
+          message: "Keine Daten"
