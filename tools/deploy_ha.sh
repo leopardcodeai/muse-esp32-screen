@@ -2,8 +2,8 @@
 # deploy_ha.sh: pull, test, build and sync Muse Web Screen to Home Assistant.
 #
 # Runs from the LaunchAgent com.leopardcode.muse-web-deploy (every 15 minutes and at
-# login) or by hand. It refuses a dirty worktree, so a half-finished edit never reaches
-# the display; a failing test stops before the bundle is written.
+# login) or by hand. It deploys the working tree (the owner edits and wants the display
+# to follow), but a failing test stops before the bundle is written.
 set -eu
 
 ROOT=$(unset CDPATH; cd -- "$(dirname "$0")/.." && pwd)
@@ -13,11 +13,6 @@ exec >>"$LOG" 2>&1
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') $ROOT"
 cd "$ROOT"
-
-if [ -n "$(git status --porcelain)" ]; then
-    echo "worktree is dirty; nothing deployed"
-    exit 0
-fi
 
 git pull --ff-only || echo "pull skipped (offline or diverged); deploying the local state"
 
