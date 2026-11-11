@@ -27,4 +27,6 @@ python3 -m pytest tools/tests/test_muse_scripts.py -q >/dev/null || {
 }
 
 tools/make_ha_bundle.sh >/dev/null
-uv run --quiet --with smbprotocol python3 tools/sync_ha_web.py
+UV=$(command -v uv || true)
+[ -n "$UV" ] || UV="$HOME/.local/bin/uv"
+"$UV" run --quiet --with smbprotocol python3 tools/sync_ha_web.py
