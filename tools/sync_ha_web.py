@@ -26,7 +26,7 @@ import smbclient
 
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT / "web" / "local" / "ha-bundle" / "config" / "www" / "muse-web"
-MANIFEST = ROOT / "web" / "local" / "ha-bundle" / ".deployed.json"
+MANIFEST = ROOT / "web" / "local" / "ha-deployed.json"
 PASSWORD = ROOT / "web" / "local" / "ha-samba-password"
 # House-specific, so not in the repository: MUSE_HA_HOST, or web/local/ha-samba-host.
 HOST = os.environ.get("MUSE_HA_HOST", "").strip()
