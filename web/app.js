@@ -13,7 +13,7 @@
 //    chosen once at the start: renderer, display and stage are built for it. A change in
 //    the settings reloads the page.
 import { Renderer, allFonts, W, H } from "./render.js";
-import { SQUARE_W, SQUARE_H, squareFonts } from "./square.js";
+import { SQUARE_W, SQUARE_H, squareFonts, setFigureCard } from "./square.js";
 import { Figure } from "./figure.js";
 import { FigureSource, FIGURE_NAMES } from "./figure_frames.js";
 import { WeatherIcons } from "./weather.js";
@@ -48,6 +48,9 @@ function storage() {
 let settings = loadSettings(storage());
 const layout = layoutFor(location.search, settings);
 const square = layout === "square";
+// ?figurebg=card compares the black figure with the same figure on a rounded light card.
+const figureCard = params.get("figurebg") === "card";
+setFigureCard(figureCard);
 // The logical size of the display: the box's 320 x 240, or 480 x 480.
 const LW = square ? SQUARE_W : W;
 const LH = square ? SQUARE_H : H;
@@ -62,6 +65,7 @@ const fonts = () => (square ? [...allFonts(), ...squareFonts()] : allFonts());
 const log = (line) => console.info("[muse] " + line);
 const renderer = new Renderer(canvas, { width: LW, height: LH });
 const figure = new FigureSource({ placeholder: new Figure(), log });
+figure.dark = theme === "dark" && !figureCard;
 const weather = new WeatherIcons();
 const media = new MediaOverlay(overlayEl);
 const sounds = new Sounds();
@@ -108,10 +112,23 @@ function browserName() {
 // The stage in whole CSS pixels, the canvas backing store in device pixels: the 320 x 240
 // (or 480 x 480) logical layout stays, the text is drawn at the screen's own resolution.
 let quality = 1;
+// 100 %: the square layout at exactly 480 x 480 CSS and 480 x 480 backing pixels, no
+// device-pixel scaling. `?pixel=1|0` overrides the setting for one visit.
+const pixelMode = params.has("pixel") ? params.get("pixel") === "1" : settings.pixel;
 function fit() {
   const host = hostWindow;
   const rect = stage.parentElement.getBoundingClientRect();
   const dpr = host.devicePixelRatio || 1;
+  if (square && pixelMode) {
+    stage.style.width = `${LW}px`;
+    stage.style.height = `${LH}px`;
+    renderer.resize(1);
+    media.rescale(1);
+    display.displayInfo = `${LW} x ${LH} px, 1:1`;
+    display.browserInfo = `${browserName()}  ·  ${frames.fps} Bilder/s`;
+    render();
+    return;
+  }
   let k = fitScale(rect.width, rect.height, LW, LH, settings.integer);
   // The Mosaico layout is crisp at 1:1 and stays sharp when a big window scales it up;
   // 2x is the ceiling, and a slow frame lowers it a step (noteDraw below).
@@ -391,6 +408,7 @@ function openSettings() {
   form.integer.checked = settings.integer;
   form.sound.checked = settings.sound;
   form.bare.checked = settings.bare;
+  form.pixel.checked = settings.pixel;
   form.layout.value = settings.layout;
   form.theme.value = settings.theme;
   updateDialog();
@@ -413,20 +431,22 @@ form.addEventListener("submit", (ev) => {
     integer: form.integer.checked,
     sound: form.sound.checked,
     bare: form.bare.checked,
+    pixel: form.pixel.checked,
     layout: form.layout.value === "square" ? "square" : "box",
     theme: THEMES.includes(form.theme.value) ? form.theme.value : "auto",
     layoutVersion: DEFAULTS.layoutVersion,
   };
   if (!saveSettings(storage(), settings)) say("Dieser Browser speichert nichts: die Einstellungen gelten nur bis zum Neuladen.");
-  // The theme can change without a reload; the layout still reloads below.
-  const nextTheme = themeFor("", settings, layout);
-  applyTheme(nextTheme);
-  document.documentElement.dataset.theme = nextTheme;
-  if (themeColor) themeColor.content = nextTheme === "dark" ? "#000000" : "#f3f3f3";
+  dialog.close();
+  // The theme picks the figure's light or dark copies, so it needs a fresh load; the
+  // page keeps its last card through input_text.muse_web_last either way.
   const clean = new URL(location.href);
   clean.searchParams.delete("theme");
   history.replaceState(null, "", clean);
-  dialog.close();
+  if (themeFor("", settings, layout) !== theme) {
+    location.href = clean.toString();
+    return;
+  }
   // Another layout than the one on screen (a ?layout= of the URL counts): the page starts
   // again with it, without the ?layout=, which would win.
   const reload = layoutReload(location.href, layout, settings.layout);

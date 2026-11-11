@@ -152,6 +152,14 @@ export function weatherGlyph(index) {
 }
 
 const G_LIST = 0xF0756, G_CALENDAR = 0xF00F0, G_TIMER = 0xF051B, G_HEART = 0xF02D1;
+
+// `?figurebg=card` compares the dark theme's black figure with the same figure on a
+// rounded light card, as the question view's avatar. The app sets it before the first
+// draw; the default is the black background.
+let figureCard = false;
+export function setFigureCard(v) {
+  figureCard = v === true;
+}
 const ROUTE_GLYPH = { bike: 0xF00A3, foot: 0xF0583, car: 0xF010B };
 const ELL = "…";
 
@@ -318,6 +326,21 @@ export class SquareView {
     ctx.restore();
   }
 
+  figureTile(r, d, sub, t, x, y, size, radius = 28) {
+    if (figureCard) {
+      r.roundRect(x, y, size, size, radius, [243, 243, 243]);
+      const ctx = r.ctx;
+      ctx.save();
+      r.roundRectPath(x, y, size, size, radius);
+      ctx.clip();
+      this.figure(r, d, sub, t, x, y, size);
+      ctx.restore();
+      if (EDGE) r.roundRectOutline(x, y, size, size, radius, 1, EDGE);
+      return;
+    }
+    this.figure(r, d, sub, t, x, y, size);
+  }
+
   figure(r, d, sub, t, x, y, size) {
     if (!isPicture(d.figure, sub)) this.pending = true;
     d.figure.draw(r, sub, t, x, y, CARD_STEP_MS, size);
@@ -367,7 +390,7 @@ export class SquareView {
     const wiggle = cuddle > 0 ? Math.round(6 * Math.sin(now / 70)) : 0;
     ctx.save();
     if (state === 5) ctx.globalAlpha *= 0.4; // quiet: the figure at 40 %
-    this.figure(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size);
+    this.figureTile(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size);
     ctx.restore();
     if (cuddle > 0) this.drawHearts(r, cuddle);
     this.drawBubble(r, d, now);
@@ -456,6 +479,15 @@ export class SquareView {
       const cx = AVATAR.x + AVATAR.size / 2, cy = AVATAR.y + AVATAR.size / 2;
       r.circle(cx, cy, AVATAR.size / 2, disc.color);
       r.print(cx, cy, iconFont(GLYPH_PX), WHITE, "C", String.fromCodePoint(disc.glyph));
+    } else if (figureCard) {
+      r.roundRect(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, [243, 243, 243]);
+      const ctx = r.ctx;
+      ctx.save();
+      r.roundRectPath(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20);
+      ctx.clip();
+      this.figure(r, d, "avatar", 0, AVATAR.x, AVATAR.y, AVATAR.size);
+      ctx.restore();
+      if (EDGE) r.roundRectOutline(AVATAR.x, AVATAR.y, AVATAR.size, AVATAR.size, 20, 1, EDGE);
     } else if (EDGE) {
       // The figure frames carry the light page as their background; on black they become
       // a rounded sticker instead of a bright square.
@@ -583,7 +615,7 @@ export class SquareView {
     this.panel(r);
     if (state === "ready") return;
     this.inPanel(r, () => {
-      this.figure(r, d, "avatar", 0, PANEL.w / 2 - 42, 64, 84);
+      this.figureTile(r, d, "avatar", 0, PANEL.w / 2 - 42, 64, 84, 20);
       const text = state === "failed" ? "Bild nicht erreichbar" : "Bild lädt …";
       r.print(PANEL.w / 2, 186, SQUARE_FONTS.sub, SUB, "C", text);
     });

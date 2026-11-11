@@ -23,7 +23,7 @@ export const LAYOUT_VERSION = 2;
 export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
-  theme: "auto", layoutVersion: LAYOUT_VERSION,
+  theme: "auto", pixel: false, layoutVersion: LAYOUT_VERSION,
 });
 
 // The stored settings over the defaults, cleaned.
@@ -39,6 +39,7 @@ export function loadSettings(storage) {
   s.fps = normaliseFps(s.fps);
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
   s.bare = s.bare === true;
+  s.pixel = s.pixel === true;
   if (!LAYOUTS.includes(s.layout)) s.layout = DEFAULTS.layout;
   // One-time move to the Mosaico default. A browser that already ran 1.6.0 or later has
   // the marker and keeps whatever Layout it chose.

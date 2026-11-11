@@ -3,7 +3,7 @@
 # that can be copied to Home Assistant OS with Samba.
 #
 # What: writes web/local/ha-bundle/ by default:
-#   addons/muse-web-screen/   the local add-on
+#   addons/muse_web_screen/    the local add-on
 #   config/www/muse-web/      the web app, including local/ (your own figure)
 #   ssl/muse-web.crt|key      the mkcert certificate for the add-on
 #   README.txt                the three copies, in one place
@@ -39,11 +39,11 @@ KEY="$WEB/local/ha-cert/muse-web.key"
 rm -rf "$OUT"
 mkdir -p "$OUT/addons" "$OUT/config/www" "$OUT/ssl"
 
-rsync -a --delete "$ADDON/" "$OUT/addons/muse-web-screen/"
+rsync -a --delete "$ADDON/" "$OUT/addons/muse_web_screen/"
 # The repository icon is the project's blue figure. If the owner has the black Muse icon
 # (web/local/mac_app_icon.png, gitignored), use it for the add-on on this HA only.
 if [ -f "$WEB/local/mac_app_icon.png" ]; then
-    sips -z 128 128 "$WEB/local/mac_app_icon.png" --out "$OUT/addons/muse-web-screen/icon.png" >/dev/null
+    sips -z 128 128 "$WEB/local/mac_app_icon.png" --out "$OUT/addons/muse_web_screen/icon.png" >/dev/null
     echo "using the private Muse icon for the add-on"
 fi
 rsync -a --delete \
@@ -54,7 +54,11 @@ rsync -a --delete \
     --exclude 'README.md' \
     --exclude 'local/ha-cert' \
     --exclude 'local/ha-bundle' \
-    --exclude 'local/mac_app_icon.png' \
+    --include 'local/' \
+    --include 'local/dark/' \
+    --include 'local/dark/muse_*.png' \
+    --include 'local/muse_*.png' \
+    --exclude 'local/*' \
     "$WEB/" "$OUT/config/www/muse-web/"
 cp "$CERT" "$OUT/ssl/muse-web.crt"
 cp "$KEY" "$OUT/ssl/muse-web.key"
@@ -65,7 +69,7 @@ Muse Web Screen: the three folders for Home Assistant OS
 
 Copy with the Samba share add-on, or with scp:
 
-  addons/muse-web-screen  ->  /addons/muse-web-screen
+  addons/muse_web_screen   ->  /addons/muse_web_screen
   config/www/muse-web     ->  /config/www/muse-web
   ssl/muse-web.crt        ->  /ssl/muse-web.crt
   ssl/muse-web.key        ->  /ssl/muse-web.key
@@ -80,6 +84,6 @@ published. The key in ssl/ must not be copied into config/www.
 EOF
 
 echo "wrote $OUT"
-echo "  add-on: $(du -sh "$OUT/addons/muse-web-screen" | cut -f1)"
+echo "  add-on: $(du -sh "$OUT/addons/muse_web_screen" | cut -f1)"
 echo "  web:    $(du -sh "$OUT/config/www/muse-web" | cut -f1)"
 echo "  ssl:    $(find "$OUT/ssl" -maxdepth 1 -type f -exec basename {} \; | tr '\n' ' ')"

@@ -36,14 +36,34 @@ import { decodeApng } from "./apng.js";
 export const FIGURE_NAMES = ["idle", "wave", "working", "making", "confetti", "avatar"];
 export const DEFAULT_FOLDER = "./figure-default"; // the project's figure, beside this page
 
-// The URL of one picture in the owner's folder `base`.
-export function frameUrl(base, name) {
-  return `${String(base || "").trim().replace(/\/+$/, "")}/muse_${name}.png`;
+// The URL of one picture in the owner's folder `base`; the dark theme has the same six
+// files under base/dark, their page faded to black (tools/make_figure_dark.py).
+export function frameUrl(base, name, dark = false) {
+  return `${String(base || "").trim().replace(/\/+$/, "")}${dark ? "/dark" : ""}/muse_${name}.png`;
 }
 
 // The URL of one picture of the project's figure in folder `base`.
-export function defaultUrl(name, base = DEFAULT_FOLDER) {
-  return `${String(base).replace(/\/+$/, "")}/${name}.png`;
+export function defaultUrl(name, base = DEFAULT_FOLDER, dark = false) {
+  return `${String(base).replace(/\/+$/, "")}${dark ? "/dark" : ""}/${name}.png`;
+}
+
+// The two frames and the mix between them at time t, for a smooth 60 fps draw of a
+// 6 fps animation. Looping poses ping-pong, confetti runs once; the avatar stays.
+export function frameBlend(sub, t, count, stepMs = STEP_MS) {
+  if (count <= 1 || sub === "avatar") return { i: 0, j: 0, mix: 0 };
+  const raw = Math.max(0, t) / stepMs;
+  if (sub === "confetti") {
+    const pos = Math.min(count - 1, raw);
+    const i = Math.floor(pos);
+    return { i, j: Math.min(count - 1, i + 1), mix: pos - i };
+  }
+  const cycle = 2 * (count - 1);
+  const p = raw % cycle;
+  const forward = p <= count - 1;
+  const pos = forward ? p : cycle - p;
+  const i = Math.floor(pos);
+  const j = forward ? Math.min(count - 1, i + 1) : Math.max(0, i - 1);
+  return { i, j, mix: pos - i };
 }
 
 // Which of `count` frames shows t ms after the animation started.
@@ -60,6 +80,7 @@ export class FigureSource {
     this.decode = decode;
     this.log = log;
     this.url = "";
+    this.dark = false; // load base/dark (the black-page copies) instead of base
     this.frames = new Map(); // the owner's: name -> [ImageBitmap]
     this.failed = [];
     this.loading = false;
@@ -104,7 +125,7 @@ export class FigureSource {
   // is there, and for a picture that fails, the figure drawn in code stands in.
   async loadDefault(base = DEFAULT_FOLDER) {
     this.defaultsLoading = true;
-    const results = await this.fetchSet((name) => defaultUrl(name, base), { credentials: "same-origin" });
+    const results = await this.fetchSet((name) => defaultUrl(name, base, this.dark), { credentials: "same-origin" });
     const loaded = new Map();
     const failed = [];
     for (const [name, frames, err] of results) {
@@ -132,7 +153,7 @@ export class FigureSource {
       return { loaded: 0, failed: [] };
     }
     this.loading = true;
-    const results = await this.fetchSet((name) => frameUrl(this.url, name),
+    const results = await this.fetchSet((name) => frameUrl(this.url, name, this.dark),
       { mode: "cors", cache: "no-cache", credentials: "omit" });
     if (serial !== this.serial) return { loaded: 0, failed: [], stale: true };
     for (const [name, frames, err] of results) {
@@ -172,7 +193,17 @@ export class FigureSource {
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(frames[frameIndex(sub, t, frames.length, stepMs)], x0, y0, size, size);
+    if (!this.smooth || frames.length <= 1 || sub === "avatar") {
+      ctx.drawImage(frames[frameIndex(sub, t, frames.length, stepMs)], x0, y0, size, size);
+    } else {
+      // Blend the two neighbouring 6 fps pictures: the figure moves continuously at 60.
+      const { i, j, mix } = frameBlend(sub, t, frames.length, stepMs);
+      ctx.drawImage(frames[i], x0, y0, size, size);
+      if (mix > 0 && j !== i) {
+        ctx.globalAlpha = mix;
+        ctx.drawImage(frames[j], x0, y0, size, size);
+      }
+    }
     ctx.restore();
   }
 }
