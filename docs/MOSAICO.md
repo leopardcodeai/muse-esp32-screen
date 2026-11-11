@@ -64,9 +64,9 @@ cd ~/Coding/esp/apps/muse
 /bin/zsh -lc 'python3 tools/provision.py --port /dev/cu.usbmodem1101'
 ```
 
-The defaults are `--url ws://192.168.178.133:8123/api/websocket` and
-`--box muse_esp32boxs3_screen`. Use the Home Assistant LAN address; the board lives in
-the house. The token comes from `MOSAICO_HA_TOKEN` in the login shell, not from
+The defaults are `--url ws://homeassistant.local:8123/api/websocket` and
+`--box muse_esp32boxs3_screen`; pass the Home Assistant LAN address with `--url` if
+`.local` does not resolve on the board. The board lives in the house. The token comes from `MOSAICO_HA_TOKEN` in the login shell, not from
 `HOMEASSISTANT_TOKEN` (that is the owner's admin token). Wi-Fi is not in this image: the
 app takes the network entered in Vibe Mode (partition `sysmeta`).
 
