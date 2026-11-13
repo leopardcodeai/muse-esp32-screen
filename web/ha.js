@@ -107,16 +107,24 @@ export class HaClient {
     this.retry = null;
     this.closed = true;
     this.authenticated = false;
+    // Addresses whose Home Assistant refused the token. In a foreign network another Home
+    // Assistant can answer under the same name (homeassistant.local); it refuses our token,
+    // and the next address (Tailscale) is the right one. Skipped until a token works again.
+    this.refused = new Set();
   }
 
   connect() {
     this.closed = false;
     this.urlIndex = 0;
+    this.refused.clear();
     this.open();
   }
 
   open() {
     if (this.urls.length > 1) {
+      for (let i = 0; i < this.urls.length && this.refused.has(this.urls[this.urlIndex % this.urls.length]); i++) {
+        this.urlIndex = (this.urlIndex + 1) % this.urls.length;
+      }
       this.url = this.urls[this.urlIndex % this.urls.length];
       this.usedUrl = this.url;
     }
@@ -220,7 +228,13 @@ export class HaClient {
       return;
     }
     if (msg.type === "auth_invalid") {
-      this.log("auth invalid: " + (msg.message || ""));
+      this.log("auth invalid at " + this.url + ": " + (msg.message || ""));
+      this.refused.add(this.url);
+      if (this.urls.some((u) => !this.refused.has(u))) {
+        // Another address is left: close this socket; onclose moves on to the next one.
+        if (this.ws) this.ws.close();
+        return;
+      }
       this.onState("off", "auth invalid");
       this.closed = true; // a wrong token is not retried; the person fixes the settings
       if (this.ws) this.ws.close();
@@ -228,6 +242,7 @@ export class HaClient {
     }
     if (msg.type === "auth_ok") {
       this.authenticated = true;
+      this.refused.clear();
       this.backoff = 1000;
       this.onState("on", msg.ha_version);
       try {

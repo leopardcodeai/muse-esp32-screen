@@ -237,3 +237,46 @@ test("urls: a closed LAN socket is followed by the Tailscale address", async () 
   assert.ok(c.authenticated);
   c.close();
 });
+
+test("urls: a foreign Home Assistant that refuses the token is followed by the next address", async () => {
+  // Owner, 13.11.2026: in a foreign network homeassistant.local was another house's Home
+  // Assistant; it refused the token and the screen gave up without trying Tailscale.
+  FakeSocket.instances = [];
+  class ForeignFirst extends FakeSocket {
+    send(raw) {
+      const msg = JSON.parse(raw);
+      if (msg.type === "auth" && this.url.includes("homeassistant.local")) {
+        this.sent.push(msg);
+        queueMicrotask(() => this.message({ type: "auth_invalid", message: "Invalid access token" }));
+        return;
+      }
+      super.send(raw);
+    }
+  }
+  const c = new HaClient({
+    urls: ["http://homeassistant.local:8123", "https://tail.example:8322"],
+    token: "test-token", device: D, WebSocketImpl: ForeignFirst, onState: () => {},
+    setTimeout: (fn) => { queueMicrotask(fn); return 0; }, clearTimeout: () => {},
+  });
+  c.connect();
+  for (let i = 0; i < 5; i++) await settle();
+  assert.ok(c.authenticated);
+  assert.equal(c.usedUrl, "https://tail.example:8322");
+  assert.equal(c.closed, false);
+  c.close();
+});
+
+test("urls: when every address refuses the token, the client stops", async () => {
+  FakeSocket.instances = [];
+  const states = [];
+  const c = new HaClient({
+    urls: ["http://a.example:8123", "https://b.example:8322"],
+    token: "wrong", device: D, WebSocketImpl: FakeSocket, onState: (s, d) => states.push([s, d]),
+    setTimeout: (fn) => { queueMicrotask(fn); return 0; }, clearTimeout: () => {},
+  });
+  c.connect();
+  for (let i = 0; i < 5; i++) await settle();
+  assert.ok(c.closed);
+  assert.equal(FakeSocket.instances.length, 2, "each address tried once");
+  assert.ok(states.some(([s, d]) => s === "off" && d === "auth invalid"));
+});
