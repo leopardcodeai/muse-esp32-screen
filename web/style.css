@@ -574,3 +574,19 @@ html.tablet #dim { right: var(--rail-w, 360px); }
 #rail-mic { touch-action: none; }
 #rail-voice-model { margin-top: 6px; font-size: 11px; opacity: 0.55; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 #rail-voice-model[hidden] { display: none; }
+
+/* Typed question to Muse under push-to-talk (textask.js). */
+#rail-text { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 6px; }
+#rail-text-input {
+  flex: 1; min-width: 0; height: 38px; padding: 0 12px; border-radius: 19px;
+  border: 1px solid var(--shadow); background: var(--card); color: var(--ink);
+  font: inherit; font-size: 14px; outline: none;
+}
+#rail-text-input:focus { border-color: var(--accent); }
+#rail-text-send {
+  flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0;
+  background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer;
+}
+#rail-text-send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#rail-text-send:disabled { opacity: 0.5; }
+#rail-text[hidden] { display: none; }

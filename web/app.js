@@ -34,6 +34,7 @@ import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY 
 import { Voice } from "./voice.js";
 import { Sensors } from "./sensors.js";
 import { RemoteLog } from "./remotelog.js";
+import { processRequest, answerOf } from "./textask.js";
 import { applyTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
@@ -191,6 +192,38 @@ voice = new Voice({
 updateVoiceModel();
 voice.setEnabled(settings.voice && !demoMode);
 voice.bindButton($("rail-mic"));
+
+// A typed question to Muse (textask.js): same agent as the voice pipeline, the answer card
+// comes from Muse's own screen calls, or from the reply text when Muse sends none.
+let textConversation = "";
+$("rail-text")?.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const input = $("rail-text-input");
+  const text = input.value.trim();
+  if (!text || !ha) return;
+  const send = $("rail-text-send");
+  send.disabled = true;
+  input.value = "";
+  input.blur();
+  log(`typed question (${text.length} characters)`);
+  display.setStatusText("thinking", "Muse denkt …");
+  render();
+  const before = display.version;
+  try {
+    const result = await ha.command(processRequest(text, { conversationId: textConversation }));
+    const { text: answer, conversationId } = answerOf(result);
+    textConversation = conversationId || textConversation;
+    log(`typed answer (${answer.length} characters)`);
+    if (answer) voice.armFallback(before, answer);
+    else display.setStatus(0);
+  } catch (e) {
+    log("typed question failed: " + (e && e.message ? e.message : e));
+    display.setStatusText("error", "Muse antwortet nicht");
+  } finally {
+    send.disabled = false;
+    render();
+  }
+});
 voice.bindButton($("btn-mic"));
 
 // The camera mode: one switch for the rail button, the power icon on the card, the C
