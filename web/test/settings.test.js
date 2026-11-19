@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { DEFAULT_DEVICE } from "../ha.js";
 import {
   DEFAULTS, SETTINGS_KEY, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, insecureFromHttps,
-  layoutFor, layoutReload,
+  layoutFor, layoutReload, LAYOUTS, TABLET_PROFILES, layoutChoice, parseLayoutChoice, tabletProfileFor,
   MIXED_CONTENT_NOTE,
 } from "../settings.js";
 
@@ -93,4 +93,55 @@ test("layoutReload(): a choice other than the layout on screen reloads without ?
   assert.equal(layoutReload(href, active, "square"), null, "the layout on screen: no reload");
   assert.equal(layoutReload("https://muse.example/", "box", "box"), null);
   assert.equal(layoutReload("https://muse.example/", "box", "square"), "https://muse.example/");
+});
+
+test("tablet profiles: Tab and iPad are layouts, not device strings", () => {
+  assert.deepEqual(LAYOUTS, ["box", "square", "tablet"]);
+  assert.deepEqual(TABLET_PROFILES, ["tab", "ipad"]);
+  assert.equal(layoutChoice("square", "tab"), "square");
+  assert.equal(layoutChoice("tablet", "ipad"), "tablet-ipad");
+  assert.equal(layoutChoice("tablet", "nope"), "tablet-tab");
+  assert.deepEqual(parseLayoutChoice("tablet-tab"), { layout: "tablet", tabletProfile: "tab" });
+  assert.deepEqual(parseLayoutChoice("tablet-ipad"), { layout: "tablet", tabletProfile: "ipad" });
+  assert.deepEqual(parseLayoutChoice("tablet"), { layout: "tablet", tabletProfile: null });
+  assert.deepEqual(parseLayoutChoice("box"), { layout: "box", tabletProfile: null });
+  assert.equal(parseLayoutChoice("nonsense"), null);
+});
+
+test("layoutFor(): tablet and its shorthand reach the tablet layout", () => {
+  assert.equal(layoutFor("?layout=tablet", { ...DEFAULTS, layout: "square" }), "tablet");
+  assert.equal(layoutFor("?layout=tablet-tab", { ...DEFAULTS, layout: "square" }), "tablet");
+  assert.equal(layoutFor("?layout=tablet-ipad", { ...DEFAULTS, layout: "square" }), "tablet");
+  assert.equal(layoutFor("?layout=nope", { ...DEFAULTS, layout: "tablet" }), "tablet");
+  assert.equal(layoutFor("", { ...DEFAULTS, layout: "tablet" }), "tablet");
+});
+
+test("tabletProfileFor(): URL wins, then setting, then tab", () => {
+  assert.equal(tabletProfileFor("", { tabletProfile: "ipad" }), "ipad");
+  assert.equal(tabletProfileFor("?device=tab", { tabletProfile: "ipad" }), "tab");
+  assert.equal(tabletProfileFor("?layout=tablet-ipad", { tabletProfile: "tab" }), "ipad");
+  assert.equal(tabletProfileFor("?device=nope", { tabletProfile: "ipad" }), "ipad");
+  assert.equal(tabletProfileFor("", { tabletProfile: "nope" }), "tab");
+});
+
+test("loadSettings(): the new device switches have safe defaults", () => {
+  const s = loadSettings(memory());
+  assert.equal(s.layout, "square");
+  assert.equal(s.tabletProfile, "tab");
+  assert.equal(s.voice, true);
+  assert.equal(s.speak, true);
+  assert.equal(s.camera, false);
+  assert.equal(s.personBoxes, true);
+  assert.equal(s.autoBrightness, true);
+  assert.equal(s.vision, true);
+  assert.equal(s.visionAuto, false);
+  assert.equal(s.visionEntity, "ai_task.google_ai_task");
+  const bad = loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify({ tabletProfile: "x", visionEntity: 7, camera: "yes" }) }));
+  assert.equal(bad.tabletProfile, "tab");
+  assert.equal(bad.visionEntity, "ai_task.google_ai_task");
+  assert.equal(bad.camera, false);
+  const stored = loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify({ camera: true, vision: false, voice: false }) }));
+  assert.equal(stored.camera, true);
+  assert.equal(stored.vision, false);
+  assert.equal(stored.voice, false);
 });

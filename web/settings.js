@@ -13,8 +13,12 @@ import { normaliseFps, DEFAULT_FPS } from "./pace.js";
 
 export const SETTINGS_KEY = "muse-web-settings";
 export const FIGURE_SOURCES = ["placeholder", "url"];
-// "box": the box's 320 x 240; "square": 480 x 480 (docs/SQUARE_LAYOUT.md, square.js).
-export const LAYOUTS = ["box", "square"];
+// "box": the box's 320 x 240; "square": 480 x 480 (docs/SQUARE_LAYOUT.md, square.js);
+// "tablet": the same 480 x 480 canvas at full height beside a control rail (tablet.js).
+export const LAYOUTS = ["box", "square", "tablet"];
+// The two tablet presets in the Layout dropdown. The geometry is responsive; the
+// profile only names the screen and picks the Vision upload filename.
+export const TABLET_PROFILES = ["tab", "ipad"];
 // "auto": dark on the square (Mosaico) layout, light on the box layout.
 export const THEMES = ["auto", "dark", "light"];
 // layoutVersion 2 moves a stored box layout once to square, the Mosaico default; an
@@ -24,6 +28,8 @@ export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
   theme: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
+  tabletProfile: "tab", voice: true, speak: true, camera: false, personBoxes: true,
+  autoBrightness: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
 });
 
 // The stored settings over the defaults, cleaned.
@@ -40,6 +46,12 @@ export function loadSettings(storage) {
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
   s.bare = s.bare === true;
   s.pixel = s.pixel === true;
+  for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "vision", "visionAuto"]) {
+    s[key] = stored[key] === undefined ? DEFAULTS[key] : stored[key] === true;
+  }
+  s.tabletProfile = TABLET_PROFILES.includes(s.tabletProfile) ? s.tabletProfile : DEFAULTS.tabletProfile;
+  const visionEntity = String(s.visionEntity || "").trim();
+  s.visionEntity = /^[a-z0-9_]+\.[a-z0-9_]+$/i.test(visionEntity) ? visionEntity : DEFAULTS.visionEntity;
   if (!LAYOUTS.includes(s.layout)) s.layout = DEFAULTS.layout;
   // One-time move to the Mosaico default. A browser that already ran 1.6.0 or later has
   // the marker and keeps whatever Layout it chose.
@@ -92,11 +104,41 @@ export function themeFor(search, settings, layout) {
   return layout === "square" ? "dark" : "light";
 }
 
-// The layout of this visit: `?layout=box|square` in the URL, else the setting.
+// The layout of this visit: `?layout=box|square|tablet` in the URL, else the setting.
+// `?layout=tablet-tab` and `?layout=tablet-ipad` are shorthand for one profile.
 export function layoutFor(search, settings) {
   const p = new URLSearchParams(search);
-  const want = p.has("layout") ? String(p.get("layout")).trim().toLowerCase() : settings.layout;
+  const chosen = p.has("layout") ? parseLayoutChoice(p.get("layout")) : null;
+  const want = chosen ? chosen.layout : settings.layout;
   return LAYOUTS.includes(want) ? want : LAYOUTS.includes(settings.layout) ? settings.layout : DEFAULTS.layout;
+}
+
+// The Layout dropdown value for a stored layout and profile ("tablet-ipad").
+export function layoutChoice(layout, profile) {
+  if (layout !== "tablet") return layout;
+  return `tablet-${TABLET_PROFILES.includes(profile) ? profile : DEFAULTS.tabletProfile}`;
+}
+
+// A Layout dropdown (or URL) value as {layout, tabletProfile}; null when unknown.
+export function parseLayoutChoice(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "tablet-tab") return { layout: "tablet", tabletProfile: "tab" };
+  if (v === "tablet-ipad") return { layout: "tablet", tabletProfile: "ipad" };
+  if (v === "tablet") return { layout: "tablet", tabletProfile: null };
+  if (v === "box" || v === "square") return { layout: v, tabletProfile: null };
+  return null;
+}
+
+// The tablet profile of this visit: `?device=tab|ipad`, a `?layout=tablet-...`
+// shorthand, else the setting.
+export function tabletProfileFor(search, settings) {
+  const p = new URLSearchParams(search);
+  const device = String(p.get("device") || "").trim().toLowerCase();
+  if (TABLET_PROFILES.includes(device)) return device;
+  const fromLayout = p.has("layout") ? parseLayoutChoice(p.get("layout")) : null;
+  if (fromLayout && TABLET_PROFILES.includes(fromLayout.tabletProfile)) return fromLayout.tabletProfile;
+  const stored = String(settings.tabletProfile || "").trim().toLowerCase();
+  return TABLET_PROFILES.includes(stored) ? stored : DEFAULTS.tabletProfile;
 }
 
 // The page to load after the settings were saved with layout `chosen`, or null when the
