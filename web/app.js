@@ -44,6 +44,9 @@ import { processRequest, answerOf } from "./textask.js";
 import { applyTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
+// Inside Muse OS (the Android shell injects museSensors) the OS side bar shows connection
+// and light; the rail's own status header stays hidden (owner, 19.11.2026).
+if (typeof window !== "undefined" && window.museSensors) document.documentElement.classList.add("muse-os");
 const stage = $("stage");
 const canvas = $("screen");
 const overlayEl = $("overlay");

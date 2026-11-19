@@ -1236,3 +1236,6 @@ html[data-look="ios"] .s-foot button:active { transform: scale(0.96); transition
 /* The clock belongs to the canvas only (owner, 19.11.2026): the rail header keeps the
    connection status and drops its own time and date. */
 #rail-clock { display: none !important; }
+
+/* Muse OS shows connection and light in its side bar: no status header in the rail. */
+html.muse-os #rail-head { display: none !important; }
