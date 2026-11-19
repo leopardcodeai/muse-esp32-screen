@@ -182,3 +182,10 @@ export const MIXED_CONTENT_NOTE = "Von dieser HTTPS-Seite aus blockieren Safari 
   + "Verbindung zu einer http-Adresse, Chrome und Edge erlauben sie nur ins lokale Netz und erst nach einer "
   + "Freigabe: zuverlässig geht es mit einer HTTPS-Adresse für Home Assistant (wss://) oder mit der App lokal "
   + "über http://localhost.";
+
+// Whether the page should load the newer version the server has: only when the server
+// names one, it differs, and nothing is going on (no talking, no Vision request).
+export function updateWanted(current, server, idle) {
+  const next = String(server || "").trim();
+  return Boolean(idle) && next !== "" && next !== String(current || "").trim();
+}

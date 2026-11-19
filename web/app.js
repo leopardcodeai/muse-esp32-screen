@@ -26,7 +26,7 @@ import { floatDocument, floatVideo, unfloatVideo, hasDocumentPip, hasVideoPip, K
 import { FrameClock, BOX_FPS, fitScale, normaliseFps } from "./pace.js";
 import {
   DEFAULTS, THEMES, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload,
-  layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE,
+  layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE, updateWanted,
 } from "./settings.js";
 import { TabletRail, railWidth, railSide } from "./tablet.js";
 import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY } from "./camera.js";
@@ -244,6 +244,12 @@ async function screenAction(action, fields) {
   const target = String(fields.device || "").trim();
   if (target && target !== settings.device) return true;
   const mode = String(fields.mode ?? fields.state ?? "").trim().toLowerCase();
+  if (action === "reload") {
+    // Sent after every deploy, so an always-on panel runs the new files.
+    log("reload requested");
+    setTimeout(() => location.reload(), 300);
+    return true;
+  }
   if (action === "camera") {
     const on = mode === "toggle" ? !settings.camera : !["off", "aus", "false", "0", "stop"].includes(mode);
     setCameraMode(on);
@@ -600,7 +606,7 @@ function applyAction({ action, fields = {} }) {
   lastActionKey = key;
   lastActionAt = now;
   log(`action ${action} ${JSON.stringify(fields).slice(0, 120)}`);
-  if (["camera", "photo", "vision"].includes(action)) {
+  if (["camera", "photo", "vision", "reload"].includes(action)) {
     screenAction(action, fields).then(() => render());
     return;
   }
@@ -962,8 +968,28 @@ async function start() {
       }
     }).catch((e) => log("service worker not registered: " + e.message));
   }
+  // An always-on panel never navigates, so it would keep old files for days. Ask the
+  // server every 10 minutes and reload when it has another version and nothing runs.
+  setInterval(checkForUpdate, 10 * 60 * 1000);
   log(`Muse Web Screen ${VERSION}; ${layout}${tablet ? " (" + tabletProfile + ")" : ""} layout ${LW} x ${LH}; ${frames.fps} frames a second; muse_web events: ${EVENT_WEB}`);
 }
+async function checkForUpdate() {
+  if (demoMode || location.protocol === "file:") return;
+  try {
+    const res = await fetch(`./package.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const server = (await res.json()).version;
+    const idle = (!voice || voice.state === "idle") && !(camera && camera.visionBusy);
+    if (updateWanted(VERSION, server, idle)) {
+      log(`version ${server} on the server, reloading`);
+      location.reload();
+    }
+  } catch {
+    // offline: try again at the next check
+  }
+}
+
+
 start();
 
 // For the browser console: muse.dispatch("show_text", {title: "Hallo", message: "Welt"}).

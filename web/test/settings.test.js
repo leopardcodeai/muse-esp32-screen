@@ -147,3 +147,12 @@ test("loadSettings(): the new device switches have safe defaults", () => {
   assert.equal(stored.vision, false);
   assert.equal(stored.voice, false);
 });
+
+test("updateWanted(): a different server version, only when idle", async () => {
+  const { updateWanted } = await import("../settings.js");
+  assert.equal(updateWanted("1.8.5", "1.8.6", true), true);
+  assert.equal(updateWanted("1.8.5", "1.8.5", true), false);
+  assert.equal(updateWanted("1.8.5", "1.8.6", false), false);
+  assert.equal(updateWanted("1.8.5", "", true), false);
+  assert.equal(updateWanted("1.8.5", undefined, true), false);
+});
