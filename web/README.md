@@ -76,6 +76,7 @@ The settings panel opens by itself until a URL and a token are stored (outside d
 | input_text für Antworten | | optional: an `input_text` entity that receives every answer as `<answer>: <question>`, the format of the box's sensor "Antwort" |
 | Name in der Leiste | `Muse` | the name at the left of the top bar |
 | Layout | 480 x 480 | the box's 320 x 240, 480 x 480 quadratisch ([The square layout](#the-square-layout-480-x-480)), or **Tab** / **iPad** ([Tab and iPad](#tab-and-ipad)); `?layout=square`, `?layout=box` or `?layout=tablet` in the URL does the same for one visit |
+| Stil | Auto | the look of the rail, toolbar, camera card and this dialog: **iOS** (iOS 26 Liquid Glass: translucent blurred surfaces, system font and colours, iOS switches and segmented controls) or **Klassisch**; Auto is iOS on Tab and iPad and classic on box and square. It follows Design (dark/light) and never changes the canvas; `?look=ios` or `?look=classic` for one visit |
 | Mikrofon: mit Muse sprechen | on | push-to-talk; the microphone is open only while the button is held ([Voice](#camera-voice-and-vision)) |
 | Antworten vorlesen | on | play the Piper answer from the Assist pipeline through the speaker |
 | Kamera (Beta) | off | master switch for the camera card, the person boxes, the photo button and the dim layer |

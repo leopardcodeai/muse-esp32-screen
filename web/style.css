@@ -590,3 +590,498 @@ html.tablet #dim { right: var(--rail-w, 360px); }
 #rail-text-send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 #rail-text-send:disabled { opacity: 0.5; }
 #rail-text[hidden] { display: none; }
+
+/* =================================================================== iOS look --
+
+   The iOS 26 "Liquid Glass" look of the DOM chrome: the tablet rail, the toolbar, the
+   camera card, the notices and the settings dialog. It is switched by
+   html[data-look="ios"] (settings.js lookFor(): default on the tablet layout, the "Stil"
+   setting or ?look=ios|classic elsewhere) and follows the existing light/dark theme
+   through html[data-theme]. Everything above stays the classic look; the canvas, the
+   square (Mosaico) and the box layouts are never restyled by this block unless iOS is
+   chosen for them, and even then only their DOM chrome changes.
+
+   What a web page can do of Liquid Glass: translucent surfaces with backdrop-filter
+   blur and saturation, a bright rim and an inner top highlight, layered soft shadows,
+   continuous large radii, system fonts and colours, spring-like easing. What it cannot:
+   real refraction and the specular light that follows the device's motion.
+
+   Pitfalls:
+    * backdrop-filter only blurs what lies behind the element, so the rail gets a soft
+      tinted background of its own; without one the glass would look flat grey.
+    * Without backdrop-filter support (or with reduced transparency asked for) the glass
+      turns almost opaque, so text keeps its contrast.
+    * Inputs use 16 px text: Safari on iPad zooms into any smaller focused field.
+    * The portrait rules of the tablet layout above use !important for the mic size and
+      the action grid; this block leaves them in charge. */
+html[data-look="ios"] {
+  --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Inter", "Helvetica Neue", Arial, sans-serif;
+  --ios-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Inter", "Helvetica Neue", Arial, sans-serif;
+  /* System colours, light variants. */
+  --ios-blue: #007aff;
+  --ios-green: #34c759;
+  --ios-orange: #ff9500;
+  --ios-red: #ff3b30;
+  --ios-indigo: #5856d6;
+  --ios-teal: #30b0c7;
+  --ios-gray: #8e8e93;
+  --ios-tint: var(--ios-blue);
+  --ios-tint-soft: rgba(0, 122, 255, 0.14);
+  --ios-tint-ring: rgba(0, 122, 255, 0.55);
+  --ios-tint-glow: rgba(0, 122, 255, 0.30);
+  /* Filled buttons carry white text: Apple's web blue keeps it at 4.6:1. */
+  --ios-fill-button: #0071e3;
+  --ios-label: #000000;
+  --ios-label-2: #6c6c70;
+  --ios-fill: rgba(120, 120, 128, 0.20);
+  --ios-fill-2: rgba(118, 118, 128, 0.12);
+  --ios-separator: rgba(60, 60, 67, 0.16);
+  --ios-warn: #c93400;
+  --ios-ok: #248a3d;
+  /* Glass. */
+  --glass-bg: rgba(255, 255, 255, 0.56);
+  --glass-bg-strong: rgba(255, 255, 255, 0.74);
+  --glass-rim: rgba(255, 255, 255, 0.75);
+  --glass-edge: rgba(0, 0, 0, 0.07);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 18px rgba(0, 0, 0, 0.07), 0 22px 44px rgba(0, 0, 0, 0.06);
+  --glass-blur: blur(24px) saturate(180%);
+  --seg-on: #ffffff;
+  --rail-glow-a: rgba(0, 122, 255, 0.12);
+  --rail-glow-b: rgba(255, 149, 0, 0.08);
+  /* Motion: a slight overshoot reads as a spring; the out curve settles without one. */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --accent: var(--ios-tint);
+}
+html[data-look="ios"][data-theme="dark"] {
+  --ios-blue: #0a84ff;
+  --ios-green: #30d158;
+  --ios-orange: #ff9f0a;
+  --ios-red: #ff453a;
+  --ios-indigo: #5e5ce6;
+  --ios-teal: #40c8e0;
+  --ios-tint-soft: rgba(10, 132, 255, 0.22);
+  --ios-tint-ring: rgba(10, 132, 255, 0.7);
+  --ios-tint-glow: rgba(10, 132, 255, 0.42);
+  --ios-label: #ffffff;
+  --ios-label-2: #98989f;
+  --ios-fill: rgba(120, 120, 128, 0.40);
+  --ios-fill-2: rgba(118, 118, 128, 0.24);
+  --ios-separator: rgba(84, 84, 88, 0.55);
+  --ios-warn: #ff9f0a;
+  --ios-ok: #30d158;
+  --glass-bg: rgba(44, 44, 48, 0.52);
+  --glass-bg-strong: rgba(58, 58, 62, 0.62);
+  --glass-rim: rgba(255, 255, 255, 0.14);
+  --glass-edge: rgba(0, 0, 0, 0.5);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35), 0 24px 56px rgba(0, 0, 0, 0.3);
+  --seg-on: #636366;
+  --rail-glow-a: rgba(10, 132, 255, 0.20);
+  --rail-glow-b: rgba(255, 159, 10, 0.10);
+}
+
+/* One glass surface, shared by every floating part of the chrome. */
+html[data-look="ios"].tablet #rail-status,
+html[data-look="ios"].tablet #rail-voice-box,
+html[data-look="ios"].tablet #rail-actions button,
+html[data-look="ios"] #camera,
+html[data-look="ios"] #toolbar button,
+html[data-look="ios"] #notice,
+html[data-look="ios"] #voice-hint {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-rim);
+  box-shadow: var(--glass-highlight), 0 0 0 0.5px var(--glass-edge), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--ios-label);
+}
+
+/* Focus rings: the tint, wide enough to see on glass. */
+html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings) :focus-visible {
+  outline: 3px solid var(--ios-tint-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ iOS: rail -- */
+html[data-look="ios"].tablet #rail {
+  gap: 14px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) 16px;
+  font-family: var(--ios-font);
+  background:
+    radial-gradient(120% 55% at 100% 0%, var(--rail-glow-a), transparent 65%),
+    radial-gradient(110% 50% at 0% 100%, var(--rail-glow-b), transparent 65%),
+    var(--page);
+  border-left: 0.5px solid var(--ios-separator);
+}
+html[data-look="ios"].tablet.portrait #rail { border-left: 0; border-top: 0.5px solid var(--ios-separator); }
+
+/* Status capsule: profile, connection dot, connection text. */
+html[data-look="ios"].tablet #rail-status {
+  gap: 8px;
+  min-height: 40px;
+  padding: 5px 16px 5px 5px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+html[data-look="ios"].tablet #rail-profile {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  background: var(--ios-tint-soft);
+  color: var(--ios-tint);
+  font-size: 13px;
+  font-weight: 600;
+}
+html[data-look="ios"] #rail-dot { width: 10px; height: 10px; background: var(--ios-red); box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18); transition: background 300ms ease, box-shadow 300ms ease; }
+html[data-look="ios"] #rail-dot[data-connection="on"] { background: var(--ios-green); box-shadow: 0 0 0 3px rgba(48, 209, 88, 0.2), 0 0 10px rgba(48, 209, 88, 0.55); }
+html[data-look="ios"] #rail-dot[data-connection="connecting"] { background: var(--ios-orange); box-shadow: 0 0 0 3px rgba(255, 159, 10, 0.2); }
+html[data-look="ios"] #rail-dot[data-connection="demo"] { background: var(--ios-teal); box-shadow: 0 0 0 3px rgba(64, 200, 224, 0.2); }
+
+/* Clock and countdowns use tabular figures, so the digits do not jitter. The clock
+   only shows where the page carries #rail-time (tablet.js fills it when present). */
+html[data-look="ios"] #rail-time {
+  font: 700 56px/1 var(--ios-display);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ios-label);
+}
+html[data-look="ios"] #rail-date { font: 600 15px/1.3 var(--ios-font); color: var(--ios-label-2); }
+html[data-look="ios"] #rail-timer,
+html[data-look="ios"] .s-version { font-variant-numeric: tabular-nums; }
+
+/* The voice platter: the push-to-talk circle, its label and the text field. */
+html[data-look="ios"].tablet #rail-voice-box {
+  gap: 10px;
+  padding: 20px 16px 16px;
+  border-radius: 28px;
+}
+html[data-look="ios"].tablet #rail-timer {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 159, 10, 0.18);
+  color: var(--ios-orange);
+  font-size: 15px;
+  font-weight: 600;
+}
+html[data-look="ios"][data-theme="light"].tablet #rail-timer { color: #a34f00; }
+
+html[data-look="ios"].tablet #rail-mic {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  background: var(--glass-bg-strong);
+  color: var(--ios-tint);
+  border: 1px solid var(--glass-rim);
+  box-shadow:
+    var(--glass-highlight),
+    0 0 0 0.5px var(--glass-edge),
+    0 10px 28px var(--ios-tint-glow),
+    0 0 56px var(--ios-tint-soft);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  transition: transform 420ms var(--spring), background 220ms ease, color 220ms ease, box-shadow 260ms ease;
+}
+html[data-look="ios"].tablet #rail-mic svg { width: 38px; height: 38px; stroke-width: 2; }
+html[data-look="ios"].tablet #rail-mic:active { transform: scale(0.9); transition-duration: 160ms; }
+html[data-look="ios"].tablet #rail-mic[data-state="listening"] {
+  background: var(--ios-red);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  animation: ios-listen 1.4s var(--ease-out) infinite;
+}
+html[data-look="ios"].tablet #rail-mic[data-state="thinking"] {
+  background: var(--ios-orange);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: var(--glass-highlight), 0 10px 28px rgba(255, 159, 10, 0.4);
+  animation: ios-breathe 1.6s ease-in-out infinite;
+}
+html[data-look="ios"].tablet #rail-mic[data-state="speaking"] {
+  background: var(--ios-green);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: var(--glass-highlight), 0 10px 28px rgba(48, 209, 88, 0.4);
+}
+html[data-look="ios"].tablet #rail-mic[data-state="error"],
+html[data-look="ios"].tablet #rail-mic[data-state="off"] {
+  background: var(--ios-fill-2);
+  color: var(--ios-label-2);
+  box-shadow: none;
+}
+@keyframes ios-listen {
+  0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.5), 0 10px 28px rgba(255, 69, 58, 0.4); }
+  100% { box-shadow: 0 0 0 22px rgba(255, 69, 58, 0), 0 10px 28px rgba(255, 69, 58, 0.4); }
+}
+@keyframes ios-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+html[data-look="ios"].tablet #rail-mic-label {
+  color: var(--ios-label-2);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+html[data-look="ios"].tablet #rail-voice-model { color: var(--ios-label-2); opacity: 1; font-size: 12px; }
+
+/* The typed question as an iOS search field: a capsule of the fill colour, the send
+   button a filled circle. 44 px high for the touch target. */
+html[data-look="ios"] #rail-text { gap: 8px; margin-top: 4px; }
+html[data-look="ios"] #rail-text-input {
+  height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--ios-fill-2);
+  color: var(--ios-label);
+  font: 400 16px/1 var(--ios-font);
+  letter-spacing: -0.01em;
+  -webkit-user-select: text;
+  user-select: text;
+  transition: box-shadow 200ms ease, background 200ms ease;
+}
+html[data-look="ios"] #rail-text-input::placeholder { color: var(--ios-label-2); opacity: 1; }
+html[data-look="ios"] #rail-text-input:focus { background: var(--ios-fill); box-shadow: 0 0 0 3px var(--ios-tint-ring); }
+html[data-look="ios"] #rail-text-send {
+  width: 44px;
+  height: 44px;
+  background: var(--ios-fill-button);
+  color: #fff;
+  box-shadow: 0 4px 12px var(--ios-tint-glow);
+  transition: transform 360ms var(--spring), opacity 200ms ease, background 200ms ease;
+}
+html[data-look="ios"] #rail-text-send:active { transform: scale(0.9); transition-duration: 140ms; }
+html[data-look="ios"] #rail-text-send:disabled { background: var(--ios-fill); color: var(--ios-label-2); box-shadow: none; opacity: 1; }
+
+/* Action tiles in the manner of Control Center: glass, the icon in a round well that
+   fills with the tint while the action is on. */
+html[data-look="ios"].tablet #rail-actions { gap: 10px; }
+html[data-look="ios"].tablet #rail-actions button {
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 14px 0 9px;
+  border-radius: 20px;
+  font: 600 14px/1.15 var(--ios-font);
+  letter-spacing: -0.01em;
+  text-align: left;
+  transition: transform 380ms var(--spring), background 220ms ease, color 220ms ease;
+}
+html[data-look="ios"].tablet #rail-actions button svg {
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  padding: 8px;
+  border-radius: 50%;
+  background: var(--ios-fill-2);
+  color: var(--ios-label);
+  transition: background 220ms ease, color 220ms ease;
+}
+html[data-look="ios"].tablet #rail-actions button:active { transform: scale(0.96); transition-duration: 140ms; }
+html[data-look="ios"].tablet #rail-actions button[aria-pressed="true"] {
+  border-color: var(--glass-rim);
+  background: var(--glass-bg-strong);
+}
+html[data-look="ios"].tablet #rail-actions button[aria-pressed="true"] svg { background: var(--ios-tint); color: #fff; }
+html[data-look="ios"].tablet #rail-actions #rail-settings { justify-content: center; }
+html[data-look="ios"].tablet #rail-foot { color: var(--ios-label-2); font-size: 13px; font-weight: 500; }
+
+/* ------------------------------------------- iOS: toolbar, notices, camera -- */
+html[data-look="ios"] #toolbar button {
+  position: relative;
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font: 600 14px/1 var(--ios-font);
+  letter-spacing: -0.01em;
+  transition: transform 360ms var(--spring), background 200ms ease;
+}
+/* A 44 px hit area around the 34 px pill, without a taller bar. */
+html[data-look="ios"] #toolbar button::after { content: ""; position: absolute; inset: -5px -2px; }
+html[data-look="ios"] #toolbar button:hover { border-color: var(--glass-rim); background: var(--glass-bg-strong); }
+html[data-look="ios"] #toolbar button:active { transform: scale(0.95); transition-duration: 140ms; }
+
+html[data-look="ios"] #notice,
+html[data-look="ios"] #voice-hint {
+  border-radius: 18px;
+  font-family: var(--ios-font);
+  font-size: 15px;
+  font-weight: 500;
+}
+html[data-look="ios"] #voice-hint { border-radius: 999px; }
+
+html[data-look="ios"] #camera { border-radius: 24px; font-family: var(--ios-font); }
+html[data-look="ios"] #camera-head { gap: 8px; padding: 10px 12px; color: var(--ios-label); font-size: 14px; font-weight: 600; }
+html[data-look="ios"] #camera-live-dot { background: var(--ios-green); }
+html[data-look="ios"] #camera-beta { background: rgba(48, 209, 88, 0.18); color: var(--ios-green); }
+html[data-look="ios"] #camera-swap,
+html[data-look="ios"] #camera-torch,
+html[data-look="ios"] #camera-foot button {
+  position: relative;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ios-fill-2);
+  color: var(--ios-label);
+  font: 600 13px/1 var(--ios-font);
+}
+html[data-look="ios"] #camera-torch[aria-pressed="true"] { background: var(--ios-tint-soft); color: var(--ios-tint); }
+html[data-look="ios"] #camera-power { position: relative; width: 32px; height: 32px; background: rgba(255, 69, 58, 0.16); color: var(--ios-red); }
+/* 44 px hit areas around the small header controls. */
+html[data-look="ios"] :is(#camera-swap, #camera-torch, #camera-power, #camera-foot button)::after { content: ""; position: absolute; inset: -7px -4px; }
+html[data-look="ios"] #camera-view { margin: 0 8px; border-radius: 16px; }
+html[data-look="ios"] #camera-caption { padding: 10px 14px 12px; border-top: 0; color: var(--ios-label); font-size: 14px; font-weight: 500; }
+html[data-look="ios"] #camera-model { color: var(--ios-label-2); opacity: 1; font-size: 12px; margin: 0 14px 10px; }
+
+/* -------------------------------------------------------- iOS: settings -- */
+html[data-look="ios"] dialog#settings {
+  --s-bg: rgba(242, 242, 247, 0.82);
+  --s-card: rgba(255, 255, 255, 0.92);
+  --s-line: var(--ios-separator);
+  --s-field: var(--ios-fill-2);
+  --s-ink: var(--ios-label);
+  --s-sub: var(--ios-label-2);
+  --s-accent: var(--ios-tint);
+  border: 1px solid var(--glass-rim);
+  border-radius: 30px;
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: var(--glass-highlight), 0 0 0 0.5px var(--glass-edge), 0 2px 6px rgba(0, 0, 0, 0.08), 0 24px 60px rgba(0, 0, 0, 0.22), 0 48px 120px rgba(0, 0, 0, 0.18);
+}
+html[data-look="ios"][data-theme="dark"] dialog#settings {
+  --s-bg: rgba(24, 24, 27, 0.80);
+  --s-card: rgba(58, 58, 62, 0.55);
+  color-scheme: dark;
+}
+html[data-look="ios"] dialog#settings[open] { animation: ios-sheet-in 460ms var(--spring); }
+@keyframes ios-sheet-in { from { opacity: 0; transform: translateY(24px) scale(0.96); } to { opacity: 1; transform: none; } }
+html[data-look="ios"] dialog#settings::backdrop { background: rgba(0, 0, 0, 0.32); -webkit-backdrop-filter: blur(14px) saturate(120%); backdrop-filter: blur(14px) saturate(120%); }
+html[data-look="ios"] #settings-form { font-family: var(--ios-font); letter-spacing: -0.01em; }
+
+html[data-look="ios"] .s-head { padding: 20px 22px 12px; background: transparent; border-bottom: 0.5px solid var(--s-line); }
+html[data-look="ios"] .s-head h2 { font: 700 28px/1.1 var(--ios-display); letter-spacing: -0.015em; }
+html[data-look="ios"] .s-version { font-size: 13px; font-weight: 500; }
+html[data-look="ios"] .s-close { position: relative; width: 36px; height: 36px; background: var(--s-field); color: var(--s-sub); transition: transform 360ms var(--spring); }
+html[data-look="ios"] .s-close::after { content: ""; position: absolute; inset: -4px; }
+html[data-look="ios"] .s-close:active { transform: scale(0.9); transition-duration: 140ms; }
+
+html[data-look="ios"] .s-body { gap: 16px; padding: 16px 18px 6px; }
+html[data-look="ios"] .s-col { gap: 16px; }
+html[data-look="ios"] .s-card { padding: 4px 16px 8px; border: 0; border-radius: 24px; background: var(--s-card); }
+html[data-look="ios"] .s-card h3 { gap: 12px; margin: 10px 0 6px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+/* Settings-app icons: a white glyph on a rounded square of the card's system colour. */
+html[data-look="ios"] .s-card { --tint: var(--ios-gray); }
+html[data-look="ios"] .s-card[data-tint="green"] { --tint: var(--ios-green); }
+html[data-look="ios"] .s-card[data-tint="red"] { --tint: var(--ios-red); }
+html[data-look="ios"] .s-card[data-tint="indigo"] { --tint: var(--ios-indigo); }
+html[data-look="ios"] .s-card[data-tint="blue"] { --tint: var(--ios-blue); }
+html[data-look="ios"] .s-card[data-tint="orange"] { --tint: var(--ios-orange); }
+html[data-look="ios"] .s-card h3 svg { width: 30px; height: 30px; padding: 6px; border-radius: 8px; background: var(--tint); color: #fff; }
+html[data-look="ios"] .badge { background: var(--ios-tint-soft); color: var(--ios-tint); font-weight: 700; letter-spacing: 0.04em; }
+
+html[data-look="ios"] #settings .field { border-top: 0.5px solid var(--s-line); }
+html[data-look="ios"] .f-name { font-size: 13px; font-weight: 500; color: var(--s-sub); }
+html[data-look="ios"] #settings input[type="text"],
+html[data-look="ios"] #settings input[type="url"],
+html[data-look="ios"] #settings input[type="password"] {
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 12px;
+  font: 400 16px/1.2 var(--ios-font);
+  transition: box-shadow 200ms ease, background 200ms ease;
+}
+html[data-look="ios"] #settings input[type="text"]:focus,
+html[data-look="ios"] #settings input[type="url"]:focus,
+html[data-look="ios"] #settings input[type="password"]:focus {
+  background: var(--s-field);
+  box-shadow: 0 0 0 3px var(--ios-tint-ring);
+}
+html[data-look="ios"] #settings input::placeholder { color: var(--s-sub); opacity: 0.85; }
+
+/* iOS switches: 51 x 31, green when on, the knob springs and stretches while held. */
+html[data-look="ios"] .switch { min-height: 52px; border-top: 0.5px solid var(--s-line); font-size: 17px; font-weight: 400; }
+html[data-look="ios"] .switch > i { background: var(--ios-fill); transition: background 260ms ease; }
+html[data-look="ios"] .switch > i::after {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  transition: transform 420ms var(--spring), width 260ms var(--ease-out);
+}
+html[data-look="ios"] .switch:active > i::after { width: 33px; }
+html[data-look="ios"] .switch input:checked + i { background: var(--ios-green); }
+html[data-look="ios"] .switch:active input:checked + i::after { transform: translateX(14px); }
+html[data-look="ios"] .switch input:focus-visible + i { outline: 3px solid var(--ios-tint-ring); outline-offset: 2px; }
+
+/* Segmented controls: one fill-coloured track, the chosen segment a raised pill. */
+html[data-look="ios"] .seg { gap: 2px; padding: 3px; border-radius: 13px; background: var(--s-field); }
+html[data-look="ios"] .seg span {
+  min-height: 44px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  transition: background 240ms var(--ease-out), box-shadow 240ms var(--ease-out);
+}
+html[data-look="ios"] .seg b { font-size: 14px; font-weight: 600; }
+html[data-look="ios"] .seg i { font-size: 11px; color: var(--s-sub); }
+html[data-look="ios"] .seg input:checked + span {
+  background: var(--seg-on);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+html[data-look="ios"] .seg input:focus-visible + span { outline: 3px solid var(--ios-tint-ring); outline-offset: 1px; }
+
+/* The "i": the tint, with a 44 px hit area around the small circle. */
+html[data-look="ios"] .info { position: relative; width: 20px; height: 20px; color: var(--ios-tint); opacity: 1; font: 600 12px/1 var(--ios-font); font-style: normal; }
+html[data-look="ios"] .info::after { content: ""; position: absolute; inset: -12px; }
+html[data-look="ios"] #settings .hint { font-size: 13px; font-weight: 400; color: var(--s-sub); }
+html[data-look="ios"] #settings small.warn { color: var(--ios-warn); }
+html[data-look="ios"] #settings small.status { color: var(--ios-ok); }
+html[data-look="ios"] .s-more summary h3::after { border-color: var(--s-sub); }
+
+/* Footer: a grey tinted pill and the filled pill of the main action. */
+html[data-look="ios"] .s-foot { gap: 12px; padding: 12px 18px 16px; background: transparent; border-top: 0.5px solid var(--s-line); }
+html[data-look="ios"] .s-foot button {
+  min-height: 50px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--s-field);
+  color: var(--ios-tint);
+  font: 600 17px/1 var(--ios-font);
+  letter-spacing: -0.01em;
+  transition: transform 360ms var(--spring), filter 200ms ease;
+}
+html[data-look="ios"] .s-foot button[type="submit"] { background: var(--ios-fill-button); color: #fff; box-shadow: 0 6px 16px var(--ios-tint-glow); }
+html[data-look="ios"] .s-foot button:active { transform: scale(0.96); transition-duration: 140ms; }
+@media (max-width: 560px) {
+  html[data-look="ios"] dialog#settings { border-radius: 0; border: 0; }
+}
+
+/* ------------------------------------------- iOS: fallbacks and preferences -- */
+/* No backdrop-filter, or reduced transparency asked for: near-opaque surfaces. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-look="ios"] { --glass-bg: rgba(255, 255, 255, 0.94); --glass-bg-strong: #ffffff; }
+  html[data-look="ios"][data-theme="dark"] { --glass-bg: rgba(36, 36, 40, 0.96); --glass-bg-strong: #3a3a3e; }
+  html[data-look="ios"] dialog#settings { --s-bg: #f2f2f7; }
+  html[data-look="ios"][data-theme="dark"] dialog#settings { --s-bg: #161618; --s-card: #2c2c2e; }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  html[data-look="ios"] { --glass-bg: rgba(255, 255, 255, 0.97); --glass-bg-strong: #ffffff; --glass-rim: rgba(0, 0, 0, 0.18); }
+  html[data-look="ios"][data-theme="dark"] { --glass-bg: rgba(36, 36, 40, 0.98); --glass-bg-strong: #3a3a3e; --glass-rim: rgba(255, 255, 255, 0.3); }
+  html[data-look="ios"] dialog#settings { --s-bg: #f2f2f7; --s-card: #ffffff; }
+  html[data-look="ios"][data-theme="dark"] dialog#settings { --s-bg: #161618; --s-card: #2c2c2e; }
+}
+/* Reduced motion: no springs, no pulse, no sheet slide; state changes stay visible
+   through colour alone. Only the chrome; the display's own fades are the canvas's. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings, #notice, #voice-hint),
+  html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings) *,
+  html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings) *::after {
+    transition-duration: 0.01ms !important;
+    animation: none !important;
+  }
+  html[data-look="ios"].tablet #rail-mic[data-state="listening"] { box-shadow: 0 0 0 6px rgba(255, 69, 58, 0.35); }
+  html[data-look="ios"] :is(#rail, #toolbar, #settings) :active { transform: none !important; }
+}

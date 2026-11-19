@@ -116,7 +116,7 @@
 
       <div class="s-body" tabindex="-1" autofocus>
         <div class="s-col">
-          <section class="s-card">
+          <section class="s-card" data-tint="green">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>Verbindung</h3>
             <label class="field"><span class="f-name">Home Assistant<button type="button" class="info" aria-label="Info">i</button></span>
               <input name="url" type="url" placeholder="https://homeassistant.local:8322" autocomplete="off" spellcheck="false">
@@ -132,14 +132,14 @@
               <small class="hint">Ein langlebiger Token nur für diese Anzeige. Er bleibt in diesem Browser. Für Vision braucht er Admin-Rechte.</small>
             </label>
           </section>
-          <section class="s-card">
+          <section class="s-card" data-tint="red">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Sprache &amp; Ton<button type="button" class="info" aria-label="Info">i</button></h3>
             <small class="hint">Das Mikrofon hört nur, solange der Knopf gedrückt ist. Whisper und Piper laufen in Home Assistant, an Meta Muse geht nur Text.</small>
             <label class="switch"><span>Mit Muse sprechen</span><input name="voice" type="checkbox"><i></i></label>
             <label class="switch"><span>Antworten vorlesen</span><input name="speak" type="checkbox"><i></i></label>
             <label class="switch"><span>Töne bei Timer und Frage</span><input name="sound" type="checkbox"><i></i></label>
           </section>
-          <section class="s-card">
+          <section class="s-card" data-tint="indigo">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Figur</h3>
             <div class="field">
               <div class="seg seg-2" role="radiogroup" aria-label="Figur">
@@ -156,7 +156,7 @@
               <input name="figureUrlAway" type="url" placeholder="https://100.64.0.10:8322/local" autocomplete="off" spellcheck="false">
             </label>
           </section>
-          <details class="s-card s-more">
+          <details class="s-card s-more" data-tint="gray">
             <summary><h3><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Erweitert</h3></summary>
             <label class="field"><span class="f-name">Gerätename<button type="button" class="info" aria-label="Info">i</button></span>
               <input name="device" type="text" autocomplete="off" spellcheck="false">
@@ -168,7 +168,7 @@
           </details>
         </div>
         <div class="s-col">
-          <section class="s-card">
+          <section class="s-card" data-tint="blue">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Anzeige</h3>
             <div class="field"><span class="f-name">Layout</span>
               <div class="seg seg-4" role="radiogroup" aria-label="Layout">
@@ -183,6 +183,13 @@
                 <label><input type="radio" name="theme" value="auto"><span><b>Auto</b></span></label>
                 <label><input type="radio" name="theme" value="dark"><span><b>Dunkel</b></span></label>
                 <label><input type="radio" name="theme" value="light"><span><b>Hell</b></span></label>
+              </div>
+            </div>
+            <div class="field"><span class="f-name">Stil</span>
+              <div class="seg seg-3" role="radiogroup" aria-label="Stil">
+                <label><input type="radio" name="look" value="auto"><span><b>Auto</b><i>iOS am Tablet</i></span></label>
+                <label><input type="radio" name="look" value="ios"><span><b>iOS</b><i>Glas</i></span></label>
+                <label><input type="radio" name="look" value="classic"><span><b>Klassisch</b></span></label>
               </div>
             </div>
             <div class="field"><span class="f-name">Bildrate<button type="button" class="info" aria-label="Info">i</button></span>
@@ -202,7 +209,7 @@
             <label class="switch"><span>Pixelgenau 1:1</span><input name="pixel" type="checkbox"><i></i></label>
             <label class="switch"><span>Nur ganzzahlig vergrößern</span><input name="integer" type="checkbox"><i></i></label>
           </section>
-          <section class="s-card">
+          <section class="s-card" data-tint="orange">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Kamera<span class="badge">Beta</span><button type="button" class="info" aria-label="Info">i</button></h3>
             <small class="hint">Braucht HTTPS und eine einmalige Freigabe. Personenrahmen laufen lokal; nur Vision schickt ein Foto an Home Assistant und löscht es danach.</small>
             <label class="switch"><span>Kamera-Modus</span><input name="camera" type="checkbox"><i></i></label>

@@ -22,13 +22,18 @@ export const TABLET_PROFILES = ["tab", "ipad"];
 export const CAMERA_FACING = ["user", "environment"];
 // "auto": dark on the square (Mosaico) layout, light on the box layout.
 export const THEMES = ["auto", "dark", "light"];
+// The style of the DOM chrome (rail, toolbar, camera card, settings dialog), separate
+// from the light/dark palette: "ios" is the iOS 26 Liquid Glass look, "classic" the
+// look before it. "auto": iOS on the tablet layout, classic on the box and square
+// layouts. The canvas never changes with it.
+export const LOOKS = ["auto", "ios", "classic"];
 // layoutVersion 2 moves a stored box layout once to square, the Mosaico default; an
 // explicit choice after that is kept.
 export const LAYOUT_VERSION = 2;
 export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
-  theme: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
+  theme: "auto", look: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
   tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
   autoBrightness: true, followMe: false, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
   visionModel: "Gemini 3.5 Flash Lite", visionDailyLimit: 1000,
@@ -62,6 +67,7 @@ export function loadSettings(storage) {
   if ((Number(stored.layoutVersion) || 0) < LAYOUT_VERSION) s.layout = "square";
   s.layoutVersion = LAYOUT_VERSION;
   if (!THEMES.includes(s.theme)) s.theme = DEFAULTS.theme;
+  if (!LOOKS.includes(s.look)) s.look = DEFAULTS.look;
   return s;
 }
 
@@ -106,6 +112,15 @@ export function themeFor(search, settings, layout) {
   const want = p.has("theme") ? String(p.get("theme")).trim().toLowerCase() : settings.theme;
   if (want === "dark" || want === "light") return want;
   return layout === "square" ? "dark" : "light";
+}
+
+// The chrome style of this visit: `?look=ios|classic` in the URL, else the setting.
+// "auto" (and anything unknown) gives iOS on the tablet layout and classic elsewhere.
+export function lookFor(search, settings, layout) {
+  const p = new URLSearchParams(search);
+  const want = p.has("look") ? String(p.get("look")).trim().toLowerCase() : String(settings.look || "");
+  if (want === "ios" || want === "classic") return want;
+  return layout === "tablet" ? "ios" : "classic";
 }
 
 // The layout of this visit: `?layout=box|square|tablet` in the URL, else the setting.

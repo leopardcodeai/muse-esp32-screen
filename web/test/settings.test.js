@@ -7,7 +7,7 @@ import { DEFAULT_DEVICE } from "../ha.js";
 import {
   DEFAULTS, SETTINGS_KEY, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, insecureFromHttps,
   layoutFor, layoutReload, LAYOUTS, TABLET_PROFILES, layoutChoice, parseLayoutChoice, tabletProfileFor,
-  MIXED_CONTENT_NOTE,
+  MIXED_CONTENT_NOTE, LOOKS, lookFor,
 } from "../settings.js";
 
 function memory(initial = {}) {
@@ -164,4 +164,28 @@ test("a status is never restored after a reload, content is", async () => {
   assert.equal(restorable("reload"), false);
   assert.equal(restorable("show_text"), true);
   assert.equal(restorable(""), false);
+});
+
+test("lookFor(): iOS by default on the tablet, classic on box and square", () => {
+  assert.equal(DEFAULTS.look, "auto");
+  assert.deepEqual(LOOKS, ["auto", "ios", "classic"]);
+  assert.equal(lookFor("", DEFAULTS, "tablet"), "ios");
+  assert.equal(lookFor("", DEFAULTS, "square"), "classic");
+  assert.equal(lookFor("", DEFAULTS, "box"), "classic");
+  assert.equal(lookFor("", { ...DEFAULTS, look: "ios" }, "square"), "ios", "the setting can choose iOS anywhere");
+  assert.equal(lookFor("", { ...DEFAULTS, look: "classic" }, "tablet"), "classic", "and keep the classic tablet");
+  assert.equal(lookFor("?look=classic", DEFAULTS, "tablet"), "classic", "?look= wins for one visit");
+  assert.equal(lookFor("?look=IOS", { ...DEFAULTS, look: "classic" }, "box"), "ios");
+  assert.equal(lookFor("?look=glass", DEFAULTS, "tablet"), "ios", "an unknown value counts as auto");
+  assert.equal(lookFor("", {}, "tablet"), "ios");
+});
+
+test("loadSettings(): an unknown look falls back to auto, a known one is kept", () => {
+  assert.equal(loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify({ look: "glass" }) })).look, "auto");
+  assert.equal(loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify({ look: "classic" }) })).look, "classic");
+});
+
+test("the settings dialog offers every look as a Stil choice", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  for (const look of LOOKS) assert.match(html, new RegExp(`name="look" value="${look}"`));
 });

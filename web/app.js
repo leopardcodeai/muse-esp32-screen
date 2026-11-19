@@ -25,7 +25,7 @@ import { Demo, SQUARE_DEMO_CARDS } from "./demo.js";
 import { floatDocument, floatVideo, unfloatVideo, hasDocumentPip, hasVideoPip, Kiosk } from "./pip.js";
 import { FrameClock, BOX_FPS, fitScale, normaliseFps } from "./pace.js";
 import {
-  DEFAULTS, THEMES, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload,
+  DEFAULTS, THEMES, LOOKS, lookFor, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload,
   layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE, updateWanted,
   restorable,
 } from "./settings.js";
@@ -80,6 +80,9 @@ applyTheme(theme);
 document.documentElement.dataset.theme = theme;
 document.documentElement.classList.toggle("square", square);
 document.documentElement.classList.toggle("tablet", tablet);
+// The chrome style (style.css): iOS Liquid Glass on the tablet by default. A pure CSS
+// switch, so a change in the settings applies without a reload.
+document.documentElement.dataset.look = lookFor(location.search, settings, layout);
 const themeColor = document.querySelector('meta[name="theme-color"]');
 if (themeColor) themeColor.content = theme === "dark" ? "#000000" : "#f3f3f3";
 const fonts = () => (square ? [...allFonts(), ...squareFonts()] : allFonts());
@@ -764,6 +767,7 @@ function openSettings() {
   form.pixel.checked = settings.pixel;
   form.layout.value = layoutChoice(settings.layout, settings.tabletProfile);
   form.theme.value = settings.theme;
+  form.look.value = settings.look;
   form.voice.checked = settings.voice;
   form.speak.checked = settings.speak;
   form.camera.checked = settings.camera;
@@ -800,6 +804,7 @@ form.addEventListener("submit", (ev) => {
     layout: choice.layout,
     tabletProfile: choice.tabletProfile || settings.tabletProfile || DEFAULTS.tabletProfile,
     theme: THEMES.includes(form.theme.value) ? form.theme.value : "auto",
+    look: LOOKS.includes(form.look.value) ? form.look.value : "auto",
     voice: form.voice.checked,
     speak: form.speak.checked,
     camera: form.camera.checked,
@@ -818,6 +823,8 @@ form.addEventListener("submit", (ev) => {
   // page keeps its last card through input_text.muse_web_last either way.
   const clean = new URL(location.href);
   clean.searchParams.delete("theme");
+  clean.searchParams.delete("look");
+  document.documentElement.dataset.look = lookFor("", settings, layout);
   history.replaceState(null, "", clean);
   if (themeFor("", settings, layout) !== theme) {
     location.href = clean.toString();
