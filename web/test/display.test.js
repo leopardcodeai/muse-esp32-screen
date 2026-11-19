@@ -275,3 +275,22 @@ test("the demo shortens every card to its step, but not questions and timers", (
   advance(7001);
   assert.equal(d.mode, 8);
 });
+
+test("thinking without a card ends after 60 s", () => {
+  const { d, advance } = make();
+  d.dispatch("set_status_text", { status: "thinking", label: "Prüfe Dyson …" });
+  advance(59000);
+  assert.equal(d.status, 2, "still thinking before 60 s");
+  advance(2000);
+  assert.equal(d.status, 0, "ready again after 60 s without a card");
+  assert.equal(d.statusText, "");
+});
+
+test("thinking with a card is not cut off by the 60 s limit", () => {
+  const { d, advance } = make();
+  d.dispatch("set_status", { status: "thinking" });
+  d.dispatch("show_text", { title: "Muse", message: "Antwort" });
+  advance(15000);
+  assert.equal(d.mode, 1, "the card is on screen");
+  assert.notEqual(d.mode, 0);
+});

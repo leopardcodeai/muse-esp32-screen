@@ -16,7 +16,10 @@ import { drawTopBar, drawCard } from "./cards.js";
 import { SceneDrawer } from "./draw.js";
 import { SquareView, SQUARE, squareButtonAt, toScene, squareCaption } from "./square.js";
 
-export const VERSION = "1.8.6";
+export const VERSION = "1.8.7";
+// "thinking" without a card ends after this long (owner, 19.11.2026: Muse said what it was
+// doing, the card never came, and the panel showed it for hours).
+export const THINKING_MS = 60000;
 
 // The seconds an image card stays: clamp(seconds, 1, 600); 30 when missing or not a number.
 export function clampImageSeconds(value) {
@@ -58,6 +61,7 @@ export class Display {
     this.labelState = -1;
     this.greetUntil = 0;
     this.errorUntil = 0;
+    this.thinkingUntil = 0;
     this.cuddleUntil = 0;
     this.animName = "";
     this.animSince = 0;
@@ -172,6 +176,7 @@ export class Display {
     this.status = parseStatus(status);
     this.statusText = "";
     if (this.status === 4) this.errorUntil = this.now() + 6000;
+    if (this.status === 2) this.thinkingUntil = this.now() + THINKING_MS;
     return { status: this.status };
   }
 
@@ -180,6 +185,7 @@ export class Display {
     this.statusText = singleLine(clean(label, 1).text);
     this.statusTextState = this.status;
     if (this.status === 4) this.errorUntil = this.now() + 6000;
+    if (this.status === 2) this.thinkingUntil = this.now() + THINKING_MS;
     return { status: this.status };
   }
 
@@ -454,6 +460,9 @@ export class Display {
     if (ended) this.timerDone(ended);
     if (this.status === 6 && now > this.greetUntil) this.status = 0;
     if (this.status === 4 && now > this.errorUntil) this.status = 0;
+    // "thinking" belongs to an answer that ends with a card; when none came within
+    // THINKING_MS (the tool call failed, credits ran out) the ready screen comes back.
+    if (this.status === 2 && this.mode === 0 && now > this.thinkingUntil) this.setStatus(0);
     if (this.mode === 11 && !this.timers.soonest()) this.next();
   }
 
