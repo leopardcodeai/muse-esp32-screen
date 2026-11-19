@@ -429,7 +429,6 @@ html.tablet #dim { right: var(--rail-w, 360px); }
   border-radius: 999px; background: var(--card); border: 1px solid var(--shadow);
   color: var(--ink); font-size: 12px; font-weight: 700;
 }
-#rail-brand { color: var(--sub); font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
 #rail-status { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; font-weight: 600; }
 #rail-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff3b30; flex: none; }
 #rail-dot[data-connection="on"] { background: #34c759; box-shadow: 0 0 8px rgba(52, 199, 89, 0.55); }

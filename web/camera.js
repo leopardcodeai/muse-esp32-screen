@@ -36,10 +36,63 @@ const LUMA_MS = 2000;
 // The German caption of the local detection.
 export function captionFor(count, state = "ready") {
   if (state === "starting") return "Kamera startet …";
-  if (state === "loading") return "Erkenne Personen …";
+  if (state === "loading") return "Erkenne Objekte …";
   if (state === "failed") return "Erkennung nicht verfügbar";
   if (!(count > 0)) return "Niemand im Bild";
   return count === 1 ? "Ich sehe dich" : `Ich sehe ${count} Personen`;
+}
+
+// The detector's 80 COCO classes in German, for the box labels and the caption.
+const OBJECT_DE = {
+  person: "Person", bicycle: "Fahrrad", car: "Auto", motorcycle: "Motorrad", airplane: "Flugzeug",
+  bus: "Bus", train: "Zug", truck: "Lastwagen", boat: "Boot", "traffic light": "Ampel",
+  "fire hydrant": "Hydrant", "stop sign": "Stoppschild", "parking meter": "Parkuhr", bench: "Bank",
+  bird: "Vogel", cat: "Katze", dog: "Hund", horse: "Pferd", sheep: "Schaf", cow: "Kuh",
+  elephant: "Elefant", bear: "Bär", zebra: "Zebra", giraffe: "Giraffe", backpack: "Rucksack",
+  umbrella: "Schirm", handbag: "Handtasche", tie: "Krawatte", suitcase: "Koffer", frisbee: "Frisbee",
+  skis: "Ski", snowboard: "Snowboard", "sports ball": "Ball", kite: "Drachen",
+  "baseball bat": "Schläger", "baseball glove": "Handschuh", skateboard: "Skateboard",
+  surfboard: "Surfbrett", "tennis racket": "Tennisschläger", bottle: "Flasche",
+  "wine glass": "Weinglas", cup: "Tasse", fork: "Gabel", knife: "Messer", spoon: "Löffel",
+  bowl: "Schüssel", banana: "Banane", apple: "Apfel", sandwich: "Sandwich", orange: "Orange",
+  broccoli: "Brokkoli", carrot: "Karotte", "hot dog": "Hotdog", pizza: "Pizza", donut: "Donut",
+  cake: "Kuchen", chair: "Stuhl", couch: "Sofa", "potted plant": "Pflanze", bed: "Bett",
+  "dining table": "Tisch", toilet: "Toilette", tv: "Fernseher", laptop: "Laptop", mouse: "Maus",
+  remote: "Fernbedienung", keyboard: "Tastatur", "cell phone": "Handy", microwave: "Mikrowelle",
+  oven: "Ofen", toaster: "Toaster", sink: "Spüle", refrigerator: "Kühlschrank", book: "Buch",
+  clock: "Uhr", vase: "Vase", scissors: "Schere", "teddy bear": "Teddy", "hair drier": "Föhn",
+  toothbrush: "Zahnbürste",
+};
+const OBJECT_MIN_SCORE = 0.4;
+
+export function objectLabel(name) {
+  return OBJECT_DE[name] || name;
+}
+
+const nameOf = (d) => (d && d.categories && d.categories[0] ? d.categories[0].categoryName : "");
+const scoreOf = (d) => (d && d.categories && d.categories[0] ? d.categories[0].score || 0 : 0);
+
+// The detections worth showing: confident enough, people first, then by score.
+export function keepDetections(list) {
+  return (list || [])
+    .filter((d) => nameOf(d) && scoreOf(d) >= OBJECT_MIN_SCORE)
+    .sort((a, b) => (nameOf(b) === "person") - (nameOf(a) === "person") || scoreOf(b) - scoreOf(a));
+}
+
+// "Ich sehe dich, Laptop, Tasse": people first, each other kind once, at most four kinds.
+export function objectCaption(list) {
+  if (!list || !list.length) return "Nichts erkannt";
+  const counts = new Map();
+  for (const d of list) counts.set(nameOf(d), (counts.get(nameOf(d)) || 0) + 1);
+  const parts = [];
+  const people = counts.get("person") || 0;
+  if (people) parts.push(people === 1 ? "dich" : `${people} Personen`);
+  for (const [name, n] of counts) {
+    if (name === "person") continue;
+    parts.push(n > 1 ? `${n} × ${objectLabel(name)}` : objectLabel(name));
+  }
+  const shown = parts.slice(0, 4).join(", ");
+  return `Ich sehe ${shown}${parts.length > 4 ? ` +${parts.length - 4}` : ""}`;
 }
 
 // A MediaPipe bounding box (pixels of the video frame) in the displayed, optionally
@@ -389,7 +442,7 @@ export class Camera {
         baseOptions: { modelAssetPath: PERSON_MODEL_URL, delegate: "CPU" },
         runningMode: "IMAGE",
         scoreThreshold: 0.35,
-        maxResults: 5,
+        maxResults: 10,
       });
       this.detectorState = "ready";
       this.detectFails = 0;
@@ -413,8 +466,7 @@ export class Camera {
     this.lastDetect = at;
     try {
       const result = this.detector.detect(video);
-      this.persons = (result && result.detections ? result.detections : [])
-        .filter((d) => d && d.categories && d.categories[0] && d.categories[0].categoryName === "person");
+      this.persons = keepDetections(result && result.detections ? result.detections : []);
       this.detectFails = 0;
       this.drawBoxes();
       this.updateCaption();
@@ -473,10 +525,11 @@ export class Camera {
     for (const d of this.persons) {
       const b = mapBox(d.boundingBox, video.videoWidth, video.videoHeight, w, h, this.facing === "user");
       if (!(b.w > 1) || !(b.h > 1)) continue;
-      ctx.strokeStyle = "#ff9f0a";
+      const name = d.categories[0].categoryName;
+      ctx.strokeStyle = name === "person" ? "#ff9f0a" : "#409cff";
       ctx.lineWidth = 2;
       ctx.strokeRect(b.x, b.y, b.w, b.h);
-      const label = `Person ${Math.round((d.categories[0].score || 0) * 100)} %`;
+      const label = `${objectLabel(name)} ${Math.round((d.categories[0].score || 0) * 100)} %`;
       const tw = ctx.measureText(label).width;
       ctx.fillStyle = "rgba(0,0,0,0.65)";
       ctx.fillRect(b.x, Math.max(0, b.y - 18), tw + 10, 18);
@@ -629,7 +682,7 @@ export class Camera {
       caption.textContent = captionFor(0, "loading");
       return;
     }
-    caption.textContent = captionFor(this.persons.length, "ready");
+    caption.textContent = objectCaption(this.persons);
   }
 
   startVisionAuto() {

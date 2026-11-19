@@ -30,7 +30,6 @@
   <aside id="rail" aria-label="Muse Steuerung">
     <div id="rail-head">
       <div id="rail-status"><span id="rail-profile">Tab</span><span id="rail-dot" data-connection="off"></span><span id="rail-status-text">Muse</span></div>
-      <span id="rail-brand">Muse</span>
     </div>
     <section id="camera" hidden aria-label="Kamera">
       <header id="camera-head">
@@ -81,7 +80,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg><span>Einstellungen</span>
       </button>
     </div>
-    <div id="rail-foot"><span id="rail-light" hidden></span><span id="rail-battery" hidden></span></div>
+    <div id="rail-foot"><span id="rail-light" hidden></span></div>
   </aside>
   </div>
   <div id="dim" aria-hidden="true"></div>
@@ -200,7 +199,7 @@
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Kamera<span class="badge">Beta</span><button type="button" class="info" aria-label="Info">i</button></h3>
             <small class="hint">Braucht HTTPS und eine einmalige Freigabe. Personenrahmen laufen lokal; nur Vision schickt ein Foto an Home Assistant und löscht es danach.</small>
             <label class="switch"><span>Kamera-Modus</span><input name="camera" type="checkbox"><i></i></label>
-            <label class="switch"><span>Personen markieren</span><input name="personBoxes" type="checkbox"><i></i></label>
+            <label class="switch"><span>Objekte markieren</span><input name="personBoxes" type="checkbox"><i></i></label>
             <label class="switch"><span>Helligkeit anpassen</span><input name="autoBrightness" type="checkbox"><i></i></label>
             <label class="switch"><span>Vision-Knopf</span><input name="vision" type="checkbox"><i></i></label>
             <label class="switch"><span>Vision jede Minute</span><input name="visionAuto" type="checkbox"><i></i></label>

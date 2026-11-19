@@ -9,7 +9,7 @@ test("captionFor(): German, counts people", () => {
   assert.equal(captionFor(0, "ready"), "Niemand im Bild");
   assert.equal(captionFor(1, "ready"), "Ich sehe dich");
   assert.equal(captionFor(3, "ready"), "Ich sehe 3 Personen");
-  assert.equal(captionFor(0, "loading"), "Erkenne Personen …");
+  assert.equal(captionFor(0, "loading"), "Erkenne Objekte …");
   assert.equal(captionFor(0, "failed"), "Erkennung nicht verfügbar");
   assert.equal(captionFor(0, "starting"), "Kamera startet …");
 });
@@ -93,4 +93,21 @@ test("vision usage: counted per day, shown as a share of the daily limit", async
   const broken = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
   assert.equal(visionUsage(broken, day1), 0);
   countVisionCall(broken, day1);
+});
+
+test("objects: German names, people first, a short caption", async () => {
+  const { objectLabel, objectCaption, keepDetections } = await import("../camera.js");
+  assert.equal(objectLabel("person"), "Person");
+  assert.equal(objectLabel("cup"), "Tasse");
+  assert.equal(objectLabel("cell phone"), "Handy");
+  assert.equal(objectLabel("unknown thing"), "unknown thing");
+  const d = (name, score) => ({ categories: [{ categoryName: name, score }], boundingBox: {} });
+  const kept = keepDetections([d("cup", 0.6), d("person", 0.9), d("chair", 0.2), d("laptop", 0.7)]);
+  assert.deepEqual(kept.map((k) => k.categories[0].categoryName), ["person", "laptop", "cup"]);
+  assert.equal(objectCaption([]), "Nichts erkannt");
+  assert.equal(objectCaption(kept), "Ich sehe dich, Laptop, Tasse");
+  assert.equal(objectCaption([d("person", 0.9), d("person", 0.8), d("dog", 0.7)]), "Ich sehe 2 Personen, Hund");
+  assert.equal(objectCaption([d("cup", 0.9), d("cup", 0.8)]), "Ich sehe 2 × Tasse");
+  const many = ["cup", "laptop", "book", "chair", "bottle", "clock"].map((n) => d(n, 0.8));
+  assert.equal(objectCaption(many), "Ich sehe Tasse, Laptop, Buch, Stuhl +2");
 });
