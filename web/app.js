@@ -136,6 +136,16 @@ const display = new Display({
   },
 });
 display.browserInfo = browserName();
+// "Muse bewegt sich von selbst" (motion.js IdleVariety), and prefers-reduced-motion, which
+// turns every move into a gentle pulse; the system setting may change while the page runs.
+display.autoMotion = settings.autoMotion;
+try {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  display.reducedMotion = reduce.matches;
+  reduce.addEventListener("change", (ev) => { display.reducedMotion = ev.matches; });
+} catch {
+  // An old browser without matchMedia listeners keeps the full motions.
+}
 
 // ------------------------------------------------------- tablet, camera, voice --
 
@@ -675,6 +685,8 @@ function applyAction({ action, fields = {} }) {
     screenAction(action, fields).then(() => render());
     return;
   }
+  // A move may name one screen, like the screen-only actions (muse_tab_screen, ...).
+  if (action === "animate" && String(fields.device || "").trim() && String(fields.device).trim() !== settings.device) return;
   display.dispatch(action, fields);
   render();
   if (!restorable(action)) return;
@@ -784,6 +796,7 @@ function openSettings() {
   form.camera.checked = settings.camera;
   form.personBoxes.checked = settings.personBoxes;
   form.followMe.checked = settings.followMe;
+  form.autoMotion.checked = settings.autoMotion;
   form.autoBrightness.checked = settings.autoBrightness;
   form.vision.checked = settings.vision;
   form.visionAuto.checked = settings.visionAuto;
@@ -822,6 +835,7 @@ form.addEventListener("submit", (ev) => {
     cameraFacing: settings.cameraFacing,
     personBoxes: form.personBoxes.checked,
     followMe: form.followMe.checked,
+    autoMotion: form.autoMotion.checked,
     autoBrightness: form.autoBrightness.checked,
     vision: form.vision.checked,
     visionAuto: form.visionAuto.checked,
@@ -860,6 +874,7 @@ form.addEventListener("submit", (ev) => {
     return;
   }
   display.name = settings.name;
+  display.autoMotion = settings.autoMotion;
   sounds.enabled = settings.sound;
   tabletProfile = settings.tabletProfile;
   if (camera) camera.setProfile(tabletProfile);

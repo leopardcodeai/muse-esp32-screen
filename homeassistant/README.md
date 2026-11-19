@@ -15,6 +15,10 @@ Every argument is mandatory in Home Assistant, send `""` where nothing is meant.
   the box helper. A box automation that still calls `esphome.*` directly reaches only the
   box; the web mirrors that legacy path only when its settings name the box's live
   ESPHome device (`muse_esp32boxs3_screen`).
+- `scripts/muse_screen_animate.yaml`: a proposal for `script.muse_screen_animate`
+  (dance, party, jump, spin, nod, shake, bow, shiver, sleep, love, look, celebrate,
+  wave, stop), the moves of the figure on the web screens' ready screen; same shape as
+  the generated layer, the box part waits for a firmware with `muse_animate`.
 - `scripts/muse_weather_week.yaml`: next week's high and low as one server-rendered
   chart (`script.muse_weather_week`); `muse_charts/` and `script.muse_show_chart` draw
   any bar or line chart with an optional second series (`values2`).

@@ -139,6 +139,58 @@ seconds 60
 
 Then `muse_wait_answer` with `seconds: 30` answers `{"answered": true, "answer": "Jazz"}`,
 or `{"answered": false, "answer": ""}` when nobody tapped in time.
+## Moves of the figure (web screen: `animate`)
+
+The web screen (browser, Tab, iPad, the Mosaico layout and the camera add-on, all
+`web/`) can move Muse on the ready screen. The moves are drawn in code over the figure's
+own frames (`web/motion.js`): they turn, shift and squash the whole picture and add a few
+shapes, so they work with the project's figure and with the owner's own Muse frames
+alike. The BOX-3 firmware has no `muse_animate` action yet; the action reaches the web
+screen through the `muse_web` event (`script.muse_screen_animate`,
+`homeassistant/scripts/muse_screen_animate.yaml`), and through the box's `call_service`
+mirror as soon as a firmware declares `muse_animate`.
+
+| Action | Data | Shows |
+|---|---|---|
+| `muse_web` event, `action: animate` | `motion`, `seconds` (optional), `device` (optional) | the move on the ready screen, then the figure is idle again |
+
+`motion` is one of the names below (English or the German word in brackets), or `stop`
+(`stopp`, `aus`) to end the move that runs. `seconds` is 0.5 to 30 (a comma works,
+`"2,5"`); without it each move has its own length. `device` limits the move to one screen
+(`muse_tab_screen`, ...). The answer is `{"ok": true, "motion": "dance", "seconds": 6,
+"on_screen": true}`; an unknown name answers `{"ok": false, "motions": [...]}`.
+
+| `motion` | default | How it looks |
+|---|---|---|
+| `dance` (tanzen) | 6 s | a bounce on every beat (120 per minute) with a squash where it lands, swaying left and right |
+| `party` (Party, Disco) | 8 s | a faster, bigger dance with the waving frames, confetti falling over the screen and coloured disco light sweeping across it |
+| `jump` (springen, hüpfen) | 2 s | two jumps: a crouch, a stretched take-off, the flight, a squash on landing |
+| `hop` | 0.9 s | one small jump |
+| `spin` (drehen) | 2 s | a turn on the spot: the figure narrows, mirrors and widens again, lifting a little |
+| `nod` (nicken, ja) | 1.6 s | three nods |
+| `shake` (Kopfschütteln, nein) | 1.6 s | a shake of the head, left and right |
+| `bow` (verbeugen) | 2.4 s | down, held, up again |
+| `shiver` (frieren, kalt) | 3 s | a fast tremble, slightly huddled, with cold marks left and right |
+| `sleep` (schlafen, müde) | 8 s | a slow sway and breathing, Zs floating up from the head |
+| `love` (Herz, Liebe) | 4 s | a heartbeat pulse (lub-dub) with hearts rising |
+| `look` (umschauen) | 3 s | looks left, then right, leaning into each look, back to the middle |
+| `celebrate` (feiern, jubeln) | 5 s | jumps with the confetti frames, confetti and a short light sweep |
+| `wave` (winken) | 3 s | the waving frames with a gentle sway |
+
+Rules:
+- Status poses win: while Muse listens, thinks or speaks, or a card is on screen, the
+  move is not drawn. A move asked for while a card shows starts once the ready screen is
+  back (within 60 s); cards never move.
+- With "Muse folgt mir" the person's offsets add to the move; the person's tilt is damped
+  while a move runs, so the two do not pull against each other. A moved figure is
+  clipped below the top bar.
+- `prefers-reduced-motion`: every move becomes a gentle pulse of size and opacity,
+  without travel, turns or particles.
+- "Muse bewegt sich von selbst" (settings, Figur, on by default): after 30 to 90 s of a
+  still ready screen Muse looks around, hops or nods, softly, never the same one twice
+  in a row. Not with reduced motion and not while "Muse folgt mir" sees a person.
+- A move is never restored after a reload.
+
 ## Pictures
 
 Since 3.4 a task of its own on the second core loads and decodes photos, GIFs, live views

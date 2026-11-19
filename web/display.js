@@ -5,6 +5,11 @@
 // Everything here is independent of the browser (the renderer, the figure, the weather
 // icons and the picture overlay are handed in), so the tests drive it with fakes.
 //
+// Motions (motion.js): `animate` asks for a move of the figure on the ready screen; it
+// plays only while the plain ready screen shows (status ready, no card), so status poses
+// and cards win. The idle variety starts a short subtle move now and then while
+// `autoMotion` is on ("Muse bewegt sich von selbst").
+//
 // Modes, as on the box: 0 status, 1 text, 2 value, 3 celebration, 4 weather, 5 photo,
 // 6 event, 7 scene, 8 question, 9 route, 10 agenda, 11 timer, 12 info, 13 list.
 import { CardQueue, Question, makeCard, NOW, questionButtonAt } from "./queue.js";
@@ -15,6 +20,7 @@ import * as S from "./scene.js";
 import { drawTopBar, drawCard } from "./cards.js";
 import { SceneDrawer } from "./draw.js";
 import { SquareView, SQUARE, squareButtonAt, toScene, squareCaption } from "./square.js";
+import { MotionPlayer, IdleVariety, parseMotion, MOTIONS, IDLE_INTENSITY } from "./motion.js";
 
 export const VERSION = "1.8.15";
 // "thinking" without a card ends after this long (owner, 19.11.2026: Muse said what it was
@@ -75,6 +81,10 @@ export class Display {
     this.answerCount = 0;
     this.touch = null; // {x0, y0, x1, y1, at}
     this.placedNow = false;
+    this.motion = new MotionPlayer(); // the move asked for by `animate`, or a small idle one
+    this.idleVariety = new IdleVariety(opts.random || Math.random);
+    this.autoMotion = opts.autoMotion !== false; // "Muse bewegt sich von selbst"
+    this.reducedMotion = false; // prefers-reduced-motion: moves become a gentle pulse
 
     // The layout: "box" (320 x 240, the box's own) or "square" (480 x 480,
     // docs/SQUARE_LAYOUT.md). The square one draws through square.js and keeps the
@@ -187,6 +197,34 @@ export class Display {
     if (this.status === 4) this.errorUntil = this.now() + 6000;
     if (this.status === 2) this.thinkingUntil = this.now() + THINKING_MS;
     return { status: this.status };
+  }
+
+  // A move of the figure on the ready screen (motion.js): `motion` by name, English or
+  // German, or "stop"; `seconds` its length (a default per motion, 0.5 to 30 s). Asked
+  // for while a card or a status pose shows, it plays once the plain ready screen is
+  // back (within 60 s).
+  animate(motion, seconds) {
+    const name = parseMotion(motion);
+    if (!name) {
+      this.log(`animate: unknown motion '${motion}'`);
+      return { ok: false, motion: String(motion ?? ""), motions: [...MOTIONS, "stop"] };
+    }
+    if (name === "stop") {
+      this.motion.stop();
+      return { ok: true, motion: "stop" };
+    }
+    const r = this.motion.start(name, this.now(), seconds);
+    return { ok: true, motion: r.motion, seconds: r.seconds, on_screen: this.motionReady() };
+  }
+
+  // The plain ready screen: the only place a motion shows.
+  motionReady() {
+    return this.mode === 0 && this.status === 0;
+  }
+
+  // The pose of the running motion for the renderers, or null (motion.js motionPose()).
+  motionPose(now) {
+    return this.motion.sample(now, this.motionReady(), this.reducedMotion);
   }
 
   showText(title, message) {
@@ -397,6 +435,7 @@ export class Display {
       last_answer: this.lastAnswer,
       status: this.status,
       timers: this.timers.size,
+      motion: this.motion.current ? this.motion.current.name : "",
       version: VERSION,
     };
   }
@@ -433,6 +472,7 @@ export class Display {
       case "choose": return this.choose(s("question"), s("options"));
       case "clear": return this.clear();
       case "get_state": return this.getState();
+      case "animate": return this.animate(f.motion ?? f.name, f.seconds);
       default:
         this.log(`unknown action ${action}`);
         return null;
@@ -464,6 +504,11 @@ export class Display {
     // THINKING_MS (the tool call failed, credits ran out) the ready screen comes back.
     if (this.status === 2 && this.mode === 0 && now > this.thinkingUntil) this.setStatus(0);
     if (this.mode === 11 && !this.timers.soonest()) this.next();
+    // Now and then a short subtle move on the still ready screen.
+    const still = this.autoMotion && !this.reducedMotion && this.motionReady() && !this.motion.busy(now)
+      && this.cuddleUntil <= now && !(this.follow && this.follow.present);
+    const idle = this.idleVariety.due(now, still);
+    if (idle) this.motion.start(idle, now, undefined, { intensity: IDLE_INTENSITY, idle: true });
   }
 
   // Waves once, like when someone steps in front of the box.

@@ -17,7 +17,7 @@ const SHELL = [
   "./app.js", "./display.js", "./cards.js", "./draw.js", "./render.js", "./figure.js", "./scene.js", "./icons.js",
   "./particles.js", "./text.js", "./tables.js", "./queue.js", "./timers.js", "./weather.js", "./media.js",
   "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_frames.js",
-  "./square.js", "./theme.js", "./tablet.js", "./camera.js", "./voice.js", "./sensors.js", "./pcm.js", "./pcm-worklet.js", "./remotelog.js", "./textask.js", "./follow.js",
+  "./square.js", "./theme.js", "./tablet.js", "./camera.js", "./voice.js", "./sensors.js", "./pcm.js", "./pcm-worklet.js", "./remotelog.js", "./textask.js", "./follow.js", "./motion.js",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./figure-default/idle.png", "./figure-default/wave.png", "./figure-default/working.png",
   "./figure-default/making.png", "./figure-default/confetti.png", "./figure-default/avatar.png",

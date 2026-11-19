@@ -14,6 +14,7 @@ import { Item, mix } from "./scene.js";
 import { PHOTO_W, PHOTO_H, PHOTO_TOP } from "./media.js";
 import { CARD_STEP_MS, SIZE as FIGURE_SIZE } from "./figure.js";
 import { figureMotion, followPose, withFigureMotion } from "./follow.js";
+import { withMotionPose, drawMotionEffects, followDamp } from "./motion.js";
 
 const BG = PAGE;
 const RED = [255, 59, 48];
@@ -63,16 +64,19 @@ export function drawStatus(r, d, now) {
   const state = d.status;
   // "Muse folgt mir": the camera's pose tracker (follow.js) moves the figure; null when off.
   const motion = d.follow ? d.follow.sample(now) : null;
+  // A move asked for with `animate` or the idle variety (motion.js), only on the ready screen.
+  const moving = d.motionPose ? d.motionPose(now) : null;
   const base = state === 1 || state === 6 ? "wave" : state === 2 ? "working" : state === 3 ? "making" : "idle";
-  const anim = state === 0 ? followPose(base, motion) : base;
+  const anim = state === 0 ? (moving ? moving.anim : followPose(base, motion)) : base;
   if (anim !== d.animName) {
     d.animName = anim;
     d.animSince = now;
   }
   const cuddle = d.cuddleUntil - now;
   const wiggle = cuddle > 0 ? Math.round(4 * Math.sin(now / 70)) : 0;
-  const move = figureMotion(motion, FIGURE_SIZE);
-  if (move) {
+  let move = figureMotion(motion, FIGURE_SIZE);
+  if (move && moving) move = { ...move, angle: followDamp(move.angle, moving.weight) };
+  if (move || moving) {
     // The figure's page-coloured square must not cover the top bar when it tilts or rises.
     r.ctx.save();
     r.ctx.beginPath();
@@ -80,8 +84,10 @@ export function drawStatus(r, d, now) {
     r.ctx.clip();
   }
   withFigureMotion(r.ctx, move, 80 + FIGURE_SIZE / 2, 30 + FIGURE_SIZE / 2,
-    () => d.figure.draw(r, anim, now - d.animSince, 80 + wiggle, 30, CARD_STEP_MS));
-  if (move) r.ctx.restore();
+    () => withMotionPose(r.ctx, moving, 80, 30, FIGURE_SIZE,
+      () => d.figure.draw(r, anim, now - d.animSince, 80 + wiggle, 30, CARD_STEP_MS)));
+  if (moving) drawMotionEffects(r.ctx, moving, 80, 30, FIGURE_SIZE, { x: 0, y: 30, w: 320, h: 210 });
+  if (move || moving) r.ctx.restore();
   if (cuddle > 0) {
     // Cuddled: hearts rise for 2.6 s, drawn like a particles element of a scene.
     const hearts = new Item("particles");

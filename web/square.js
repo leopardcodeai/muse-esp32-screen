@@ -37,6 +37,7 @@ import { Item, mix } from "./scene.js";
 import { CARD_STEP_MS } from "./figure.js";
 import { drawRoute } from "./cards.js";
 import { figureMotion, followPose, withFigureMotion } from "./follow.js";
+import { withMotionPose, drawMotionEffects, followDamp } from "./motion.js";
 
 export const SQUARE_W = 480;
 export const SQUARE_H = 480;
@@ -234,7 +235,8 @@ export class SquareView {
     return (d.mode === 0 && d.status !== 5 && Boolean(d.figure && d.figure.smooth))
       || d.status === 1 || d.status === 2 || d.mode === 3 || d.mode === 7 || d.mode === 11
       || d.cuddleUntil > now || !!d.pressed || this.pending
-      || (d.mode === 0 && !!(d.follow && d.follow.active));
+      || (d.mode === 0 && !!(d.follow && d.follow.active))
+      || (d.mode === 0 && !!(d.motion && d.motion.busy(now)));
   }
 
   // Everything a still picture depends on.
@@ -385,7 +387,9 @@ export class SquareView {
     const state = d.status;
     // "Muse folgt mir": the camera's pose tracker (follow.js) moves the figure; null when off.
     const motion = d.follow ? d.follow.sample(now) : null;
-    const pose = state === 0 ? followPose(poseOf(state), motion) : poseOf(state);
+    // A move asked for with `animate` or the idle variety (motion.js), only on the ready screen.
+    const moving = d.motionPose ? d.motionPose(now) : null;
+    const pose = state === 0 ? (moving ? moving.anim : followPose(poseOf(state), motion)) : poseOf(state);
     if (pose !== d.animName) {
       d.animName = pose;
       d.animSince = now;
@@ -395,15 +399,21 @@ export class SquareView {
     const wiggle = cuddle > 0 ? Math.round(6 * Math.sin(now / 70)) : 0;
     ctx.save();
     if (state === 5) ctx.globalAlpha *= 0.4; // quiet: the figure at 40 %
-    const move = figureMotion(motion, FIGURE.size);
-    if (move) {
+    let move = figureMotion(motion, FIGURE.size);
+    if (move && moving) move = { ...move, angle: followDamp(move.angle, moving.weight) };
+    if (move || moving) {
       // The figure's page-coloured square must not cover the top bar when it tilts or rises.
       ctx.beginPath();
       ctx.rect(0, TOP_BAR.h, SQUARE_W, SQUARE_H - TOP_BAR.h);
       ctx.clip();
     }
     withFigureMotion(ctx, move, FIGURE.x + FIGURE.size / 2, FIGURE.y + FIGURE.size / 2,
-      () => this.figureTile(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size));
+      () => withMotionPose(ctx, moving, FIGURE.x, FIGURE.y, FIGURE.size,
+        () => this.figureTile(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size)));
+    if (moving) {
+      drawMotionEffects(ctx, moving, FIGURE.x, FIGURE.y, FIGURE.size,
+        { x: 0, y: TOP_BAR.h, w: SQUARE_W, h: SQUARE_H - TOP_BAR.h });
+    }
     ctx.restore();
     if (cuddle > 0) this.drawHearts(r, cuddle);
     this.drawBubble(r, d, now);

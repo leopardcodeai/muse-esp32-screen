@@ -35,7 +35,7 @@ export const DEFAULTS = Object.freeze({
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
   theme: "auto", look: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
   tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
-  autoBrightness: true, followMe: false, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
+  autoBrightness: true, followMe: false, autoMotion: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
   visionModel: "Gemini 3.5 Flash Lite", visionDailyLimit: 1000,
   voiceModel: "Gemini Sprache", voiceDailyLimit: 1000,
 });
@@ -54,7 +54,7 @@ export function loadSettings(storage) {
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
   s.bare = s.bare === true;
   s.pixel = s.pixel === true;
-  for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "followMe", "vision", "visionAuto"]) {
+  for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "followMe", "autoMotion", "vision", "visionAuto"]) {
     s[key] = stored[key] === undefined ? DEFAULTS[key] : stored[key] === true;
   }
   s.tabletProfile = TABLET_PROFILES.includes(s.tabletProfile) ? s.tabletProfile : DEFAULTS.tabletProfile;
@@ -207,8 +207,9 @@ export function updateWanted(current, server, idle) {
 
 // Whether an action may come back after a reload or a reconnect. A status ("thinking",
 // "listening" ...) belongs to the moment it was sent; restoring it replayed an old
-// "Prüfe Dyson …" on every start (19.11.2026). Only content is restored.
-export const TRANSIENT_ACTIONS = ["set_status", "set_status_text", "reload", "camera", "photo", "vision"];
+// "Prüfe Dyson …" on every start (19.11.2026). Only content is restored; a motion
+// (animate) belongs to its moment too.
+export const TRANSIENT_ACTIONS = ["set_status", "set_status_text", "reload", "camera", "photo", "vision", "animate"];
 export function restorable(action) {
   return Boolean(action) && !TRANSIENT_ACTIONS.includes(String(action));
 }

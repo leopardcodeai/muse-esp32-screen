@@ -20,6 +20,7 @@ export const DEMO_CARDS = [
   ["show_agenda", { title: "", events: "09:00-10:00 Teammeeting @ Büro\n12:30 Mittag mit Kim\nganztägig Urlaub Sam\n15:00 | Zahnarzt | Praxis Nord" }],
   ["choose", { question: "Was möchtest du hören?", options: "Jazz\nRock\nKlassik\nNichts" }],
   ["celebrate", { title: "Geschafft!", message: "Alle Aufgaben für heute sind erledigt." }],
+  ["animate", { motion: "party", seconds: 6 }],
   ["set_status", { status: "ready" }],
 ];
 

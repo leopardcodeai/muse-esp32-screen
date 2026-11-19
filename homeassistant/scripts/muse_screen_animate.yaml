@@ -1,0 +1,93 @@
+# script.muse_screen_animate: Muse moves on the ready screen ("tanz mal", "Party!",
+# "nick mal", "schlaf gut"). A proposal in the shape of the generated common layer
+# (muse_screen.yaml, tools/make_muse_scripts.py): paste it under `scripts:` or into
+# scripts.yaml beside the other script.muse_screen_* entries.
+#
+# What it does: fires the `muse_web` event with action `animate`, which every web screen
+# (browser, Tab, iPad, the Mosaico layout, the camera add-on) plays, then starts
+# script.muse_box_animate when one exists. The BOX-3 firmware has no `muse_animate`
+# action yet, so that helper does not exist today and the choose step is skipped; once a
+# firmware declares the action, add `animate: ("motion", "seconds")` to ACTIONS in
+# tools/make_muse_scripts.py and regenerate muse_screen.yaml, which then holds both
+# scripts and replaces this file.
+#
+# Fields:
+#   motion   dance, party, jump, hop, spin, nod, shake, bow, shiver, sleep, love, look,
+#            celebrate, wave, or stop; the German words work too (tanzen, nicken,
+#            verbeugen, frieren, schlafen, winken, ...). docs/ACTIONS.md, "Moves of the
+#            figure", says how each one looks.
+#   seconds  optional, 0.5 to 30; "" gives the move's own length.
+#
+# Pitfalls:
+#   * `mode: parallel` like the generated scripts, so a move never waits behind a
+#     question on the box.
+#   * Status poses and cards win on the screen: a move sent while Muse thinks or shows a
+#     card plays once the ready screen is back (within 60 s). Send it after
+#     script.muse_screen_set_status with status "ready" when it should show at once.
+#   * A move is never restored after a reload of the page.
+#
+# Call:
+#   action: script.muse_screen_animate
+#   data:
+#     motion: dance
+#     seconds: ""
+muse_screen_animate:
+  alias: Muse screen animate
+  description: >-
+    Lets Muse move on the ready screen of the web screens: dance (tanzen), party,
+    jump (springen), hop, spin (drehen), nod (nicken), shake (Kopf schütteln),
+    bow (verbeugen), shiver (frieren), sleep (schlafen), love (Herz), look
+    (umschauen), celebrate (feiern), wave (winken), or stop. seconds is optional
+    (0.5 to 30).
+  mode: parallel
+  max: 20
+  fields:
+    motion:
+      name: Motion
+      description: The move, English or German; stop ends the move that runs.
+      required: true
+      example: dance
+      selector:
+        select:
+          custom_value: true
+          options:
+          - dance
+          - party
+          - jump
+          - hop
+          - spin
+          - nod
+          - shake
+          - bow
+          - shiver
+          - sleep
+          - love
+          - look
+          - celebrate
+          - wave
+          - stop
+    seconds:
+      name: Seconds
+      description: How long the move plays, 0.5 to 30; empty gives its own length.
+      required: false
+      example: "6"
+      selector:
+        text: {}
+  sequence:
+  - event: muse_web
+    event_data:
+      action: animate
+      motion: '{{ motion }}'
+      seconds: '{{ seconds | default('''') }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ states(''script.muse_box_animate'') not in [''unknown'', ''unavailable''] }}'
+      sequence:
+      - action: script.turn_on
+        target:
+          entity_id: script.muse_box_animate
+        data:
+          variables:
+            motion: '{{ motion }}'
+            seconds: '{{ seconds | default('''') }}'

@@ -59,6 +59,9 @@ REGELN
 - ask: question, yes_label, no_label ("" = Ja/Nein).
 - choose: question, options (2 bis 4 Zeilen).
 - celebrate: title, message.
+- animate: motion, seconds ("" = Standard). Bewegt Muse auf dem Startbildschirm
+  (nur der Web Screen): dance, party, jump, spin, nod, shake, bow, shiver, sleep,
+  love, look, celebrate, wave; stop beendet. "Tanz mal" = dance, "Party" = party.
 - draw: scene (Teil 6).
 - clear: keine Felder.
 
