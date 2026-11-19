@@ -285,6 +285,11 @@ dialog#settings::backdrop { background: rgba(0, 0, 0, 0.55); backdrop-filter: bl
 .seg-2 { grid-template-columns: repeat(2, 1fr); }
 .seg-3 { grid-template-columns: repeat(3, 1fr); }
 .seg-4 { grid-template-columns: repeat(4, 1fr); }
+/* Five segments share the width by their label's length, so "Nachmachen" fits. */
+.seg-5 { display: flex; }
+.seg-5 label { flex: 1 1 auto; min-width: 0; }
+.seg-5 span { padding-left: 6px; padding-right: 6px; }
+.seg-5 b, html[data-look="ios"] .seg-5 b { font-size: 12px; white-space: nowrap; }
 .seg label { position: relative; cursor: pointer; }
 .seg input { position: absolute; opacity: 0; pointer-events: none; }
 .seg span {
@@ -555,6 +560,25 @@ html.tablet #dim { right: var(--rail-w, 360px); }
 
 #rail-mic[hidden], #rail-mic-label[hidden] { display: none; }
 #rail-actions button[hidden] { display: none; }
+
+/* The camera mode: one segmented control (Aus, Folgen, Nachmachen, Erkennen, Alles),
+   the chosen mode a raised pill; "custom" (switched one by one) lights none. */
+#rail-camera-mode {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; flex: none;
+  padding: 3px; border-radius: 14px; background: var(--card); border: 1px solid var(--shadow);
+}
+#rail-camera-mode[hidden] { display: none; }
+#rail-camera-mode button {
+  min-height: 40px; padding: 0 2px; border: 0; border-radius: 11px; background: transparent;
+  color: var(--sub); font: 600 11.5px/1.1 "Inter", system-ui, sans-serif; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background 180ms ease, color 180ms ease;
+}
+#rail-camera-mode button[aria-checked="true"] { background: rgba(255, 159, 10, 0.18); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+#rail-camera-mode button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (orientation: portrait) {
+  html.tablet #rail-camera-mode { flex: 1 1 100%; }
+}
 
 #camera-off {
   position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px;
@@ -1032,6 +1056,24 @@ html[data-look="ios"] .seg input:checked + span {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 }
 html[data-look="ios"] .seg input:focus-visible + span { outline: 3px solid var(--ios-tint-ring); outline-offset: 1px; }
+
+/* The rail's camera mode in the iOS look: a glass track, the chosen mode a raised pill. */
+html[data-look="ios"].tablet #rail-camera-mode {
+  padding: 3px; border-radius: 16px;
+  background: var(--glass-bg); border: 1px solid var(--glass-rim);
+  box-shadow: var(--glass-highlight), 0 0 0 0.5px var(--glass-edge), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+html[data-look="ios"].tablet #rail-camera-mode button {
+  min-height: 40px; border-radius: 13px; color: var(--ios-label-2, var(--ios-label));
+  font: 600 12px/1.1 var(--ios-font);
+  transition: background 240ms var(--ease-out), box-shadow 240ms var(--ease-out), color 240ms var(--ease-out);
+}
+html[data-look="ios"].tablet #rail-camera-mode button[aria-checked="true"] {
+  background: var(--seg-on); color: var(--ios-label);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+html[data-look="ios"].tablet #rail-camera-mode button:focus-visible { outline: 3px solid var(--ios-tint-ring); outline-offset: 1px; }
 
 /* The "i": the tint, with a 44 px hit area around the small circle. */
 html[data-look="ios"] .info { position: relative; width: 20px; height: 20px; color: var(--ios-tint); opacity: 1; font: 600 12px/1 var(--ios-font); font-style: normal; }

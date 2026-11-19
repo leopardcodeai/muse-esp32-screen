@@ -27,7 +27,7 @@ import { FrameClock, BOX_FPS, fitScale, normaliseFps } from "./pace.js";
 import {
   DEFAULTS, THEMES, LOOKS, lookFor, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload,
   layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE, updateWanted,
-  restorable,
+  restorable, mimicOn, mimicChoice, CAMERA_MODES, parseCameraMode, cameraModeOf, cameraModeSettings,
 } from "./settings.js";
 import { TabletRail, railWidth, railSide } from "./tablet.js";
 import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY } from "./camera.js";
@@ -175,12 +175,16 @@ camera = new Camera({
   token: () => settings.token,
   onFacing: (facing) => { settings.cameraFacing = facing; saveSettings(storage(), settings); },
   onLight: (luma) => { cameraLight = luma; updateRail(); },
+  // "Muse macht meine Bewegungen nach": the move plays only on the plain ready screen.
+  onGesture: (g) => display.gesture(g),
   say,
   log,
 });
 camera.setProfile(tabletProfile);
 // "Muse folgt mir": every layout's ready screen samples the camera's pose tracker.
 display.follow = camera.follow;
+// "Muse macht nach": a person in front of the camera keeps the idle variety quiet.
+display.gestures = camera.gestures;
 camera.hasLightSensor = sensors.hasLight;
 camera.setOptions(settings);
 camera.setBeta(settings.camera && !demoMode);
@@ -265,8 +269,35 @@ $("rail-fullscreen")?.addEventListener("click", () => toggleKiosk());
 $("rail-settings")?.addEventListener("click", () => openSettings());
 $("btn-camera")?.addEventListener("click", () => setCameraMode(!settings.camera));
 
+// The camera mode (settings.js CAMERA_MODES: Aus, Folgen, Nachmachen, Erkennen, Alles):
+// one choice sets the camera and its features together, from the rail, the dialog or HA
+// (action camera_mode). The features are set first, so the camera starts with them.
+function applyCameraMode(value) {
+  const mode = parseCameraMode(value);
+  if (!mode || (demoMode && mode !== "off")) return null;
+  const { camera: on, ...features } = cameraModeSettings(mode);
+  Object.assign(settings, features);
+  camera.setOptions(settings);
+  setCameraMode(on);
+  saveSettings(storage(), settings);
+  updateRail();
+  log(`camera mode ${mode}`);
+  return mode;
+}
+$("rail-camera-mode")?.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-mode]");
+  if (btn) applyCameraMode(btn.dataset.mode);
+});
+
 function syncCameraButtons() {
   const on = !!settings.camera && !demoMode;
+  const mode = demoMode ? "off" : cameraModeOf(settings);
+  const modes = $("rail-camera-mode");
+  if (modes) {
+    modes.hidden = demoMode;
+    modes.dataset.mode = mode;
+    for (const b of modes.querySelectorAll("button[data-mode]")) b.setAttribute("aria-checked", b.dataset.mode === mode ? "true" : "false");
+  }
   const btn = $("btn-camera");
   if (btn) btn.textContent = on ? "Kamera aus" : "Kamera";
   const railBtn = $("rail-camera");
@@ -323,6 +354,12 @@ async function screenAction(action, fields) {
     camera.setOptions(settings);
     if (on && !settings.camera) setCameraMode(true);
     log(`follow me ${on ? "on" : "off"}`);
+    return true;
+  }
+  if (action === "camera_mode") {
+    // The camera mode from HA: Aus, Folgen, Nachmachen, Erkennen, Alles (or English).
+    const chosen = applyCameraMode(fields.mode ?? fields.state);
+    if (!chosen) log(`camera_mode: unknown mode '${fields.mode ?? fields.state ?? ""}' (${CAMERA_MODES.join(", ")})`);
     return true;
   }
   if (action === "camera") {
@@ -681,7 +718,7 @@ function applyAction({ action, fields = {} }) {
   lastActionKey = key;
   lastActionAt = now;
   log(`action ${action} ${JSON.stringify(fields).slice(0, 120)}`);
-  if (["camera", "photo", "vision", "reload", "follow"].includes(action)) {
+  if (["camera", "camera_mode", "photo", "vision", "reload", "follow"].includes(action)) {
     screenAction(action, fields).then(() => render());
     return;
   }
@@ -767,7 +804,30 @@ $("device-example").textContent = DEFAULT_DEVICE;
 $("device-action").textContent = `esphome.${DEFAULT_DEVICE}_muse_show_text`;
 mixedNote.textContent = MIXED_CONTENT_NOTE;
 
+// The dialog's camera mode shows what its switches say; choosing a mode sets them.
+function dialogCameraSettings() {
+  return {
+    camera: form.camera.checked, followMe: form.followMe.checked,
+    mimicMe: mimicChoice(form.mimicMe.checked, form.followMe.checked), personBoxes: form.personBoxes.checked,
+  };
+}
+function syncDialogCameraMode() {
+  const mode = cameraModeOf(dialogCameraSettings());
+  for (const r of form.querySelectorAll('input[name="cameraMode"]')) r.checked = r.value === mode;
+}
+form.addEventListener("change", (ev) => {
+  if (ev.target.name !== "cameraMode") return;
+  const { camera: on, ...f } = cameraModeSettings(ev.target.value);
+  form.camera.checked = on;
+  if (on) {
+    form.followMe.checked = f.followMe;
+    form.mimicMe.checked = f.mimicMe;
+    form.personBoxes.checked = f.personBoxes;
+    if (f.vision) form.vision.checked = true;
+  }
+});
 function updateDialog() {
+  syncDialogCameraMode();
   mixedNote.hidden = !insecureFromHttps(location.protocol, form.url.value);
   const own = form.figureSource.value === "url";
   $("figure-url-row").hidden = !own;
@@ -796,6 +856,7 @@ function openSettings() {
   form.camera.checked = settings.camera;
   form.personBoxes.checked = settings.personBoxes;
   form.followMe.checked = settings.followMe;
+  form.mimicMe.checked = mimicOn(settings);
   form.autoMotion.checked = settings.autoMotion;
   form.autoBrightness.checked = settings.autoBrightness;
   form.vision.checked = settings.vision;
@@ -835,6 +896,7 @@ form.addEventListener("submit", (ev) => {
     cameraFacing: settings.cameraFacing,
     personBoxes: form.personBoxes.checked,
     followMe: form.followMe.checked,
+    mimicMe: mimicChoice(form.mimicMe.checked, form.followMe.checked),
     autoMotion: form.autoMotion.checked,
     autoBrightness: form.autoBrightness.checked,
     vision: form.vision.checked,

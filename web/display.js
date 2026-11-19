@@ -8,7 +8,9 @@
 // Motions (motion.js): `animate` asks for a move of the figure on the ready screen; it
 // plays only while the plain ready screen shows (status ready, no card), so status poses
 // and cards win. The idle variety starts a short subtle move now and then while
-// `autoMotion` is on ("Muse bewegt sich von selbst").
+// `autoMotion` is on ("Muse bewegt sich von selbst"). gesture() plays the move that
+// matches what the person in front of the camera does (gestures.js), only on the plain
+// ready screen and never over a move asked for with `animate`.
 //
 // Modes, as on the box: 0 status, 1 text, 2 value, 3 celebration, 4 weather, 5 photo,
 // 6 event, 7 scene, 8 question, 9 route, 10 agenda, 11 timer, 12 info, 13 list.
@@ -215,6 +217,22 @@ export class Display {
     }
     const r = this.motion.start(name, this.now(), seconds);
     return { ok: true, motion: r.motion, seconds: r.seconds, on_screen: this.motionReady() };
+  }
+
+  // A gesture the camera recognised (gestures.js: {name, motion, confidence}): plays its
+  // move on the plain ready screen and logs it once. Returns whether it plays; the
+  // camera commits the gesture's cooldown only then. A move asked for with `animate`
+  // wins; an idle move or an earlier gesture move gives way; the same gesture move
+  // running is extended instead of started over.
+  gesture(g) {
+    if (!g || !g.motion) return false;
+    const now = this.now();
+    if (!this.motionReady()) return false;
+    const c = this.motion.busy(now) ? this.motion.current : null;
+    if (c && !c.idle && !c.gesture) return false;
+    if (!this.motion.extend(g.motion, now)) this.motion.start(g.motion, now, undefined, { gesture: true });
+    this.log(`gesture ${g.name} (${Number(g.confidence || 0).toFixed(2)})`);
+    return true;
   }
 
   // The plain ready screen: the only place a motion shows.
@@ -506,7 +524,7 @@ export class Display {
     if (this.mode === 11 && !this.timers.soonest()) this.next();
     // Now and then a short subtle move on the still ready screen.
     const still = this.autoMotion && !this.reducedMotion && this.motionReady() && !this.motion.busy(now)
-      && this.cuddleUntil <= now && !(this.follow && this.follow.present);
+      && this.cuddleUntil <= now && !(this.follow && this.follow.present) && !(this.gestures && this.gestures.present);
     const idle = this.idleVariety.due(now, still);
     if (idle) this.motion.start(idle, now, undefined, { intensity: IDLE_INTENSITY, idle: true });
   }

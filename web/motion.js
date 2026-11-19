@@ -36,6 +36,9 @@
 //    without offsets, turns or particles.
 //  * Status poses (listening, thinking, speaking) and cards win: the renderers sample a
 //    motion only on the plain ready screen.
+//  * Gesture moves (gestures.js, "Muse macht meine Bewegungen nach") are marked
+//    `gesture`: the next gesture may replace them, the same one extends them; a move
+//    asked for with `animate` is never replaced by a gesture.
 import { rnd, PALETTE } from "./particles.js";
 
 // The motions in the order the docs list them; "hop" is the small jump of the idle variety.
@@ -292,22 +295,34 @@ export function followDamp(angle, weight) {
 // screen. The clock of a motion starts the first time the ready screen samples it.
 export class MotionPlayer {
   constructor() {
-    this.current = null; // {name, ms, askedAt, startedAt, intensity, idle}
+    this.current = null; // {name, ms, askedAt, startedAt, intensity, idle, gesture}
   }
 
   // Asks for motion `name` for `seconds` (motionSeconds()); "stop" ends the one running.
-  start(name, now, seconds, { intensity = 1, idle = false } = {}) {
+  // `gesture`: started by gestures.js (the person's move), which a later gesture may
+  // replace or extend, but an `animate` move never.
+  start(name, now, seconds, { intensity = 1, idle = false, gesture = false } = {}) {
     if (name === "stop") {
       this.stop();
       return null;
     }
     const secs = motionSeconds(name, seconds);
-    this.current = { name, ms: secs * 1000, askedAt: now, startedAt: null, intensity, idle };
+    this.current = { name, ms: secs * 1000, askedAt: now, startedAt: null, intensity, idle, gesture };
     return { motion: name, seconds: secs };
   }
 
   stop() {
     this.current = null;
+  }
+
+  // The running gesture move `name` plays `seconds` longer from now, without starting
+  // over (no fade out and in while the person keeps dancing). False when it is not the
+  // one running.
+  extend(name, now, seconds) {
+    const c = this.current;
+    if (!c || !c.gesture || c.name !== name || c.startedAt === null || !this.busy(now)) return false;
+    c.ms = Math.max(c.ms, now - c.startedAt + motionSeconds(name, seconds) * 1000);
+    return true;
   }
 
   // Whether a motion runs or waits for the ready screen at `now` (drops what has ended).

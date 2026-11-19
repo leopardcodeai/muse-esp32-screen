@@ -35,7 +35,7 @@ export const DEFAULTS = Object.freeze({
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
   theme: "auto", look: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
   tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
-  autoBrightness: true, followMe: false, autoMotion: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
+  autoBrightness: true, followMe: false, mimicMe: null, autoMotion: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
   visionModel: "Gemini 3.5 Flash Lite", visionDailyLimit: 1000,
   voiceModel: "Gemini Sprache", voiceDailyLimit: 1000,
 });
@@ -57,6 +57,8 @@ export function loadSettings(storage) {
   for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "followMe", "autoMotion", "vision", "visionAuto"]) {
     s[key] = stored[key] === undefined ? DEFAULTS[key] : stored[key] === true;
   }
+  // null: "Muse macht meine Bewegungen nach" goes with "Muse folgt mir" (mimicOn()).
+  s.mimicMe = typeof stored.mimicMe === "boolean" ? stored.mimicMe : null;
   s.tabletProfile = TABLET_PROFILES.includes(s.tabletProfile) ? s.tabletProfile : DEFAULTS.tabletProfile;
   s.cameraFacing = CAMERA_FACING.includes(s.cameraFacing) ? s.cameraFacing : DEFAULTS.cameraFacing;
   const visionEntity = String(s.visionEntity || "").trim();
@@ -209,7 +211,73 @@ export function updateWanted(current, server, idle) {
 // "listening" ...) belongs to the moment it was sent; restoring it replayed an old
 // "Prüfe Dyson …" on every start (19.11.2026). Only content is restored; a motion
 // (animate) belongs to its moment too.
-export const TRANSIENT_ACTIONS = ["set_status", "set_status_text", "reload", "camera", "photo", "vision", "animate"];
+export const TRANSIENT_ACTIONS = ["set_status", "set_status_text", "reload", "camera", "camera_mode", "photo", "vision", "animate"];
 export function restorable(action) {
   return Boolean(action) && !TRANSIENT_ACTIONS.includes(String(action));
+}
+
+// "Muse macht meine Bewegungen nach (Beta)" (gestures.js): on or off as chosen, and by
+// default (mimicMe null) on exactly when "Muse folgt mir" is on.
+export function mimicOn(settings) {
+  const m = settings ? settings.mimicMe : null;
+  return typeof m === "boolean" ? m : !!(settings && settings.followMe === true);
+}
+
+// The stored mimicMe for the two switches of the dialog: null while it matches "Muse
+// folgt mir" (so it keeps going with it), the explicit choice otherwise.
+export function mimicChoice(mimic, followMe) {
+  return mimic === followMe ? null : mimic === true;
+}
+
+// The camera modes of the rail and the dialog: one control instead of four switches.
+// Each sets the camera and its features together:
+//   off     Aus         the camera off (the features keep their last state)
+//   follow  Folgen      "Muse folgt mir" only
+//   mimic   Nachmachen  "Muse folgt mir" and "Muse macht meine Bewegungen nach"
+//   detect  Erkennen    object boxes and the Vision button, no pose tracker
+//   all     Alles       everything at once
+// The Vision timer (visionAuto) is never switched by a mode: it uploads pictures and
+// stays an explicit choice in the dialog.
+export const CAMERA_MODES = ["off", "follow", "mimic", "detect", "all"];
+export const CAMERA_MODE_LABELS = Object.freeze({
+  off: "Aus", follow: "Folgen", mimic: "Nachmachen", detect: "Erkennen", all: "Alles",
+});
+const MODE_FEATURES = Object.freeze({
+  follow: { followMe: true, mimicMe: false, personBoxes: false },
+  mimic: { followMe: true, mimicMe: true, personBoxes: false },
+  detect: { followMe: false, mimicMe: false, personBoxes: true, vision: true },
+  all: { followMe: true, mimicMe: true, personBoxes: true, vision: true },
+});
+const MODE_ALIASES = Object.freeze({
+  off: "off", aus: "off", false: "off", stop: "off", none: "off",
+  follow: "follow", folgen: "follow", followme: "follow", folgtmir: "follow",
+  mimic: "mimic", nachmachen: "mimic", gestures: "mimic", gesten: "mimic", moves: "mimic",
+  detect: "detect", erkennen: "detect", detection: "detect", boxes: "detect", vision: "detect", objects: "detect",
+  all: "all", alles: "all", everything: "all", on: "all", an: "all", ein: "all",
+});
+
+// A mode's name, English or German ("nachmachen", "erkennen", "aus", ...), or null.
+export function parseCameraMode(value) {
+  const key = String(value ?? "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  return Object.hasOwn(MODE_ALIASES, key) ? MODE_ALIASES[key] : null;
+}
+
+// The mode the settings are in: "off" with the camera off, else the mode whose features
+// match, else "custom" (switched one by one in the dialog; no segment is lit).
+export function cameraModeOf(settings) {
+  if (!settings || settings.camera !== true) return "off";
+  const follow = settings.followMe === true, mimic = mimicOn(settings), boxes = settings.personBoxes === true;
+  if (follow && mimic && boxes) return "all";
+  if (follow && mimic && !boxes) return "mimic";
+  if (follow && !mimic && !boxes) return "follow";
+  if (!follow && !mimic && boxes) return "detect";
+  return "custom";
+}
+
+// The settings changes of mode `mode` ({} for an unknown one): `camera` and, except for
+// "off", the features.
+export function cameraModeSettings(mode) {
+  if (mode === "off") return { camera: false };
+  const f = MODE_FEATURES[mode];
+  return f ? { camera: true, ...f } : {};
 }

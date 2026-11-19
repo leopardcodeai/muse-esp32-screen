@@ -191,6 +191,67 @@ Rules:
   in a row. Not with reduced motion and not while "Muse folgt mir" sees a person.
 - A move is never restored after a reload.
 
+### Muse copies your moves (web screen, camera)
+
+"Muse macht meine Bewegungen nach (Beta)" (settings, Kamera) recognises gestures from the
+pose landmarks of the camera (`web/gestures.js`, local only, the same MediaPipe
+PoseLandmarker frames as "Muse folgt mir") and answers each with its move. It works in
+every layout with a camera (Tab, iPad, Mosaico, the box layout of the Mac app).
+
+| Gesture | Move | Recognised when |
+|---|---|---|
+| dance | `dance` | a regular bounce (1.2 to 3.5 Hz) or sway (0.6 to 3.5 Hz) over 3 s, on the spot |
+| dance with both arms up | `party` | the same with both hands above the head |
+| jump | `jump` | shoulders and hips rise at least 0.375 shoulder widths and land again within 0.8 s |
+| turn around | `spin` | the shoulder width collapses or the face disappears, then the person faces the camera again at the same place |
+| bow | `bow` | shoulders drop and the nose comes down to the shoulder line while the hips stay |
+| both arms up, held | `celebrate` | both hands above the head and apart for 0.8 s |
+| heart with the hands | `love` | both wrists together at the chest or above the head for 0.6 s |
+| arms crossed, hugging oneself | `shiver` | each wrist past the middle towards the other shoulder for 1 s |
+| wave | `wave` | one hand above the shoulder moving side to side, or (like "Muse folgt mir") held above the head for 1 s |
+| head shake | `shake` | the nose left and right twice while the shoulders stay |
+| nod | `nod` | the nose down and up twice while the shoulders stay |
+| standing still, head down | `look` | 6 s still with the head lowered (at most every 45 s) |
+
+Each gesture has a confidence and a threshold; the highest-priority gesture over its
+threshold wins (the order of the table), each has a cooldown of 4 to 6 s and any two are
+at least 2 s apart. A gesture plays only on the plain ready screen (cards and status poses
+win; nothing is queued for later) and never replaces a move asked for with `animate`; the
+same gesture again extends its move. Each played gesture is logged once, e.g. `gesture
+jump (0.82)` (browser console, remote log, HA logbook). The setting is on by default
+whenever "Muse folgt mir" is on, and it turns the pose tracker on by itself while the
+camera is on.
+
+### Camera mode (web screen: `camera_mode`)
+
+The camera's features are one choice in the Tab and iPad rail (a segmented control under
+the voice box) and in the settings dialog (Kamera, Modus):
+
+| `mode` | Label | Sets |
+|---|---|---|
+| `off` (aus) | Aus | the camera off; the features keep their last state |
+| `follow` (folgen) | Folgen | camera on, "Muse folgt mir" on, copying off, object boxes off |
+| `mimic` (nachmachen) | Nachmachen | camera on, "Muse folgt mir" and "Muse macht meine Bewegungen nach" on, object boxes off |
+| `detect` (erkennen) | Erkennen | camera on, object boxes and the Vision button on, no pose tracker |
+| `all` (alles) | Alles | everything on |
+
+The Vision timer ("Vision jede Minute") is never switched by a mode. Switches set one by
+one show no lit segment. From HA:
+
+| Action | Data | Does |
+|---|---|---|
+| `muse_web` event, `action: camera_mode` | `mode` (English or German, above), `device` (optional) | sets the mode and stores it; an unknown mode is logged and ignored |
+
+```yaml
+event: muse_web
+event_data:
+  action: camera_mode
+  mode: nachmachen
+  device: muse_tab_screen
+```
+
+A camera mode is never restored after a reload (it is stored as settings instead).
+
 ## Pictures
 
 Since 3.4 a task of its own on the second core loads and decodes photos, GIFs, live views

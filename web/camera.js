@@ -25,11 +25,19 @@
 //    on. It tries the GPU delegate first and falls back to the CPU when creating fails
 //    or three detections in a row throw. The landmarks go to the FollowTracker of
 //    follow.js, which the renderers sample; a failure only stops the following.
+//  * "Muse macht meine Bewegungen nach (Beta)" uses the same pose frames: they also go
+//    to the GestureRecognizer of gestures.js, and a recognised gesture goes to
+//    onGesture (display.gesture()), which plays the move on the ready screen and says
+//    whether it did; only then the gesture's cooldown starts. The pose tracker runs
+//    while the camera is on and either setting is on; with only this one on, the
+//    figure is not moved by follow.js (its tracker gets no frames).
 //
 // The pure helpers are exported for the Node tests; the class is only built in the
 // browser, with all browser APIs injectable.
 
 import { FollowTracker, FOLLOW_MS, POSE_MODEL_URL } from "./follow.js";
+import { GestureRecognizer } from "./gestures.js";
+import { mimicOn } from "./settings.js";
 
 export const PERSON_MODEL_URL = "https://storage.googleapis.com/mediapipe-tasks/object_detector/efficientdet_lite0_uint8.tflite";
 export const VISION_JS_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/vision_bundle.mjs";
@@ -248,6 +256,8 @@ export class Camera {
     });
     this.fetchImpl = opts.fetchImpl || ((...args) => fetch(...args));
     this.onLight = opts.onLight || (() => {});
+    // A recognised gesture ({name, motion, confidence}); answers whether its move plays.
+    this.onGesture = opts.onGesture || (() => false);
     this.say = opts.say || (() => {});
     this.log = opts.log || (() => {});
     this.now = opts.now || (() => performance.now());
@@ -291,6 +301,9 @@ export class Camera {
     // only moves the figure while poses arrive.
     this.followMe = false;
     this.follow = opts.follow || new FollowTracker();
+    // "Muse macht meine Bewegungen nach": the gestures of the same pose frames.
+    this.mimic = false;
+    this.gestures = opts.gestures || new GestureRecognizer();
     this.pose = null;
     this.poseState = "idle"; // idle, loading, ready, failed
     this.poseDelegate = "";
@@ -349,7 +362,10 @@ export class Camera {
     else if (this.on && !this.lumaTimer) this.startLuma();
     this.startVisionAuto();
     this.followMe = settings.followMe === true;
-    if (!this.followMe) this.stopFollow();
+    this.mimic = mimicOn(settings);
+    if (!this.followMe) this.follow.release();
+    if (!this.mimic) this.gestures.reset();
+    if (!this.posing()) this.stopFollow();
     else if (this.on) this.startFollow();
     if (facingChanged && this.on) {
       this.stop();
@@ -390,7 +406,7 @@ export class Camera {
       if (this.el.power) this.el.power.setAttribute("aria-pressed", "true");
       this.updateCaption();
       if (this.personBoxes) this.startDetection();
-      if (this.followMe) this.startFollow();
+      if (this.posing()) this.startFollow();
       if (this.autoBrightness && !this.hasLightSensor) this.startLuma();
       this.startVisionAuto();
       this.log(`camera on (${this.profile})`);
@@ -603,8 +619,13 @@ export class Camera {
     this.poseDelegate = "CPU";
   }
 
+  // Whether the pose tracker is wanted: "Muse folgt mir" or "Muse macht nach".
+  posing() {
+    return this.followMe || this.mimic;
+  }
+
   async startFollow() {
-    if (!this.followMe || !this.on) return;
+    if (!this.posing() || !this.on) return;
     if (this.poseState === "ready") {
       this.armFollow();
       return;
@@ -616,7 +637,7 @@ export class Camera {
       this.poseState = "ready";
       this.poseFails = 0;
       this.log(`pose tracker ready (${this.poseDelegate})`);
-      if (this.followMe && this.on) this.armFollow();
+      if (this.posing() && this.on) this.armFollow();
     } catch (err) {
       this.poseState = "failed";
       this.pose = null;
@@ -634,10 +655,11 @@ export class Camera {
     if (this.poseTimer) clearInterval(this.poseTimer);
     this.poseTimer = null;
     this.follow.release();
+    this.gestures.reset();
   }
 
   followStep() {
-    if (!this.on || !this.followMe || !this.pose || typeof document === "undefined" || document.hidden) return;
+    if (!this.on || !this.posing() || !this.pose || typeof document === "undefined" || document.hidden) return;
     const video = this.el.video;
     if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
     const at = this.now();
@@ -647,7 +669,11 @@ export class Camera {
       const result = this.pose.detectForVideo(video, at);
       const landmarks = result && result.landmarks && result.landmarks[0] ? result.landmarks[0] : null;
       this.poseFails = 0;
-      this.follow.observe(landmarks, at, this.facing === "user");
+      if (this.followMe) this.follow.observe(landmarks, at, this.facing === "user");
+      if (this.mimic) {
+        const g = this.gestures.observe(landmarks, at, this.facing === "user");
+        if (g && this.onGesture(g)) this.gestures.fired(g.name, at);
+      }
     } catch (err) {
       this.poseFails++;
       this.log("pose failed: " + (err && err.message ? err.message : err));
@@ -658,6 +684,7 @@ export class Camera {
       try { this.pose?.close?.(); } catch { /* ignore */ }
       this.pose = null;
       this.follow.release();
+      this.gestures.reset();
       if (!wasGpu) {
         this.poseState = "failed";
         return;
@@ -668,7 +695,7 @@ export class Camera {
         this.poseState = "ready";
         this.poseFails = 0;
         this.log("pose tracker on CPU");
-        if (this.followMe && this.on) this.armFollow();
+        if (this.posing() && this.on) this.armFollow();
       }).catch((e) => {
         this.poseState = "failed";
         this.log("pose tracker failed: " + (e && e.message ? e.message : e));

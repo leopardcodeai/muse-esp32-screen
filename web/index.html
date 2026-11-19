@@ -70,6 +70,13 @@
         </button>
       </form>
     </div>
+    <div id="rail-camera-mode" role="radiogroup" aria-label="Kamera-Modus" data-mode="off">
+      <button type="button" role="radio" data-mode="off" aria-checked="true" title="Kamera aus">Aus</button>
+      <button type="button" role="radio" data-mode="follow" aria-checked="false" title="Muse folgt dir">Folgen</button>
+      <button type="button" role="radio" data-mode="mimic" aria-checked="false" title="Muse folgt dir und macht deine Bewegungen nach">Nachmachen</button>
+      <button type="button" role="radio" data-mode="detect" aria-checked="false" title="Objekte markieren und Vision">Erkennen</button>
+      <button type="button" role="radio" data-mode="all" aria-checked="false" title="Alles zusammen">Alles</button>
+    </div>
     <div id="rail-actions">
       <button id="rail-camera" type="button" title="Kamera-Modus ein- oder ausschalten">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Kamera</span>
@@ -215,10 +222,23 @@
           <section class="s-card" data-tint="orange">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Kamera<span class="badge">Beta</span><button type="button" class="info" aria-label="Info">i</button></h3>
             <small class="hint">Braucht HTTPS und eine einmalige Freigabe. Personenrahmen laufen lokal; nur Vision schickt ein Foto an Home Assistant und löscht es danach.</small>
+            <div class="field"><span class="f-name">Modus</span>
+              <div class="seg seg-5" role="radiogroup" aria-label="Kamera-Modus">
+                <label><input type="radio" name="cameraMode" value="off"><span><b>Aus</b></span></label>
+                <label><input type="radio" name="cameraMode" value="follow"><span><b>Folgen</b></span></label>
+                <label><input type="radio" name="cameraMode" value="mimic"><span><b>Nachmachen</b></span></label>
+                <label><input type="radio" name="cameraMode" value="detect"><span><b>Erkennen</b></span></label>
+                <label><input type="radio" name="cameraMode" value="all"><span><b>Alles</b></span></label>
+              </div>
+              <small class="hint">Folgen: Muse bewegt sich wie du. Nachmachen: dazu macht Muse deine Bewegungen nach. Erkennen: Objekte markieren und Vision. Die Schalter darunter stellen einzeln ein.</small>
+            </div>
             <label class="switch"><span>Kamera-Modus</span><input name="camera" type="checkbox"><i></i></label>
             <label class="switch"><span>Objekte markieren</span><input name="personBoxes" type="checkbox"><i></i></label>
             <label class="switch"><span>Muse folgt mir (Beta)</span><input name="followMe" type="checkbox"><i></i>
               <small class="hint">Muse bewegt sich wie du vor der Kamera: zur Seite, neigen, näher kommen; Hand heben lässt sie winken. Läuft lokal.</small>
+            </label>
+            <label class="switch"><span>Muse macht meine Bewegungen nach (Beta)</span><input name="mimicMe" type="checkbox"><i></i>
+              <small class="hint">Springen, tanzen, jubeln, winken, nicken, Kopf schütteln, verbeugen, Herz mit den Händen, umdrehen, Arme verschränken: Muse antwortet mit der passenden Bewegung. Geht mit "Muse folgt mir" an und aus, solange du es nicht einzeln umstellst. Läuft lokal.</small>
             </label>
             <label class="switch"><span>Helligkeit anpassen</span><input name="autoBrightness" type="checkbox"><i></i></label>
             <label class="switch"><span>Vision-Knopf</span><input name="vision" type="checkbox"><i></i></label>
