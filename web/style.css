@@ -201,3 +201,162 @@ dialog#settings::backdrop { background: rgba(0, 0, 0, 0.3); }
 .pip-body { margin: 0; background: var(--page); display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
 .stage-placeholder { width: 320px; height: 240px; display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 13px; }
 .stage-placeholder::after { content: "Die Anzeige schwebt in einem eigenen Fenster."; }
+
+/* ---------------------------------------------------------------- tablet --
+
+   The Tab and iPad profiles: the 480 x 480 canvas takes the full height and the rail
+   takes the width the square leaves. The rail is DOM, so its text stays crisp and the
+   settings and voice states do not need a canvas redraw. */
+#rail { display: none; }
+#tablet-shell { display: contents; }
+
+html.tablet #tablet-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail-w, 360px);
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+html.tablet #page {
+  position: static;
+  inset: auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+html.tablet #toolbar { display: none; }
+html.tablet #rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--page);
+  border-left: 1px solid var(--shadow);
+  overflow: hidden;
+  z-index: 10;
+}
+html.tablet.camera-beta #rail { padding-top: 308px; }
+html.tablet #camera { width: calc(var(--rail-w, 360px) - 24px); }
+html.tablet #dim { right: var(--rail-w, 360px); }
+
+@media (orientation: portrait) {
+  html.tablet #tablet-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) var(--rail-h, 260px);
+  }
+  html.tablet #rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    border-left: 0;
+    border-top: 1px solid var(--shadow);
+    overflow: auto;
+  }
+  html.tablet.camera-beta #rail { padding-top: 12px; }
+  html.tablet #camera { width: min(220px, 42vw); }
+  html.tablet #dim { right: 0; bottom: var(--rail-h, 260px); }
+  #rail-time { font-size: 36px !important; }
+  #rail-actions { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  #rail-mic { width: 64px !important; height: 64px !important; }
+}
+
+#rail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#rail-profile {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 10px;
+  border-radius: 999px; background: var(--card); border: 1px solid var(--shadow);
+  color: var(--sub); font-size: 12px; font-weight: 700;
+}
+#rail-brand { color: var(--sub); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+#rail-time { margin-top: 4px; color: var(--ink); font-size: clamp(44px, 7.2vh, 72px); font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+#rail-date { margin-top: -2px; color: var(--sub); font-size: 17px; font-weight: 500; }
+#rail-status { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; font-weight: 600; }
+#rail-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; flex: none; }
+#rail-dot[data-connection="on"] { background: #34c759; }
+#rail-dot[data-connection="connecting"] { background: #ff9f0a; }
+#rail-dot[data-connection="demo"] { background: #30b0c7; }
+#rail-timer {
+  align-self: flex-start; padding: 5px 10px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--shadow); color: var(--ink);
+  font-size: 13px; font-weight: 700;
+}
+#rail-mic {
+  align-self: center; display: grid; place-items: center; flex: none;
+  width: 88px; height: 88px; margin-top: 4px; border-radius: 50%;
+  border: 0; background: var(--accent); color: #fff; cursor: pointer;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  transition: transform 120ms ease, background 120ms ease;
+}
+#rail-mic svg { width: 38px; height: 38px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#rail-mic:active { transform: scale(0.95); }
+#rail-mic[data-state="listening"] { background: #ff3b30; animation: rail-pulse 1.1s ease-in-out infinite; }
+#rail-mic[data-state="thinking"] { background: #ff9f0a; }
+#rail-mic[data-state="speaking"] { background: #34c759; }
+#rail-mic[data-state="error"] { background: #8e8e93; }
+#rail-mic[data-state="off"] { background: var(--shadow); color: var(--sub); }
+@keyframes rail-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,48,0.35); } 50% { box-shadow: 0 0 0 14px rgba(255,59,48,0); } }
+#rail-mic-label { margin-top: -4px; color: var(--sub); font-size: 13px; font-weight: 600; text-align: center; }
+#rail-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+#rail-actions button {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px;
+  border-radius: 12px; border: 1px solid var(--shadow); background: var(--card);
+  color: var(--ink); font: 600 13px/1 "Inter", system-ui, sans-serif; cursor: pointer;
+}
+#rail-actions button:active { transform: scale(0.98); }
+#rail-actions button[aria-pressed="true"] { border-color: var(--accent); }
+#rail-actions button[disabled] { opacity: 0.45; cursor: default; }
+#rail-actions svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#rail-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; color: var(--sub); font-size: 12px; font-weight: 600; }
+#rail-foot span[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- camera --
+
+   The beta card floats above the page. It is off by default; the master switch lives
+   in the settings, and the power button on the card stops the stream without removing
+   the UI. */
+#camera {
+  position: fixed; top: 12px; right: 12px; z-index: 30;
+  display: flex; flex-direction: column; width: min(220px, 40vw);
+  border-radius: 18px; overflow: hidden; background: var(--card);
+  border: 1px solid var(--shadow); box-shadow: 0 16px 40px rgba(0,0,0,0.22);
+}
+#camera[hidden] { display: none; }
+#camera-head {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  color: var(--ink); font-size: 12px; font-weight: 700;
+}
+#camera-title { flex: 1; }
+#camera-beta { margin-left: 4px; padding: 2px 6px; border-radius: 999px; background: rgba(255,159,10,0.16); color: #b25000; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+#camera-drag { display: grid; place-items: center; width: 24px; height: 24px; color: var(--sub); cursor: grab; touch-action: none; }
+#camera-drag svg { width: 18px; height: 18px; fill: currentColor; }
+#camera-power { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--sub); cursor: pointer; }
+#camera-power svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+#camera-power[aria-pressed="true"] { color: #ff3b30; }
+#camera-view { position: relative; aspect-ratio: 16 / 9; background: #000; overflow: hidden; }
+#camera-video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+#camera-boxes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#camera-caption { margin: 0; padding: 7px 10px; color: var(--ink); font-size: 12px; font-weight: 600; line-height: 1.3; }
+#camera-foot { display: flex; align-items: center; gap: 6px; padding: 0 10px 9px; }
+#camera-foot button { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--shadow); background: var(--card); color: var(--ink); font: 600 12px/1 "Inter", system-ui, sans-serif; cursor: pointer; }
+#camera-foot button[disabled] { opacity: 0.45; cursor: default; }
+#camera-badge { margin-left: auto; padding: 2px 7px; border-radius: 999px; background: rgba(0,122,255,0.14); color: var(--accent); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+#camera-badge[hidden] { display: none; }
+#camera-placeholder { padding: 18px 12px; color: var(--sub); font-size: 12px; text-align: center; }
+
+/* The dim layer covers the display, not the rail on a tablet, so the controls stay
+   readable while the canvas follows the room. */
+#dim {
+  position: fixed; inset: 0 0 44px 0; z-index: 20; pointer-events: none;
+  background: #000; opacity: 0; transition: opacity 1.5s ease;
+}
+
+/* The voice state in the Mosaico and box layouts; the tablet rail carries it itself. */
+#voice-hint {
+  position: fixed; left: 50%; bottom: 56px; z-index: 35; transform: translateX(-50%);
+  max-width: min(90vw, 520px); margin: 0; padding: 9px 16px; border-radius: 999px;
+  background: var(--ink); color: #fff; font-size: 13px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18); pointer-events: none;
+}
+#voice-hint[hidden] { display: none; }
