@@ -2,7 +2,7 @@
 
 The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-screen.yaml`; the box reports it in `muse_get_state` and on its info screen. Dates are the day the firmware ran on the box. Wrong turns are recorded, because the same mistake comes back otherwise.
 
-## Muse Web Screen, not yet released (branch `tablet-polish`, web, no add-on rebuild)
+## Muse Web Screen 1.8.18, 19 November 2026 (web, no add-on rebuild)
 
 - **The rail fits.** At 1214 x 800 (Muse OS on the Galaxy Tab A11+) the action tiles were cut off and "Nachmachen" was truncated. The rail is rebuilt as five parts that fit without scrolling there and at 1024 x 768: a status header (clock, date, connection), the camera card in three sizes (one row without a stream, a thumbnail in the follow modes, the full picture with boxes), the composer, the camera mode as five equal icon segments with a line that says what the mode does, and one row of round action buttons. A rail under 330 px is compact (icons only). The separate "Kamera" tile is gone: the mode control's "Aus", the card's power button and the C key switch the camera.
 - **Speak and write are one composer** (`composer.js`): the microphone beside the text field, the send button inside it (disabled while empty, Enter sends), one state line, a live level wave while the microphone is open (from the samples already buffered), and the last question with its answer below, typed or spoken, in memory only. `voice.js` hands the understood sentence and the answer text to the page (`onHeard`, `onReply`).
