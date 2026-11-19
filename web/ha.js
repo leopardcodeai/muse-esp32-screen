@@ -244,7 +244,7 @@ export class HaClient {
 
   // The audio frames for one handler, then the one-byte end marker.
   sendAudio(handlerId, pcm16) {
-    if (!this.ws || !handlerId) return;
+    if (!this.ws || handlerId === undefined || handlerId === null) return;
     const chunk = 4096;
     for (let i = 0; i < pcm16.length; i += chunk) {
       this.sendRaw(audioFrame(handlerId, pcm16.subarray(i, i + chunk)));
@@ -342,7 +342,7 @@ export class HaClient {
       }
       if (msg.event.type === "run-start") {
         const hid = msg.event.data && msg.event.data.runner_data && msg.event.data.runner_data.stt_binary_handler_id;
-        if (hid) {
+        if (hid !== undefined && hid !== null) {
           s.handlerId = hid;
           this.sendAudio(hid, s.audio);
         } else {

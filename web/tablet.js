@@ -18,12 +18,12 @@ import { timeLeft } from "./text.js";
 // the width the square canvas leaves. Capped so a very wide window cannot grow an
 // unusable rail; 0 in portrait.
 export function railWidth(width, height) {
-  if (!(width >= height)) return 0;
+  if (!(width > height)) return 0;
   return Math.max(240, Math.min(520, width - height));
 }
 
 export function railSide(width, height) {
-  return width >= height ? "right" : "bottom";
+  return width > height ? "right" : "bottom";
 }
 
 export function profileLabel(profile) {
@@ -105,8 +105,13 @@ export class TabletRail {
       e.timer.textContent = timer ? `${timer.name} · ${timeLeft(timer.left)}` : "";
     }
     if (e.light) {
-      e.light.hidden = state.light === null || state.light === undefined;
-      if (!e.light.hidden) e.light.textContent = `Licht ${Math.round(Math.max(0, Math.min(1, state.light)) * 100)} %`;
+      if (state.sensorText) {
+        e.light.hidden = false;
+        e.light.textContent = state.sensorText;
+      } else {
+        e.light.hidden = state.light === null || state.light === undefined;
+        if (!e.light.hidden) e.light.textContent = `Licht ${Math.round(Math.max(0, Math.min(1, state.light)) * 100)} %`;
+      }
     }
     if (e.battery) {
       const b = state.battery;

@@ -211,15 +211,16 @@ export class FigureSource {
       return;
     }
     const size = drawSize > 0 ? drawSize : sub === "avatar" ? AVATAR : SIZE;
+    const pace = frames.delayMs > 0 && frames.delayMs < stepMs ? frames.delayMs : stepMs;
     const ctx = r.ctx;
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     if (!this.smooth || frames.length <= 1 || sub === "avatar") {
-      ctx.drawImage(frames[frameIndex(sub, t, frames.length, stepMs)], x0, y0, size, size);
+      ctx.drawImage(frames[frameIndex(sub, t, frames.length, pace)], x0, y0, size, size);
     } else {
-      // Blend the two neighbouring 6 fps pictures: the figure moves continuously at 60.
-      const { i, j, mix } = frameBlend(sub, t, frames.length, stepMs);
+      // Blend the two neighbouring pictures so the figure moves continuously at 60 fps.
+      const { i, j, mix } = frameBlend(sub, t, frames.length, pace);
       ctx.drawImage(frames[i], x0, y0, size, size);
       if (mix > 0 && j !== i) {
         ctx.globalAlpha = mix;

@@ -16,7 +16,7 @@ import { drawTopBar, drawCard } from "./cards.js";
 import { SceneDrawer } from "./draw.js";
 import { SquareView, SQUARE, squareButtonAt, toScene, squareCaption } from "./square.js";
 
-export const VERSION = "1.6.8";
+export const VERSION = "1.8.0";
 
 // The seconds an image card stays: clamp(seconds, 1, 600); 30 when missing or not a number.
 export function clampImageSeconds(value) {
@@ -111,6 +111,10 @@ export class Display {
       this.card = this.queue.current;
       this.media.hide();
       this.scene = null;
+      // A "thinking" status belongs to an answer that ends with a card. When the line
+      // runs empty the answer is over, so the ready screen must not keep carrying it:
+      // without this the bubble said "Arbeitet" forever after every answer.
+      if (this.status === 2) this.setStatus(0);
       return;
     }
     this.apply(c);

@@ -26,8 +26,12 @@ import { floatDocument, floatVideo, unfloatVideo, hasDocumentPip, hasVideoPip, K
 import { FrameClock, BOX_FPS, fitScale, normaliseFps } from "./pace.js";
 import {
   DEFAULTS, THEMES, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload,
-  themeFor, insecureFromHttps, MIXED_CONTENT_NOTE,
+  layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE,
 } from "./settings.js";
+import { TabletRail, railWidth, railSide } from "./tablet.js";
+import { Camera } from "./camera.js";
+import { Voice } from "./voice.js";
+import { Sensors } from "./sensors.js";
 import { applyTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
@@ -46,18 +50,33 @@ function storage() {
   }
 }
 let settings = loadSettings(storage());
+// The HA add-on is the Muse screen: its default character is the owner's Muse figure in
+// ./local, not the project's public placeholder. The migration runs once per browser
+// and never touches the public Vercel demo or an explicit figure URL.
+const addonOrigin = location.port === "8322" || location.pathname.startsWith("/local/muse-web/");
+if (addonOrigin && !settings.figureVersion) {
+  settings.figureVersion = 1;
+  if (settings.figureSource === "placeholder" || !settings.figureUrl) {
+    settings.figureSource = "url";
+    settings.figureUrl = "./local";
+    saveSettings(storage(), settings);
+  }
+}
 const layout = layoutFor(location.search, settings);
-const square = layout === "square";
+const tablet = layout === "tablet";
+let tabletProfile = tabletProfileFor(location.search, settings);
+const square = layout !== "box";
 // ?figurebg=card compares the black figure with the same figure on a rounded light card.
 const figureCard = params.get("figurebg") === "card";
 setFigureCard(figureCard);
 // The logical size of the display: the box's 320 x 240, or 480 x 480.
 const LW = square ? SQUARE_W : W;
 const LH = square ? SQUARE_H : H;
-const theme = themeFor(location.search, settings, layout);
+const theme = themeFor(location.search, settings, square ? "square" : "box");
 applyTheme(theme);
 document.documentElement.dataset.theme = theme;
 document.documentElement.classList.toggle("square", square);
+document.documentElement.classList.toggle("tablet", tablet);
 const themeColor = document.querySelector('meta[name="theme-color"]');
 if (themeColor) themeColor.content = theme === "dark" ? "#000000" : "#f3f3f3";
 const fonts = () => (square ? [...allFonts(), ...squareFonts()] : allFonts());
@@ -85,7 +104,7 @@ const frames = new FrameClock(fpsFor(location.search, settings));
 figure.smooth = frames.fps > BOX_FPS;
 
 const display = new Display({
-  renderer, figure, weather, media, layout,
+  renderer, figure, weather, media, layout: square ? "square" : "box",
   now: () => performance.now(),
   clock: () => new Date(),
   name: settings.name || "Muse",
@@ -97,6 +116,215 @@ const display = new Display({
   },
 });
 display.browserInfo = browserName();
+
+// ------------------------------------------------------- tablet, camera, voice --
+
+const rail = tablet ? new TabletRail({ log }).mount() : null;
+if (rail) rail.setProfile(tabletProfile);
+
+let cameraLight = null;
+let battery = null;
+let camera = null;
+let voice = null;
+
+const sensors = new Sensors({
+  log,
+  onUpdate: (s) => {
+    if (camera && s.hasLight) camera.hasLightSensor = true;
+    updateRail();
+  },
+  onWake: () => updateRail(),
+});
+sensors.start();
+
+camera = new Camera({
+  getSettings: () => settings,
+  getDisplay: () => display,
+  getHa: () => ha,
+  baseUrl: () => settings.url || location.origin,
+  token: () => settings.token,
+  onFacing: (facing) => { settings.cameraFacing = facing; saveSettings(storage(), settings); },
+  onLight: (luma) => { cameraLight = luma; updateRail(); },
+  say,
+  log,
+});
+camera.setProfile(tabletProfile);
+camera.hasLightSensor = sensors.hasLight;
+camera.setOptions(settings);
+camera.setBeta(settings.camera && !demoMode);
+
+voice = new Voice({
+  getHa: () => ha,
+  getSettings: () => settings,
+  getDisplay: () => display,
+  sounds,
+  say,
+  log,
+  urlBase: () => settings.url || location.origin,
+  token: () => settings.token,
+  onState: (state, detail) => {
+    if (rail) rail.setVoice(state, detail);
+    updateVoiceHint(state, detail);
+  },
+});
+voice.setEnabled(settings.voice && !demoMode);
+voice.bindButton($("rail-mic"));
+voice.bindButton($("btn-mic"));
+
+// The camera mode: one switch for the rail button, the power icon on the card, the C
+// key and Muse's `camera` action. It is stored, so a reload keeps the mode.
+function setCameraMode(on) {
+  const next = on === true && !demoMode;
+  if (settings.camera === next && camera.beta === next) {
+    if (next && !camera.active) camera.start({ quiet: true });
+    return next;
+  }
+  settings.camera = next;
+  saveSettings(storage(), settings);
+  applyFeatureVisibility();
+  updateRail();
+  log(`camera mode ${next ? "on" : "off"}`);
+  return next;
+}
+camera.onPowerOff = () => setCameraMode(false);
+
+$("rail-camera")?.addEventListener("click", () => setCameraMode(!settings.camera));
+$("rail-photo")?.addEventListener("click", () => camera.takePhoto());
+$("rail-vision")?.addEventListener("click", () => camera.describe());
+$("rail-fullscreen")?.addEventListener("click", () => toggleKiosk());
+$("rail-settings")?.addEventListener("click", () => openSettings());
+$("btn-camera")?.addEventListener("click", () => setCameraMode(!settings.camera));
+
+function syncCameraButtons() {
+  const on = !!settings.camera && !demoMode;
+  const btn = $("btn-camera");
+  if (btn) btn.textContent = on ? "Kamera aus" : "Kamera";
+  const railBtn = $("rail-camera");
+  if (railBtn) {
+    railBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    const label = railBtn.querySelector("span");
+    if (label) label.textContent = on ? "Kamera aus" : "Kamera";
+  }
+}
+
+function updateMicVisibility() {
+  const on = settings.voice && !demoMode;
+  $("btn-mic").hidden = !on;
+  $("rail-mic").hidden = !on;
+  $("rail-mic-label").hidden = !on;
+}
+
+function applyFeatureVisibility() {
+  const cam = settings.camera && !demoMode;
+  camera.setBeta(cam);
+  const camButton = $("rail-camera");
+  if (camButton) camButton.hidden = demoMode;
+  const toolbarCam = $("btn-camera");
+  if (toolbarCam) toolbarCam.hidden = demoMode;
+  for (const id of ["rail-photo", "rail-vision"]) {
+    const el = $(id);
+    if (el) el.hidden = !cam;
+  }
+  updateMicVisibility();
+  camera.setOptions(settings);
+  voice.setEnabled(settings.voice && !demoMode);
+  if (cam) camera.start({ quiet: true });
+  syncCameraButtons();
+}
+
+// Actions only this web screen understands; the box has no camera. A `device` field
+// limits the action to one screen (muse_tab_screen, muse_ipad_screen, ...).
+async function screenAction(action, fields) {
+  const target = String(fields.device || "").trim();
+  if (target && target !== settings.device) return true;
+  const mode = String(fields.mode ?? fields.state ?? "").trim().toLowerCase();
+  if (action === "camera") {
+    const on = mode === "toggle" ? !settings.camera : !["off", "aus", "false", "0", "stop"].includes(mode);
+    setCameraMode(on);
+    if (on && fields.facing) {
+      const facing = /back|hinten|environment|rück/.test(String(fields.facing).toLowerCase()) ? "environment" : "user";
+      if (facing !== camera.facing) await camera.swap();
+    }
+    return true;
+  }
+  if (action === "photo") {
+    setCameraMode(true);
+    await new Promise((r) => setTimeout(r, camera.active ? 0 : 1500));
+    await camera.takePhoto();
+    return true;
+  }
+  if (action === "vision") {
+    setCameraMode(true);
+    await new Promise((r) => setTimeout(r, camera.active ? 0 : 1500));
+    const text = await camera.describe({ quiet: true });
+    if (text) {
+      display.dispatch("show_text", { title: "Muse sieht", message: text });
+      if (ha) ha.fireEvent("muse_web_vision", { text, device: settings.device }).catch(() => {});
+    }
+    return true;
+  }
+  return false;
+}
+
+function updateVoiceHint(state, detail = "") {
+  const el = $("voice-hint");
+  if (!el) return;
+  if (tablet || state === "idle") {
+    el.hidden = true;
+    return;
+  }
+  const text = state === "listening" ? "Ich höre … Loslassen sendet."
+    : state === "thinking" ? "Muse denkt …"
+      : state === "speaking" ? "Muse spricht"
+        : detail || "Mikrofon nicht verfügbar";
+  el.textContent = text;
+  el.hidden = false;
+}
+
+function updateRail() {
+  if (!rail) return;
+  rail.update({
+    clock: new Date(),
+    connection: display.connection,
+    timer: display.timers.soonest(),
+    light: camera && camera.active ? camera.luma : null,
+    sensorText: sensors.lightText(),
+    battery: sensors.battery || battery,
+    profile: tabletProfile,
+    voice: voice ? voice.state : "idle",
+    voiceDetail: voice ? voice.detail : "",
+    fullscreen: kiosk.active,
+  });
+  syncCameraButtons();
+}
+
+async function watchBattery() {
+  if (typeof navigator === "undefined" || !navigator.getBattery) return;
+  try {
+    const b = await navigator.getBattery();
+    const update = () => { battery = { level: b.level, charging: b.charging }; updateRail(); };
+    update();
+    b.addEventListener?.("levelchange", update);
+    b.addEventListener?.("chargingchange", update);
+  } catch {
+    // no battery information on this browser
+  }
+}
+
+setInterval(updateRail, 1000);
+updateRail();
+updateMicVisibility();
+watchBattery();
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    camera.pause();
+    if (voice.state === "listening") voice.cancel();
+  } else {
+    camera.resume();
+  }
+});
+
 
 function browserName() {
   const ua = navigator.userAgent;
@@ -115,11 +343,30 @@ let quality = 1;
 // 100 %: the square layout at exactly 480 x 480 CSS and 480 x 480 backing pixels, no
 // device-pixel scaling. `?pixel=1|0` overrides the setting for one visit.
 const pixelMode = params.has("pixel") ? params.get("pixel") === "1" : settings.pixel;
+
+// The tablet rail takes exactly the width the full-height square leaves, so the canvas
+// has no side bars. In portrait it becomes a bottom bar and CSS owns its height.
+function applyTabletMetrics() {
+  if (!tablet) return;
+  const w = hostWindow.innerWidth || window.innerWidth;
+  const h = hostWindow.innerHeight || window.innerHeight;
+  const side = railSide(w, h);
+  document.documentElement.classList.toggle("portrait", side === "bottom");
+  if (side === "right") {
+    document.documentElement.style.setProperty("--rail-w", `${railWidth(w, h)}px`);
+    document.documentElement.style.removeProperty("--rail-h");
+  } else {
+    document.documentElement.style.removeProperty("--rail-w");
+    document.documentElement.style.setProperty("--rail-h", `${Math.max(180, Math.min(320, Math.round(h * 0.32)))}px`);
+  }
+}
+
 function fit() {
+  applyTabletMetrics();
   const host = hostWindow;
   const rect = stage.parentElement.getBoundingClientRect();
   const dpr = host.devicePixelRatio || 1;
-  if (square && pixelMode) {
+  if (layout === "square" && pixelMode) {
     stage.style.width = `${LW}px`;
     stage.style.height = `${LH}px`;
     renderer.resize(1);
@@ -129,7 +376,9 @@ function fit() {
     render();
     return;
   }
-  let k = fitScale(rect.width, rect.height, LW, LH, settings.integer);
+  let k = square && !settings.integer
+    ? Math.min(rect.width / LW, rect.height / LH)
+    : fitScale(rect.width, rect.height, LW, LH, settings.integer);
   // The Mosaico layout is crisp at 1:1 and stays sharp when a big window scales it up;
   // 2x is the ceiling, and a slow frame lowers it a step (noteDraw below).
   if (square) k = Math.min(k, 2) * quality;
@@ -224,6 +473,11 @@ document.addEventListener("keydown", (ev) => {
   if (k === "f") $("btn-float").click();
   else if (k === "k") $("btn-kiosk").click();
   else if (k === "e" || k === ",") openSettings();
+  else if (k === "m" && !ev.repeat && settings.voice && !demoMode) { ev.preventDefault(); voice.start(); }
+  else if (k === "c" && !ev.repeat && !demoMode) { ev.preventDefault(); setCameraMode(!settings.camera); }
+});
+document.addEventListener("keyup", (ev) => {
+  if (ev.key.toLowerCase() === "m" && settings.voice && !demoMode) voice.stop();
 });
 let loopGeneration = 0;
 function startLoop() {
@@ -325,6 +579,10 @@ function applyAction({ action, fields = {} }) {
   lastActionKey = key;
   lastActionAt = now;
   log(`action ${action} ${JSON.stringify(fields).slice(0, 120)}`);
+  if (["camera", "photo", "vision"].includes(action)) {
+    screenAction(action, fields).then(() => render());
+    return;
+  }
   display.dispatch(action, fields);
   render();
   try {
@@ -421,8 +679,16 @@ function openSettings() {
   form.sound.checked = settings.sound;
   form.bare.checked = settings.bare;
   form.pixel.checked = settings.pixel;
-  form.layout.value = settings.layout;
+  form.layout.value = layoutChoice(settings.layout, settings.tabletProfile);
   form.theme.value = settings.theme;
+  form.voice.checked = settings.voice;
+  form.speak.checked = settings.speak;
+  form.camera.checked = settings.camera;
+  form.personBoxes.checked = settings.personBoxes;
+  form.autoBrightness.checked = settings.autoBrightness;
+  form.vision.checked = settings.vision;
+  form.visionAuto.checked = settings.visionAuto;
+  form.visionEntity.value = settings.visionEntity;
   updateDialog();
   dialog.showModal();
 }
@@ -431,6 +697,7 @@ form.addEventListener("change", updateDialog);
 form.addEventListener("submit", (ev) => {
   ev.preventDefault();
   const before = settings;
+  const choice = parseLayoutChoice(form.layout.value) || { layout: "square", tabletProfile: null };
   settings = {
     url: form.url.value.trim(),
     urlAway: form.urlAway.value.trim(),
@@ -446,8 +713,18 @@ form.addEventListener("submit", (ev) => {
     sound: form.sound.checked,
     bare: form.bare.checked,
     pixel: form.pixel.checked,
-    layout: form.layout.value === "square" ? "square" : "box",
+    layout: choice.layout,
+    tabletProfile: choice.tabletProfile || settings.tabletProfile || DEFAULTS.tabletProfile,
     theme: THEMES.includes(form.theme.value) ? form.theme.value : "auto",
+    voice: form.voice.checked,
+    speak: form.speak.checked,
+    camera: form.camera.checked,
+    cameraFacing: settings.cameraFacing,
+    personBoxes: form.personBoxes.checked,
+    autoBrightness: form.autoBrightness.checked,
+    vision: form.vision.checked,
+    visionAuto: form.visionAuto.checked,
+    visionEntity: form.visionEntity.value.trim() || DEFAULTS.visionEntity,
     layoutVersion: DEFAULTS.layoutVersion,
   };
   if (!saveSettings(storage(), settings)) say("Dieser Browser speichert nichts: die Einstellungen gelten nur bis zum Neuladen.");
@@ -481,7 +758,12 @@ form.addEventListener("submit", (ev) => {
   }
   display.name = settings.name;
   sounds.enabled = settings.sound;
+  tabletProfile = settings.tabletProfile;
+  if (camera) camera.setProfile(tabletProfile);
+  if (rail) rail.setProfile(tabletProfile);
   applyBare();
+  applyFeatureVisibility();
+  updateRail();
   if (settings.fps !== before.fps) setFps(settings.fps); // a ?fps= of the URL holds until the setting changes
   else fit();
   if (settings.figureSource !== before.figureSource || settings.figureUrl !== before.figureUrl || settings.figureUrlAway !== before.figureUrlAway) useFigure();
@@ -604,6 +886,7 @@ async function start() {
   await Promise.all(fonts().map((f) => document.fonts.load(f).catch(() => null)));
   await document.fonts.ready;
   fontsReady = true;
+  applyTabletMetrics();
   applyBare();
   window.addEventListener("resize", fit);
   watchPixelRatio();
@@ -627,16 +910,32 @@ async function start() {
     connect();
     if (!settings.url || !settings.token) openSettings();
   }
+  applyFeatureVisibility();
+  updateRail();
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("./sw.js").catch((e) => log("service worker not registered: " + e.message));
+    const first = !navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("./sw.js").then(async () => {
+      await navigator.serviceWorker.ready;
+      // The add-on's document headers forbid camera and microphone. The worker answers
+      // the next navigation with its own policy; one reload on the very first start
+      // moves the page under that response. Later SW updates do not reload the panel.
+      if (first && !sessionStorage.getItem("muse-sw-reload")) {
+        try { sessionStorage.setItem("muse-sw-reload", "1"); } catch { /* storage blocked */ }
+        location.reload();
+      }
+    }).catch((e) => log("service worker not registered: " + e.message));
   }
-  log(`Muse Web Screen ${VERSION}; ${layout} layout ${LW} x ${LH}; ${frames.fps} frames a second; muse_web events: ${EVENT_WEB}`);
+  log(`Muse Web Screen ${VERSION}; ${layout}${tablet ? " (" + tabletProfile + ")" : ""} layout ${LW} x ${LH}; ${frames.fps} frames a second; muse_web events: ${EVENT_WEB}`);
 }
 start();
 
 // For the browser console: muse.dispatch("show_text", {title: "Hallo", message: "Welt"}).
 window.muse = {
   display,
+  camera,
+  voice,
+  rail,
+  sensors,
   dispatch: (action, fields) => { const r = display.dispatch(action, fields); render(); return r; },
   settings: () => ({ ...settings, token: settings.token ? "(set)" : "" }),
   fps: (n) => { if (n !== undefined) setFps(n); return frames.fps; },

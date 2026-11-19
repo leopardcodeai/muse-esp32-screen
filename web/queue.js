@@ -26,6 +26,8 @@ export function makeCard(fields = {}) {
     icon: -1, // weather icon of a text or weather card
     ms: 20000, // time on screen
     liveSeconds: 0, // a photo that is a live view, refreshed for this long
+    imageSeconds: 0, // an image card that stays this long (show_image_timed, show_chart)
+    chart: false, // the picture is a chart: contain it in the square layout, never crop it
     conv: false, // a voice conversation: never waits, never comes back
     ...fields,
   };

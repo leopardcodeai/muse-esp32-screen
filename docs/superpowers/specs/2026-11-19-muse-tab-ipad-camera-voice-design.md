@@ -77,15 +77,15 @@ feature is opt-in; the microphone records only while its button is held.
 - `tools/make_ha_bundle.sh` builds `web/local/ha-bundle/`;
   `tools/sync_ha_web.py` uploads changed files. A LaunchAgent runs the sync
   every 15 minutes.
-- The certificate includes `100.75.6.2`, `homeassistant.local`, `muse.local`
-  and the Tailscale name. The tablet app uses `https://100.75.6.2:8322/`.
+- The certificate includes `<tailscale-ip>`, `homeassistant.local`, `muse.local`
+  and the Tailscale name. The tablet app uses `https://<tailscale-ip>:8322/`.
 - Camera and microphone need a secure context and a permission grant. The
   mkcert CA must be trusted on the iPad.
 
 ### Home Assistant
 
 - HA 2026.11.2 is reachable over Tailscale at
-  `http://homeassistant-packeniusstrasse.tail479633.ts.net:8123`.
+  `http://<ha-host>.<tailnet>.ts.net:8123`.
 - The preferred Assist pipeline is "Muse": faster-whisper (`de`),
   `conversation.muse`, Piper (`de_DE-thorsten-medium`).
 - `ai_task.google_ai_task` exists and supports image tasks. The live check
@@ -611,7 +611,7 @@ inspects the dialog text.
 
 ### 11.2 Manual live checks
 
-1. Chrome on the Mac, `https://100.75.6.2:8322/`, camera permission:
+1. Chrome on the Mac, `https://<tailscale-ip>:8322/`, camera permission:
    - Tab layout fills a 16:10 window; iPad layout fills a 4:3 window.
    - Camera overlay shows the mirrored self-view; person boxes follow; the
      caption is correct.
@@ -643,9 +643,9 @@ No real token, image or API key appears in a test or a log.
 3. Run `node --test web/test` from the repository root.
 4. Run `tools/make_ha_bundle.sh`.
 5. Run `tools/sync_ha_web.py` (the host file must point at the current Pi;
-   the last known working address is `192.168.178.44`, and the Tailscale address
-   is `100.75.6.2`). No add-on rebuild and no restart are needed.
-6. Open `https://100.75.6.2:8322/` in Chrome, verify the new version and the
+   the last known working address is `<LAN address of the Pi>`, and the Tailscale address
+   is `<tailscale-ip>`). No add-on rebuild and no restart are needed.
+6. Open `https://<tailscale-ip>:8322/` in Chrome, verify the new version and the
    Tab/iPad profiles, and check the console.
 7. On the tablets, reload the installed app. Install the mkcert CA first if it
    is not trusted; camera and microphone need it.

@@ -27,21 +27,44 @@
       <div id="overlay"></div>
     </div>
   </main>
-  <aside id="rail" hidden aria-label="Muse Steuerung">
+  <aside id="rail" aria-label="Muse Steuerung">
     <div id="rail-head">
-      <span id="rail-profile">Tab</span>
+      <div id="rail-status"><span id="rail-profile">Tab</span><span id="rail-dot" data-connection="off"></span><span id="rail-status-text">Muse</span></div>
       <span id="rail-brand">Muse</span>
     </div>
-    <time id="rail-time">--:--</time>
-    <div id="rail-date">—</div>
-    <div id="rail-status"><span id="rail-dot" data-connection="off"></span><span id="rail-status-text">Muse</span></div>
-    <div id="rail-timer" hidden></div>
-    <button id="rail-mic" type="button" data-state="idle" title="Halten zum Sprechen" aria-label="Halten zum Sprechen">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
-    </button>
-    <div id="rail-mic-label">Halten zum Sprechen</div>
+    <section id="camera" hidden aria-label="Kamera">
+      <header id="camera-head">
+        <span id="camera-live-dot" aria-hidden="true"></span>
+        <span id="camera-title">Kamera <span id="camera-beta">Live</span></span>
+        <span id="camera-badge" hidden>Vision</span>
+        <button id="camera-swap" type="button" title="Vorder- oder Rückkamera">Hinten</button>
+        <button id="camera-torch" type="button" title="Licht der Kamera" aria-pressed="false" hidden>Licht</button>
+        <span id="camera-drag" title="Verschieben" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>
+        </span>
+        <button id="camera-power" type="button" title="Kamera ausschalten" aria-label="Kamera ausschalten">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg>
+        </button>
+      </header>
+      <div id="camera-view">
+        <video id="camera-video" playsinline muted autoplay aria-label="Kamerabild"></video>
+        <canvas id="camera-boxes"></canvas>
+      </div>
+      <p id="camera-caption">Kamera bereit</p>
+      <footer id="camera-foot">
+        <button id="camera-photo" type="button">Foto</button>
+        <button id="camera-vision" type="button">Vision</button>
+      </footer>
+    </section>
+    <div id="rail-voice-box">
+      <div id="rail-timer" hidden></div>
+      <button id="rail-mic" type="button" data-state="idle" title="Halten zum Sprechen" aria-label="Halten zum Sprechen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
+      </button>
+      <div id="rail-mic-label">Halten zum Sprechen</div>
+    </div>
     <div id="rail-actions">
-      <button id="rail-camera" type="button" title="Kamera ein- oder ausschalten">
+      <button id="rail-camera" type="button" title="Kamera-Modus ein- oder ausschalten">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Kamera</span>
       </button>
       <button id="rail-photo" type="button" title="Foto als Karte zeigen">
@@ -60,27 +83,6 @@
     <div id="rail-foot"><span id="rail-light" hidden></span><span id="rail-battery" hidden></span></div>
   </aside>
   </div>
-  <section id="camera" hidden aria-label="Kamera">
-    <header id="camera-head">
-      <span id="camera-title">Kamera <span id="camera-beta">Beta</span></span>
-      <span id="camera-drag" title="Verschieben" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>
-      </span>
-      <button id="camera-power" type="button" title="Kamera aus" aria-label="Kamera aus">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg>
-      </button>
-    </header>
-    <div id="camera-view">
-      <video id="camera-video" playsinline muted autoplay aria-label="Kamerabild"></video>
-      <canvas id="camera-boxes"></canvas>
-    </div>
-    <p id="camera-caption">Kamera aus</p>
-    <footer id="camera-foot">
-      <button id="camera-photo" type="button">Foto</button>
-      <button id="camera-vision" type="button">Vision</button>
-      <span id="camera-badge" hidden>Vision</span>
-    </footer>
-  </section>
   <div id="dim" aria-hidden="true"></div>
   <p id="voice-hint" hidden></p>
   <video id="pip-video" playsinline muted aria-hidden="true"></video>
@@ -146,7 +148,7 @@
       <label class="check"><input name="visionAuto" type="checkbox"> Vision automatisch, jede Minute</label>
       <label>AI-Task-Entität für Vision
         <input name="visionEntity" type="text" placeholder="ai_task.google_ai_task" autocomplete="off" spellcheck="false">
-        <small>Die Entität aus Home Assistant, die Bilder beschreiben kann. Standard ist der Google-AI-Task. Der Vision-Knopf schickt ein Foto dorthin und löscht es nach der Antwort.</small>
+        <small>Die Entität aus Home Assistant, die Bilder beschreiben kann. Standard ist der Google-AI-Task. Der Vision-Knopf schickt ein Foto dorthin und löscht es nach der Antwort. Der Zugriffstoken muss Admin-Rechte haben.</small>
       </label>
       <small>Kamera und Mikrofon brauchen HTTPS und eine einmalige Freigabe. Einen echten Umgebungssensor geben mobile Browser nicht frei; die Helligkeit wird aus dem Kamerabild geschätzt.</small>
       <label>Design

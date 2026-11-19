@@ -19,6 +19,7 @@ export const LAYOUTS = ["box", "square", "tablet"];
 // The two tablet presets in the Layout dropdown. The geometry is responsive; the
 // profile only names the screen and picks the Vision upload filename.
 export const TABLET_PROFILES = ["tab", "ipad"];
+export const CAMERA_FACING = ["user", "environment"];
 // "auto": dark on the square (Mosaico) layout, light on the box layout.
 export const THEMES = ["auto", "dark", "light"];
 // layoutVersion 2 moves a stored box layout once to square, the Mosaico default; an
@@ -28,7 +29,7 @@ export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
   theme: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
-  tabletProfile: "tab", voice: true, speak: true, camera: false, personBoxes: true,
+  tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
   autoBrightness: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
 });
 
@@ -50,6 +51,7 @@ export function loadSettings(storage) {
     s[key] = stored[key] === undefined ? DEFAULTS[key] : stored[key] === true;
   }
   s.tabletProfile = TABLET_PROFILES.includes(s.tabletProfile) ? s.tabletProfile : DEFAULTS.tabletProfile;
+  s.cameraFacing = CAMERA_FACING.includes(s.cameraFacing) ? s.cameraFacing : DEFAULTS.cameraFacing;
   const visionEntity = String(s.visionEntity || "").trim();
   s.visionEntity = /^[a-z0-9_]+\.[a-z0-9_]+$/i.test(visionEntity) ? visionEntity : DEFAULTS.visionEntity;
   if (!LAYOUTS.includes(s.layout)) s.layout = DEFAULTS.layout;

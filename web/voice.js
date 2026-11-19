@@ -130,8 +130,12 @@ export class Voice {
     this.chunks = [];
     this.startedAt = Date.now();
     this.setState("listening");
-    if (this.sounds && this.sounds.unlock) this.sounds.unlock();
     try {
+      try {
+        if (this.sounds && this.sounds.unlock) this.sounds.unlock();
+      } catch (e) {
+        this.log("audio unlock failed: " + (e && e.message ? e.message : e));
+      }
       const stream = await this.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });

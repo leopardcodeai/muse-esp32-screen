@@ -53,7 +53,7 @@ In Finder: **Go → Connect to Server →** `smb://homeassistant.local`, then us
 |---|---|
 | the contents of `web/` | `/config/www/muse-web/` |
 | `muse-web.crt` and `muse-web.key` | `/ssl/` |
-| this `muse-web-screen/` folder | `/addons/muse-web-screen/` |
+| this `muse_web_screen/` folder | `/addons/muse_web_screen/` |
 
 Copy `web/local/` only if you use your own figure frames. That folder is Meta's artwork
 or your own; it stays private and is never committed to the repository. Do **not** copy
@@ -87,6 +87,10 @@ Open:
 https://homeassistant.local:8322/
 ```
 
+If the name resets the connection, use the Home Assistant IPv4 address instead, for example
+`https://192.0.2.10:8322/` (replace with your Home Assistant IPv4 address, for example from Settings → About). The add-on listens on IPv4; `homeassistant.local` also resolves
+to IPv6. The certificate includes both.
+
 Use Chrome's install symbol in the address bar (or menu ⋮ → Cast, save and share →
 Install page as app). The certificate must be trusted for the install to appear.
 
@@ -101,6 +105,21 @@ In the app, press **E** and set:
 | Folder URL of the images | `https://homeassistant.local:8322/local` |
 | Nur Display | on, if you want no toolbar |
 
+### Camera, microphone and Vision (web 1.7.0)
+
+Camera and microphone need a secure context: use the add-on's HTTPS address, not
+`http://`, and trust the mkcert CA on the tablet. The browser asks once for each
+permission; the camera switch stays off until the owner enables it in the settings.
+
+The Vision button uploads one JPEG to `/media/muse-camera/` and calls
+`ai_task.generate_data` through the add-on's `/api/` proxy. The long-lived token must
+belong to an admin user, because the media upload endpoint requires admin. The default
+AI Task entity is `ai_task.google_ai_task`; the field in the settings accepts any
+`ai_task.*` entity that can describe images. The file is deleted after the answer.
+
+The microphone is push-to-talk only and uses Home Assistant's preferred Assist pipeline
+(the "Muse" pipeline: Whisper, `conversation.muse`, Piper). No add-on option is needed.
+
 The Home Assistant URL is the **add-on**, not the HA IP. The app connects to
 `wss://homeassistant.local:8322/api/websocket`; the add-on forwards that to `ha_url`.
 
@@ -111,6 +130,7 @@ The Home Assistant URL is the **add-on**, not the HA IP. The app connects to
 | Chrome: `ERR_CERT_AUTHORITY_INVALID` | mkcert CA is not trusted | run `mkcert -install` or the System-keychain command above, quit Chrome, open the page again |
 | 502 Bad Gateway | add-on cannot reach `ha_url` | set `ha_url` to the HA IP, check the add-on log, start HA |
 | 404 on the page | web files are not in `/config/www/muse-web` | copy the contents of `web/`, not the folder itself |
+| `icons/` is missing after a Samba copy | Samba's default `veto_files` includes `icon?`, which also hides the `icons` folder | remove `icon?` from the Samba add-on's `veto_files` or copy over SSH |
 | Add-on stops at start | `/ssl/muse-web.crt` or `muse-web.key` missing | copy both files to `/ssl`; see the add-on log |
 | App installs but shows no cards | token or HA URL wrong for this origin | press E, set the add-on URL and paste the token again |
 | Port 8322 already used | another service on the HA host | change `8322` in `config.yaml` (`ports`, `webui`) and in `nginx.conf.template` (`listen`), then rebuild |

@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { drawCelebration, drawTopBar, CELEBRATION } from "../cards.js";
+import { drawCelebration, drawPhoto, drawTopBar, CELEBRATION } from "../cards.js";
 import { CARD_FONTS } from "../render.js";
 
 const FIRMWARE = readFileSync(new URL("../../firmware/muse-esp32-s3-box-3-screen.yaml", import.meta.url), "utf8");
@@ -36,6 +36,18 @@ test("the celebration starts below the top bar and its text ends above y 240", (
   assert.ok(CELEBRATION.titleY >= CELEBRATION.figureY + FIGURE, "the title sits below the figure");
   assert.ok(CELEBRATION.bodyY >= CELEBRATION.titleY + lineBox("title"), "the body sits below the title");
   assert.ok(CELEBRATION.bodyY + lineBox("body") <= 240, "the body fits on the screen");
+});
+
+test("a photo that failed says Bild nicht erreichbar under the top bar", () => {
+  const { r, calls } = recorder();
+  const figure = { draw: () => {} };
+  const card = { title: "Tür", body: "Haustür" };
+  drawPhoto(r, { card, media: { state: "loading" }, figure });
+  assert.ok(calls.some((c) => c[0] === "print" && c[3] === "Bild lädt …"));
+  calls.length = 0;
+  drawPhoto(r, { card, media: { state: "failed" }, figure });
+  assert.ok(calls.some((c) => c[0] === "print" && c[3] === "Bild nicht erreichbar"));
+  assert.ok(calls.some((c) => c[0] === "print" && c[3] === "Tür"), "the title stays below the picture");
 });
 
 test("the top bar draws nothing below y 30", () => {

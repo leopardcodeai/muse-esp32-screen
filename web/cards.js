@@ -165,7 +165,7 @@ export function drawPhoto(r, d) {
   if (state !== "ready") {
     r.roundRect(10, PHOTO_TOP, PHOTO_W, PHOTO_H, 14, CARD);
     d.figure.draw(r, "avatar", 0, 124, 66);
-    r.print(160, 150, cardFont("small"), SUB, "TC", "Bild lädt …");
+    r.print(160, 150, cardFont("small"), SUB, "TC", state === "failed" ? "Bild nicht erreichbar" : "Bild lädt …");
   }
   const title = wrap(c.title, r.widthOf(cardFont("label")), 292);
   if (title.length) r.print(14, 203, cardFont("label"), INK, "TL", title[0]);

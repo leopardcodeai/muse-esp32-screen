@@ -1,5 +1,5 @@
 name: Muse Web Screen
-version: "1.0.0"
+version: "1.0.2"
 slug: muse_web_screen
 description: Muse Web Screen over HTTPS, with Home Assistant's websocket proxied
 url: https://github.com/leopardcodeai/muse-esp32-screen

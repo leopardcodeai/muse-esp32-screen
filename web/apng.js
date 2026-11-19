@@ -127,7 +127,11 @@ export async function decodeApng(bytes, { createBitmap = (blob) => createImageBi
   const info = parseApng(bytes);
   const { width, height } = info;
   const bitmaps = await Promise.all(info.frames.map((f) => createBitmap(new Blob([f.png], { type: "image/png" }))));
-  if (bitmaps.length === 1 && info.frames[0].width === width && info.frames[0].height === height) return bitmaps;
+  const delayMs = info.frames[0] && info.frames[0].delayMs > 0 ? Math.round(info.frames[0].delayMs) : 0;
+  if (bitmaps.length === 1 && info.frames[0].width === width && info.frames[0].height === height) {
+    bitmaps.delayMs = delayMs;
+    return bitmaps;
+  }
   const canvas = makeCanvas ? makeCanvas(width, height)
     : typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(width, height)
       : Object.assign(document.createElement("canvas"), { width, height });
@@ -145,5 +149,6 @@ export async function decodeApng(bytes, { createBitmap = (blob) => createImageBi
     else if (dispose === 2) ctx.putImageData(saved, f.x, f.y);
     bitmaps[k].close?.();
   }
+  out.delayMs = delayMs;
   return out;
 }

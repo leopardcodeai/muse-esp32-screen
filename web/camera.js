@@ -135,12 +135,15 @@ export class Camera {
       root: byId("camera"), video: byId("camera-video"), boxes: byId("camera-boxes"),
       caption: byId("camera-caption"), badge: byId("camera-badge"), power: byId("camera-power"),
       photo: byId("camera-photo"), vision: byId("camera-vision"), drag: byId("camera-drag"),
+      swap: byId("camera-swap"), torch: byId("camera-torch"),
     };
     this.getSettings = opts.getSettings || (() => ({}));
     this.getDisplay = opts.getDisplay || (() => null);
     this.getHa = opts.getHa || (() => null);
     this.baseUrl = opts.baseUrl || (() => (typeof location !== "undefined" ? location.origin : ""));
     this.token = opts.token || (() => "");
+    this.onFacing = opts.onFacing || (() => {});
+    this.onPowerOff = opts.onPowerOff || null;
     this.getUserMedia = opts.getUserMedia || ((constraints) => {
       const md = typeof navigator !== "undefined" ? navigator.mediaDevices : null;
       return md && md.getUserMedia ? md.getUserMedia(constraints) : Promise.reject(new Error("no camera API"));
@@ -151,6 +154,11 @@ export class Camera {
     this.log = opts.log || (() => {});
     this.now = opts.now || (() => performance.now());
     this.profile = "tab";
+    this.isWebView = typeof navigator !== "undefined" && /; wv\)/.test(navigator.userAgent);
+    this.facing = opts.facing === "environment" ? "environment" : "user";
+    this.track = null;
+    this.torch = false;
+    this.torchAvailable = false;
     this.beta = false;
     this.on = false;
     this.starting = false;
@@ -158,6 +166,9 @@ export class Camera {
     this.stream = null;
     this.detector = null;
     this.detectorState = "idle";
+    this.detectorDelegate = "GPU";
+    this.cpuTried = false;
+    this.lastDetectError = "";
     this.persons = [];
     this.luma = null;
     this.dim = 0;
@@ -166,6 +177,7 @@ export class Camera {
     this.visionPending = false;
     this.visionBusy = false;
     this.autoBrightness = true;
+    this.hasLightSensor = false;
     this.personBoxes = true;
     this.vision = true;
     this.visionAuto = false;
@@ -181,9 +193,16 @@ export class Camera {
   }
 
   bind() {
-    if (this.el.power) this.el.power.addEventListener("click", () => this.toggle());
+    if (this.el.power) {
+      this.el.power.addEventListener("click", () => {
+        if (this.onPowerOff) this.onPowerOff();
+        else this.toggle();
+      });
+    }
     if (this.el.photo) this.el.photo.addEventListener("click", () => this.takePhoto());
     if (this.el.vision) this.el.vision.addEventListener("click", () => this.describe());
+    if (this.el.swap) this.el.swap.addEventListener("click", () => this.swap());
+    if (this.el.torch) this.el.torch.addEventListener("click", () => this.toggleTorch());
     if (this.el.drag) this.bindDrag();
   }
 
@@ -205,6 +224,10 @@ export class Camera {
   }
 
   setOptions(settings = {}) {
+    const nextFacing = settings.cameraFacing === "environment" ? "environment" : "user";
+    const facingChanged = nextFacing !== this.facing;
+    this.facing = nextFacing;
+    this.updateFacingUi();
     this.personBoxes = settings.personBoxes !== false;
     this.autoBrightness = settings.autoBrightness !== false;
     this.vision = settings.vision !== false;
@@ -216,6 +239,10 @@ export class Camera {
     if (!this.autoBrightness) this.stopLuma();
     else if (this.on && !this.lumaTimer) this.startLuma();
     this.startVisionAuto();
+    if (facingChanged && this.on) {
+      this.stop();
+      this.start({ quiet: true });
+    }
   }
 
   get active() { return this.on; }
@@ -233,10 +260,14 @@ export class Camera {
     this.updateCaption("starting");
     try {
       const stream = await this.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: this.facing }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       this.stream = stream;
+      this.track = stream.getVideoTracks ? (stream.getVideoTracks()[0] || null) : null;
+      this.torch = false;
+      this.updateCapabilities();
+      this.updateFacingUi();
       const video = this.el.video;
       if (!video) throw new Error("no video element");
       video.srcObject = stream;
@@ -247,7 +278,7 @@ export class Camera {
       if (this.el.power) this.el.power.setAttribute("aria-pressed", "true");
       this.updateCaption();
       if (this.personBoxes) this.startDetection();
-      if (this.autoBrightness) this.startLuma();
+      if (this.autoBrightness && !this.hasLightSensor) this.startLuma();
       this.startVisionAuto();
       this.log(`camera on (${this.profile})`);
       return true;
@@ -313,22 +344,17 @@ export class Camera {
   async startDetection() {
     if (!this.personBoxes || this.detectorState === "loading" || this.detectorState === "ready") return;
     this.detectorState = "loading";
+    this.detectorDelegate = "CPU";
     this.updateCaption();
     try {
       const vision = await import(VISION_JS_URL);
       const fileset = await vision.FilesetResolver.forVisionTasks(VISION_WASM_URL);
-      const options = {
-        baseOptions: { modelAssetPath: PERSON_MODEL_URL, delegate: "GPU" },
-        runningMode: "VIDEO",
-        scoreThreshold: 0.5,
+      this.detector = await vision.ObjectDetector.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: PERSON_MODEL_URL, delegate: "CPU" },
+        runningMode: "IMAGE",
+        scoreThreshold: 0.35,
         maxResults: 5,
-      };
-      try {
-        this.detector = await vision.ObjectDetector.createFromOptions(fileset, options);
-      } catch {
-        options.baseOptions.delegate = "CPU";
-        this.detector = await vision.ObjectDetector.createFromOptions(fileset, options);
-      }
+      });
       this.detectorState = "ready";
       this.detectFails = 0;
       if (this.detectTimer) clearInterval(this.detectTimer);
@@ -345,12 +371,12 @@ export class Camera {
   detect() {
     if (!this.on || !this.personBoxes || !this.detector || typeof document === "undefined" || document.hidden) return;
     const video = this.el.video;
-    if (!video || video.readyState < 2 || !video.videoWidth) return;
+    if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
     const at = this.now();
     if (at - this.lastDetect < DETECT_MS - 50) return;
     this.lastDetect = at;
     try {
-      const result = this.detector.detectForVideo(video, at);
+      const result = this.detector.detect(video);
       this.persons = (result && result.detections ? result.detections : [])
         .filter((d) => d && d.categories && d.categories[0] && d.categories[0].categoryName === "person");
       this.detectFails = 0;
@@ -358,13 +384,16 @@ export class Camera {
       this.updateCaption();
     } catch (err) {
       this.detectFails++;
-      if (this.detectFails === 1) this.log("detection failed: " + (err && err.message ? err.message : err));
+      this.lastDetectError = err && err.message ? err.message : String(err);
+      this.log("detection failed: " + this.lastDetectError);
       if (this.detectFails >= 3) {
         if (this.detectTimer) clearInterval(this.detectTimer);
         this.detectTimer = null;
-        this.detectorState = "failed";
+        try { this.detector?.close?.(); } catch { /* ignore */ }
+        this.detector = null;
         this.persons = [];
         this.clearBoxes();
+        this.detectorState = "failed";
         this.updateCaption();
       }
     }
@@ -391,6 +420,12 @@ export class Camera {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const dpr = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
+    const wantW = Math.max(1, Math.round(video.clientWidth * dpr));
+    const wantH = Math.max(1, Math.round(video.clientHeight * dpr));
+    if (canvas.width !== wantW || canvas.height !== wantH) {
+      canvas.width = wantW;
+      canvas.height = wantH;
+    }
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -398,8 +433,9 @@ export class Camera {
     if (!this.persons.length || !video.videoWidth) return;
     ctx.font = "600 11px Inter, system-ui, sans-serif";
     ctx.textBaseline = "top";
+    ctx.textBaseline = "top";
     for (const d of this.persons) {
-      const b = mapBox(d.boundingBox, video.videoWidth, video.videoHeight, w, h, true);
+      const b = mapBox(d.boundingBox, video.videoWidth, video.videoHeight, w, h, this.facing === "user");
       if (!(b.w > 1) || !(b.h > 1)) continue;
       ctx.strokeStyle = "#ff9f0a";
       ctx.lineWidth = 2;
@@ -427,7 +463,7 @@ export class Camera {
   // --------------------------------------------------------------- luma --
 
   startLuma() {
-    if (!this.autoBrightness || this.lumaTimer) return;
+    if (this.hasLightSensor || !this.autoBrightness || this.lumaTimer) return;
     this.lumaTimer = setInterval(() => this.sampleLuma(), LUMA_MS);
     this.sampleLuma();
   }
@@ -442,7 +478,7 @@ export class Camera {
   }
 
   sampleLuma() {
-    if (!this.on || !this.autoBrightness || typeof document === "undefined" || document.hidden) return;
+    if (this.hasLightSensor || !this.on || !this.autoBrightness || typeof document === "undefined" || document.hidden) return;
     const video = this.el.video;
     if (!video || video.readyState < 2) return;
     try {
@@ -626,6 +662,48 @@ export class Camera {
         }
       }
     }
+  }
+
+  // ---------------------------------------------------------- front / back --
+
+  updateFacingUi() {
+    if (this.el.root) this.el.root.dataset.facing = this.facing;
+    if (this.el.swap) {
+      this.el.swap.textContent = this.facing === "environment" ? "Front" : "Hinten";
+      this.el.swap.title = this.facing === "environment" ? "Vorderkamera" : "Rückkamera";
+    }
+  }
+
+  updateCapabilities() {
+    const caps = this.track && this.track.getCapabilities ? this.track.getCapabilities() : null;
+    this.torchAvailable = !!(caps && caps.torch === true);
+    if (this.el.torch) {
+      this.el.torch.hidden = !this.torchAvailable;
+      this.el.torch.setAttribute("aria-pressed", this.torch ? "true" : "false");
+      this.el.torch.textContent = this.torch ? "Licht aus" : "Licht";
+    }
+  }
+
+  async swap() {
+    if (!this.beta) return;
+    this.facing = this.facing === "user" ? "environment" : "user";
+    this.onFacing(this.facing);
+    this.updateFacingUi();
+    if (this.on || this.starting) {
+      this.stop();
+      await this.start({ quiet: true });
+    }
+  }
+
+  async toggleTorch() {
+    if (!this.track || !this.torchAvailable) return;
+    this.torch = !this.torch;
+    try {
+      await this.track.applyConstraints({ advanced: [{ torch: this.torch }] });
+    } catch {
+      this.torch = false;
+    }
+    this.updateCapabilities();
   }
 
   // --------------------------------------------------------------- drag --

@@ -230,7 +230,8 @@ export class SquareView {
   }
 
   animates(d, now) {
-    return d.status === 1 || d.status === 2 || d.mode === 3 || d.mode === 7 || d.mode === 11
+    return (d.mode === 0 && d.status !== 5 && Boolean(d.figure && d.figure.smooth))
+      || d.status === 1 || d.status === 2 || d.mode === 3 || d.mode === 7 || d.mode === 11
       || d.cuddleUntil > now || !!d.pressed || this.pending;
   }
 

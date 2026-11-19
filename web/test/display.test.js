@@ -10,7 +10,11 @@ function make(extra = {}) {
   const clock = { t: 100000 };
   const answers = [];
   const sounds = [];
-  const media = { state: "none", shown: [], show(url, live) { this.state = "loading"; this.shown.push([url, live]); }, hide() { this.state = "none"; } };
+  const media = {
+    state: "none", shown: [], onFailed: null,
+    show(url, live, now, onFailed) { this.state = "loading"; this.shown.push([url, live]); this.onFailed = onFailed; },
+    hide() { this.state = "none"; },
+  };
   const d = new Display({
     renderer: {}, figure: {}, weather: {}, media,
     now: () => clock.t,
@@ -149,6 +153,68 @@ test("the doorbell goes first; the door photo with the same title replaces it", 
   assert.equal(d.queue.waiting[0].title, "T");
   d.dispatch("show_image", { title: "Ohne Bild", message: "x", url: "" });
   assert.equal(d.queue.waiting[1].mode, 6, "no url: an event card");
+});
+
+test("show_image_timed and show_chart stay their seconds, clamped 1 to 600, 30 by default", () => {
+  const cases = [
+    ["show_image_timed", { title: "T", message: "M", url: "http://x/y.png" }, 30000],
+    ["show_image_timed", { title: "T", message: "M", url: "http://x/y.png", seconds: 45 }, 45000],
+    ["show_image_timed", { title: "T", message: "M", url: "http://x/y.png", seconds: 0.5 }, 1000],
+    ["show_image_timed", { title: "T", message: "M", url: "http://x/y.png", seconds: 9999 }, 600000],
+    ["show_image_timed", { title: "T", message: "M", url: "http://x/y.png", seconds: "nope" }, 30000],
+    ["show_chart", { title: "C", message: "M", url: "http://x/c.png" }, 30000],
+    ["show_chart", { title: "C", message: "M", url: "http://x/c.png", seconds: 90 }, 90000],
+  ];
+  for (const [action, fields, ms] of cases) {
+    const { d, advance } = make();
+    const r = d.dispatch(action, fields);
+    assert.deepEqual(r, { on_screen: true, waiting: 0 }, action);
+    assert.equal(d.mode, 5, `${action} is the image card`);
+    assert.equal(d.card.ms, ms, `${action} ${JSON.stringify(fields)} stays ${ms} ms`);
+    assert.equal(d.card.imageSeconds, ms / 1000);
+    assert.equal(d.card.chart, action === "show_chart");
+    advance(ms - 1);
+    assert.equal(d.mode, 5, `${action} still up before ${ms} ms`);
+    advance(2);
+    assert.equal(d.mode, 0, `${action} gone after ${ms} ms`);
+  }
+  const { d } = make();
+  d.dispatch("show_image", { title: "T", message: "M", url: "http://x/y.jpg" });
+  assert.equal(d.card.imageSeconds, 0, "show_image keeps its own 90 s");
+  assert.equal(d.card.ms, 90000);
+});
+
+test("a picture that fails becomes an event card with the title, event and time left", () => {
+  const { d, media, clock, advance } = make();
+  d.dispatch("show_event", { icon: "klingel", title: "Es klingelt", message: "Haustür" });
+  d.dispatch("show_image", { title: "Es klingelt", message: "Haustür", url: "http://x/door.jpg" });
+  assert.equal(d.mode, 5);
+  const until = d.until;
+  advance(10000);
+  media.onFailed();
+  assert.equal(d.mode, 6, "the failed photo is an event card");
+  assert.equal(d.queue.current.mode, 6);
+  assert.equal(d.card.title, "Es klingelt");
+  assert.equal(d.card.event, "klingel", "the doorbell stays");
+  assert.equal(d.card.body, "Bild nicht erreichbar");
+  assert.equal(d.until, until, "the time left stays the card's");
+  advance(80000 - 1);
+  assert.equal(d.mode, 6, "the event card keeps the remaining 80 s");
+  advance(2);
+  assert.equal(d.mode, 0);
+  assert.equal(clock.t, 190001);
+});
+
+test("a failed picture of a card that already left the screen changes nothing", () => {
+  const { d, media } = make();
+  d.dispatch("show_image", { title: "Bild", message: "M", url: "http://x/y.jpg" });
+  const fail = media.onFailed;
+  d.dispatch("show_text", { title: "Text", message: "M" });
+  d.next();
+  assert.equal(d.mode, 1);
+  fail();
+  assert.equal(d.mode, 1);
+  assert.equal(d.card.title, "Text");
 });
 
 test("touch: tap moves on, swipe right goes back, swipe down and a long press clear everything, the top bar shows the info", () => {

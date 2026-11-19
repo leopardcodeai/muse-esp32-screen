@@ -131,6 +131,7 @@ test("loadSettings(): the new device switches have safe defaults", () => {
   assert.equal(s.voice, true);
   assert.equal(s.speak, true);
   assert.equal(s.camera, false);
+  assert.equal(s.cameraFacing, "user");
   assert.equal(s.personBoxes, true);
   assert.equal(s.autoBrightness, true);
   assert.equal(s.vision, true);
@@ -140,6 +141,7 @@ test("loadSettings(): the new device switches have safe defaults", () => {
   assert.equal(bad.tabletProfile, "tab");
   assert.equal(bad.visionEntity, "ai_task.google_ai_task");
   assert.equal(bad.camera, false);
+  assert.equal(bad.cameraFacing, "user");
   const stored = loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify({ camera: true, vision: false, voice: false }) }));
   assert.equal(stored.camera, true);
   assert.equal(stored.vision, false);

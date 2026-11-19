@@ -5,6 +5,15 @@ import { CardQueue, Question, makeCard, keepable, questionButton, questionButton
 
 const card = (mode, title, extra = {}) => makeCard({ mode, title, ...extra });
 
+test("makeCard: an image card carries its seconds and no chart flag by default", () => {
+  const c = makeCard();
+  assert.equal(c.imageSeconds, 0);
+  assert.equal(c.chart, false);
+  assert.equal(c.liveSeconds, 0);
+  const chart = makeCard({ mode: 5, imageSeconds: 30, chart: true });
+  assert.deepEqual([chart.imageSeconds, chart.chart], [30, true]);
+});
+
 test("a card goes on screen when nothing shows, waits behind the one on screen", () => {
   const q = new CardQueue();
   assert.equal(q.place(card(1, "a")), NOW);
