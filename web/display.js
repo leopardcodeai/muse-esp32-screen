@@ -93,6 +93,7 @@ export class Display {
     // spec's times; the box's code paths stay as they are.
     this.square = opts.layout === "square";
     this.pressed = null; // square: the question button shown pressed, {i, until, number}
+    this.tile = false; // square: Muse OS shows the canvas as a small tile (square.js TILE)
     if (this.square) {
       this.squareView = new SquareView();
       this.queue.max = SQUARE.queueMax;

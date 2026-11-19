@@ -12,6 +12,11 @@
 //  * The layout (320 x 240 of the box, or 480 x 480, `?layout=square` or the setting) is
 //    chosen once at the start: renderer, display and stage are built for it. A change in
 //    the settings reloads the page.
+//  * Muse OS (the Android shell around the tablet page) can show the page as a small
+//    square tile of the canvas alone; it says so with the window event `muse-os-tile`
+//    (detail true or false; `?tile=1` for a local check). Only the tablet layout listens:
+//    the canvas then draws its tile picture (square.js TILE) and the rail's invisible
+//    work rests (setTile below).
 import { Renderer, allFonts, W, H } from "./render.js";
 import { SQUARE_W, SQUARE_H, squareFonts, setFigureCard } from "./square.js";
 import { Figure } from "./figure.js";
@@ -29,7 +34,8 @@ import {
   layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE, updateWanted,
   restorable, mimicOn, mimicChoice, CAMERA_MODES, parseCameraMode, cameraModeOf, cameraModeSettings,
 } from "./settings.js";
-import { TabletRail, railWidth, railSide } from "./tablet.js";
+import { TabletRail, railWidth, railSide, railDensity, tileParam, tileDetail } from "./tablet.js";
+import { LastExchange, composerState, composerHint, canSend, levelOfChunks, smoothLevel } from "./composer.js";
 import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY } from "./camera.js";
 import { Voice } from "./voice.js";
 import { Sensors } from "./sensors.js";
@@ -157,6 +163,49 @@ let battery = null;
 let camera = null;
 let voice = null;
 
+// The composer of the rail (composer.js): one state for speaking and writing, the hint
+// line, the send button and the last question with its answer. A typed question has no
+// voice state, so `textBusy` and `textError` stand in for it.
+const exchange = new LastExchange();
+let textBusy = false;
+let textError = "";
+let textErrorTimer = null;
+function composerNow() {
+  return composerState({ voice: voice ? voice.state : "idle", busy: textBusy, textError });
+}
+function syncComposer() {
+  if (!rail) return;
+  const connected = !!ha && display.connection === "on";
+  const state = composerNow();
+  const detail = state === "error" ? ((voice && voice.state === "error" && voice.detail) || textError) : "";
+  rail.setVoice(state, detail, composerHint(state, {
+    detail, voiceOn: settings.voice && !demoMode, connected, demo: demoMode,
+  }));
+  const input = $("rail-text-input");
+  rail.setSendEnabled(canSend(input ? input.value : "", { busy: textBusy, connected, state }));
+  rail.setHistory(exchange.view());
+}
+
+// The level wave while the microphone is open: the newest samples voice.js buffered,
+// smoothed, drawn once per frame. It rests with reduced motion and in the tile.
+let levelFrame = 0;
+let level = 0;
+function startLevel() {
+  if (levelFrame || !rail) return;
+  const step = () => {
+    levelFrame = 0;
+    if (!voice || voice.state !== "listening" || display.reducedMotion || display.tile) {
+      level = 0;
+      rail.setLevel(null);
+      return;
+    }
+    level = smoothLevel(level, levelOfChunks(voice.chunks));
+    rail.setLevel(level, performance.now());
+    levelFrame = requestAnimationFrame(step);
+  };
+  levelFrame = requestAnimationFrame(step);
+}
+
 const sensors = new Sensors({
   log,
   onUpdate: (s) => {
@@ -199,7 +248,13 @@ voice = new Voice({
   urlBase: () => settings.url || location.origin,
   token: () => settings.token,
   onState: (state, detail) => {
-    if (rail) rail.setVoice(state, detail);
+    // A spoken question that ended without an answer text: the history says how.
+    if (exchange.pending && exchange.source === "voice") {
+      if (state === "error") exchange.fail(detail);
+      else if (state === "idle") exchange.reply("");
+    }
+    syncComposer();
+    if (state === "listening") startLevel();
     updateVoiceHint(state, detail);
     // "thinking" follows a recognised sentence: one speech-to-text request used.
     if (state === "thinking") {
@@ -207,6 +262,8 @@ voice = new Voice({
       updateVoiceModel();
     }
   },
+  onHeard: (text) => { exchange.ask(text, "voice"); syncComposer(); },
+  onReply: (answer) => { exchange.reply(answer); syncComposer(); },
 });
 updateVoiceModel();
 voice.setEnabled(settings.voice && !demoMode);
@@ -215,15 +272,28 @@ voice.bindButton($("rail-mic"));
 // A typed question to Muse (textask.js): same agent as the voice pipeline, the answer card
 // comes from Muse's own screen calls, or from the reply text when Muse sends none.
 let textConversation = "";
+$("rail-text-input")?.addEventListener("input", () => {
+  if (textError) {
+    textError = "";
+    clearTimeout(textErrorTimer);
+  }
+  syncComposer();
+});
 $("rail-text")?.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const input = $("rail-text-input");
   const text = input.value.trim();
-  if (!text || !ha) return;
-  const send = $("rail-text-send");
-  send.disabled = true;
+  const connected = !!ha && display.connection === "on";
+  if (!canSend(text, { busy: textBusy, connected, state: composerNow() })) return;
+  textBusy = true;
+  textError = "";
+  clearTimeout(textErrorTimer);
+  // An old microphone error must not stand under the new question's answer.
+  if (voice.state === "error") voice.setState("idle");
+  exchange.ask(text, "text");
   input.value = "";
   input.blur();
+  syncComposer();
   log(`typed question (${text.length} characters)`);
   display.setStatusText("thinking", "Muse denkt …");
   render();
@@ -233,13 +303,18 @@ $("rail-text")?.addEventListener("submit", async (ev) => {
     const { text: answer, conversationId } = answerOf(result);
     textConversation = conversationId || textConversation;
     log(`typed answer (${answer.length} characters)`);
+    exchange.reply(answer);
     if (answer) voice.armFallback(before, answer);
     else display.setStatus(0);
   } catch (e) {
     log("typed question failed: " + (e && e.message ? e.message : e));
     display.setStatusText("error", "Muse antwortet nicht");
+    exchange.fail("Muse antwortet nicht");
+    textError = "Muse antwortet nicht";
+    textErrorTimer = setTimeout(() => { textError = ""; syncComposer(); }, 8000);
   } finally {
-    send.disabled = false;
+    textBusy = false;
+    syncComposer();
     render();
   }
 });
@@ -312,7 +387,8 @@ function updateMicVisibility() {
   const on = settings.voice && !demoMode;
   $("btn-mic").hidden = !on;
   $("rail-mic").hidden = !on;
-  $("rail-mic-label").hidden = !on;
+  // The hint line stays: it is the composer's state line for writing too.
+  syncComposer();
 }
 
 function applyFeatureVisibility() {
@@ -430,10 +506,10 @@ function updateRail() {
     sensorText: sensors.lightText(),
     battery: sensors.battery || battery,
     profile: tabletProfile,
-    voice: voice ? voice.state : "idle",
-    voiceDetail: voice ? voice.detail : "",
     fullscreen: kiosk.active,
+    cameraMode: demoMode ? "off" : cameraModeOf(settings),
   });
+  syncComposer();
   syncCameraButtons();
 }
 
@@ -491,6 +567,7 @@ function applyTabletMetrics() {
   const h = hostWindow.innerHeight || window.innerHeight;
   const side = railSide(w, h);
   document.documentElement.classList.toggle("portrait", side === "bottom");
+  if (rail) rail.setDensity(railDensity(railWidth(w, h)));
   if (side === "right") {
     document.documentElement.style.setProperty("--rail-w", `${railWidth(w, h)}px`);
     document.documentElement.style.removeProperty("--rail-h");
@@ -640,6 +717,26 @@ function setFps(fps) {
   if (video.srcObject) video.srcObject = null; // the Float video picks up the new rate next time
   fit();
 }
+
+// ------------------------------------------------------------ Muse OS tile --
+
+// Muse OS shows the page as a small square tile of the canvas ("picture in picture"):
+// the canvas draws its tile picture (no top bar text, the figure filling the square, one
+// status dot; square.js TILE), and what nobody can see rests: the camera card's boxes
+// with their detector and the level wave. Pose and gestures keep running, the figure
+// still follows. Only the tablet layout takes part; Mosaico and box stay as they are.
+function setTile(on) {
+  const next = tablet && on === true;
+  if (display.tile === next) return next;
+  display.tile = next;
+  document.documentElement.classList.toggle("muse-tile", next);
+  camera.setPreviewVisible(!next);
+  log(`tile ${next ? "on" : "off"}`);
+  render();
+  return next;
+}
+window.addEventListener("muse-os-tile", (ev) => setTile(tileDetail(ev.detail)));
+if (tileParam(location.search) === true) setTile(true);
 
 // ---------------------------------------------------------------- touch --
 
@@ -1153,6 +1250,9 @@ window.muse = {
   rail,
   sensors,
   dispatch: (action, fields) => { const r = display.dispatch(action, fields); render(); return r; },
+  tile: (on) => (on === undefined ? display.tile : setTile(on === true)),
+  exchange,
+  syncComposer,
   settings: () => ({ ...settings, token: settings.token ? "(set)" : "" }),
   fps: (n) => { if (n !== undefined) setFps(n); return frames.fps; },
 };

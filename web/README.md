@@ -30,7 +30,7 @@ No box, and you want to see it work with your Home Assistant today: [../docs/TRY
 
 7. **Demo mode.** `index.html?demo=1` needs no Home Assistant: it plays the twelve scenes of `demo/scenes/` (copies of `../scenes/`) and a round of sample cards (text, value, weather, event, a question, a timer of 15 s, a list, an agenda, a choice, a celebration) in a loop, every item for seven seconds, the timer and the questions for their own time. Anyone sees the app within ten seconds, and the rendering can be checked without credentials. A page without stored settings starts here by itself; `?demo=0` stays out.
 
-The buttons under the display: **Float** (always on top), **Mikrofon** (push-to-talk, when voice is on), **Kamera** (when the camera beta is on), **Kiosk** (full screen), **Demo** (switches demo mode on or off) and **Einstellungen** (the settings). For the browser console there is `muse.dispatch("show_text", {title: "Hallo", message: "Welt"})`, with every action of the table below, and `muse.fps(10)` to switch the frame rate until the next reload. `window.muse.camera`, `window.muse.voice` and `window.muse.rail` expose the device features for a manual check.
+The buttons under the display: **Float** (always on top), **Mikrofon** (push-to-talk, when voice is on), **Kamera** (when the camera beta is on), **Kiosk** (full screen), **Demo** (switches demo mode on or off) and **Einstellungen** (the settings). For the browser console there is `muse.dispatch("show_text", {title: "Hallo", message: "Welt"})`, with every action of the table below, and `muse.fps(10)` to switch the frame rate until the next reload. `window.muse.camera`, `window.muse.voice` and `window.muse.rail` expose the device features for a manual check; `muse.tile(true)` shows the Muse OS tile picture of the tablet layout.
 
 ## The square layout (480 x 480)
 
@@ -40,7 +40,19 @@ Motion: a card slides up 24 px and fades in over 220 ms while the one before fad
 
 ## Tab and iPad
 
-`index.html?layout=tablet` (or the Layout options **Tab** and **iPad**) fills the whole screen with the square design: the canvas takes the full height and a rail on the right takes the width the square leaves, so a 16:10 Galaxy Tab A11+ and a 4:3 iPad have no letterboxing. The rail shows the clock and date, the connection, a running timer, the push-to-talk microphone, the camera/photo/vision controls, fullscreen and the settings. In portrait the rail moves to the bottom and the canvas fills the width. The profile is a preset, not a hard-coded resolution; it also names the Vision upload file.
+`index.html?layout=tablet` (or the Layout options **Tab** and **iPad**) fills the whole screen with the square design: the canvas takes the full height and a rail on the right takes the width the square leaves, so a 16:10 Galaxy Tab A11+ and a 4:3 iPad have no letterboxing. In portrait the rail moves to the bottom and the canvas fills the width. The profile is a preset, not a hard-coded resolution; it also names the Vision upload file.
+
+The rail, from the top (everything fits without scrolling at 1214 x 800, Muse OS on the Galaxy Tab, and at 1024 x 768):
+
+- **Status header**: the clock and the date (Muse OS has no clock beside the page), the connection as a capsule, the light reading under it when a sensor reports one.
+- **Camera card** in three sizes (`camera.js` `cameraView`): one row while there is no stream, the picture as a thumbnail beside the title in the follow modes (it is only a mirror there; a tap or Enter enlarges it), the full 16:9 picture when object boxes are drawn on it or a Vision answer is up.
+- **Composer** (`composer.js`): the push-to-talk button beside the text field, the send button inside the field (disabled while empty, Enter sends), one state line (idle, listening, thinking, speaking, error) with the model line beside it, and the last question with its answer below. While the microphone is open a wave of 21 bars shows its level (from the samples `voice.js` buffers anyway); thinking and speaking move the bars by CSS. The last exchange is the sentence speech-to-text understood or the typed text, and the agent's answer text; it lives in memory only.
+- **Camera mode**: five equal segments, an icon with its label, and one line that says what the chosen mode does.
+- **Actions**: round buttons with labels: Foto and Vision (while the camera is on), Vollbild, Einstellungen. The camera itself is switched by the mode control's "Aus", the card's power button or the C key.
+
+A rail narrower than 330 px (1024 x 768 leaves 256 px) is compact: icons without labels, the short date, the send button only once there is text, and the mode's name in the line under the control.
+
+**Muse OS tile.** The Android shell can show the page as a small square tile of the canvas alone. It says so with `window.dispatchEvent(new CustomEvent("muse-os-tile", {detail: true}))` (false restores); `?tile=1` does the same for a local check, `muse.tile(true|false)` from the console. In the tile the canvas draws for the small size (`square.js` `TILE`): no name and clock, no status bubble, the figure fills the square, one dot top right in the status colour (the connection's red or orange while it is missing; it pulses while listening or thinking), the soonest timer as a chip top left. A card keeps its picture, scene or route; a value or a timer becomes one big number; every other card is its disc or the avatar with the title in large type. Meanwhile the camera card's object boxes and their detector rest, the level wave too; the pose tracker (follow, gestures) and the brightness sample keep running. Only the tablet layout listens; Mosaico and box ignore the event.
 
 The dropdown labels are exactly **Tab** and **iPad**. `?layout=tablet&device=tab|ipad` and `?layout=tablet-tab|tablet-ipad` apply a profile to one visit. The microphone and the camera are separate switches; the camera is a beta and off by default.
 

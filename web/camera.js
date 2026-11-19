@@ -124,6 +124,15 @@ export function mapBox(box, videoW, videoH, displayW, displayH, mirrored = false
   return { x: mirrored ? displayW - x - w : x, y, w, h };
 }
 
+// How the card shows the preview (style.css reads it from #camera's data-view): "off"
+// without a stream (the card is one row), "full" when object boxes are drawn on it, a
+// Vision answer is up or the person enlarged it, else "thumb": in the follow modes the
+// picture is only a mirror, so a small one beside the title leaves the rail its room.
+export function cameraView({ on = false, boxes = false, expanded = false, vision = false } = {}) {
+  if (!on) return "off";
+  return boxes || expanded || vision ? "full" : "thumb";
+}
+
 // Rec. 709 luma of RGBA bytes, 0 to 1.
 export function lumaFromRgba(data) {
   if (!data || data.length < 4) return 0;
@@ -241,7 +250,7 @@ export class Camera {
       root: byId("camera"), video: byId("camera-video"), boxes: byId("camera-boxes"),
       caption: byId("camera-caption"), model: byId("camera-model"), badge: byId("camera-badge"), power: byId("camera-power"),
       photo: byId("camera-photo"), vision: byId("camera-vision"), drag: byId("camera-drag"),
-      swap: byId("camera-swap"), torch: byId("camera-torch"),
+      swap: byId("camera-swap"), torch: byId("camera-torch"), view: byId("camera-view"),
     };
     this.getSettings = opts.getSettings || (() => ({}));
     this.getDisplay = opts.getDisplay || (() => null);
@@ -270,6 +279,10 @@ export class Camera {
     this.beta = false;
     this.on = false;
     this.starting = false;
+    // The card's preview: enlarged by a tap (cameraView), and whether anyone can see it
+    // at all (Muse OS's tile shows the canvas only; setPreviewVisible).
+    this.expanded = false;
+    this.previewVisible = true;
     this.resumeOnVisible = false;
     this.stream = null;
     this.detector = null;
@@ -326,6 +339,62 @@ export class Camera {
     if (this.el.swap) this.el.swap.addEventListener("click", () => this.swap());
     if (this.el.torch) this.el.torch.addEventListener("click", () => this.toggleTorch());
     if (this.el.drag) this.bindDrag();
+    // A tap on the preview enlarges the thumbnail of the follow modes, or shrinks it again.
+    // Only the tablet rail has the thumbnail, so only there the picture is a button.
+    const view = this.el.view;
+    if (view) {
+      const toggle = () => {
+        this.expanded = !this.expanded;
+        this.syncView();
+      };
+      view.addEventListener("click", toggle);
+      const inRail = typeof document !== "undefined" && document.documentElement
+        && document.documentElement.classList && document.documentElement.classList.contains("tablet");
+      if (inRail && view.setAttribute) {
+        view.setAttribute("role", "button");
+        view.setAttribute("tabindex", "0");
+        view.setAttribute("aria-label", "Kamerabild vergrößern oder verkleinern");
+        view.title = "Kamerabild vergrößern oder verkleinern";
+        view.addEventListener("keydown", (ev) => {
+          if (ev.key !== "Enter" && ev.key !== " ") return;
+          ev.preventDefault();
+          toggle();
+        });
+      }
+    }
+  }
+
+  // Writes the card's view (cameraView) for the CSS and redraws the boxes at the new size.
+  syncView() {
+    const root = this.el.root;
+    if (!root || !root.dataset) return;
+    const view = cameraView({
+      on: this.on, boxes: this.personBoxes, expanded: this.expanded,
+      vision: this.visionPending || (!!this.visionText && Date.now() < this.visionUntil),
+    });
+    if (root.dataset.view === view) return;
+    root.dataset.view = view;
+    if (this.on && this.personBoxes && this.previewVisible) this.drawBoxes();
+  }
+
+  // Muse OS shows the page as a small tile of the canvas alone: nobody sees the card
+  // then, so the object boxes and the detector that only feeds them and the caption
+  // rest. The pose tracker (follow, gestures) and the brightness sample keep running:
+  // they move the figure and the screen, which the tile does show.
+  setPreviewVisible(visible) {
+    const next = visible !== false;
+    if (next === this.previewVisible) return;
+    this.previewVisible = next;
+    if (!next) {
+      const canvas = this.el.boxes;
+      const ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
+      if (ctx) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    } else if (this.on) {
+      this.drawBoxes();
+    }
   }
 
   // ---------------------------------------------------------- public state --
@@ -367,6 +436,7 @@ export class Camera {
     if (!this.mimic) this.gestures.reset();
     if (!this.posing()) this.stopFollow();
     else if (this.on) this.startFollow();
+    this.syncView();
     if (facingChanged && this.on) {
       this.stop();
       this.start({ quiet: true });
@@ -500,6 +570,7 @@ export class Camera {
 
   detect() {
     if (!this.on || !this.personBoxes || !this.detector || typeof document === "undefined" || document.hidden) return;
+    if (!this.previewVisible) return; // nobody sees the boxes or the caption (setPreviewVisible)
     const video = this.el.video;
     if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
     const at = this.now();
@@ -545,7 +616,7 @@ export class Camera {
   drawBoxes() {
     const canvas = this.el.boxes;
     const video = this.el.video;
-    if (!canvas || !video) return;
+    if (!canvas || !video || !this.previewVisible) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const dpr = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
@@ -812,6 +883,7 @@ export class Camera {
 
   updateCaption(state = "ready") {
     this.updateModel();
+    this.syncView();
     const caption = this.el.caption;
     if (!caption) return;
     const visible = this.visionText && Date.now() < this.visionUntil;

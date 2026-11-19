@@ -14,6 +14,8 @@
 //  * One run at a time. A denial or a network error becomes a German state, not a loop.
 //  * The microphone capture uses the native sample rate; only the copy sent to HA is
 //    resampled to 16 kHz.
+//  * `chunks` is read from outside while the button is held (app.js takes the newest
+//    one for the rail's level wave): keep pushing whole Float32Arrays to it.
 import { makeCard } from "./queue.js";
 import { mergeFloat32, downsample, toPcm16 } from "./pcm.js";
 
@@ -56,6 +58,10 @@ export class Voice {
     this.say = opts.say || (() => {});
     this.log = opts.log || (() => {});
     this.onState = opts.onState || (() => {});
+    // The sentence speech-to-text understood and the agent's answer text, for the rail's
+    // last question and answer (composer.js); both stay in the page.
+    this.onHeard = opts.onHeard || (() => {});
+    this.onReply = opts.onReply || (() => {});
     this.getUserMedia = opts.getUserMedia || ((constraints) => {
       const md = typeof navigator !== "undefined" ? navigator.mediaDevices : null;
       return md && md.getUserMedia ? md.getUserMedia(constraints) : Promise.reject(new Error("no microphone API"));
@@ -241,10 +247,14 @@ export class Voice {
           if (ev.type === "stt-end") {
             const text = ev.data && ev.data.stt_output && ev.data.stt_output.text;
             if (!String(text || "").trim()) error = { message: "Nichts verstanden" };
-            else this.setState("thinking");
+            else {
+              this.setState("thinking");
+              this.onHeard(String(text).trim());
+            }
           } else if (ev.type === "intent-end") {
             answer = responseText(ev.data && ev.data.intent_output);
             this.armFallback(before, answer);
+            this.onReply(answer);
           } else if (ev.type === "tts-start") {
             this.setState("speaking");
           } else if (ev.type === "tts-end") {

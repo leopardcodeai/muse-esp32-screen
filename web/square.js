@@ -29,6 +29,10 @@
 //    second measures no text it measured before.
 //  * The figure's frames are opaque squares in the page colour; the ready screen and the
 //    celebration stand on the page, so the square is invisible there.
+//  * Tile mode (`d.tile`, Muse OS shows the canvas as a square of about 184 dp): no top
+//    bar text and no bubble, the figure fills the square, one status dot, and a card is
+//    reduced to what stays readable at a third of the size (TILE below). It is a flag of
+//    the tablet page only; without it every picture here is the spec's, unchanged.
 import { wrap, fitLine, timeLeft, clockText, WEATHER } from "./text.js";
 import { PILLS, event as eventIcon } from "./tables.js";
 import { particles, rnd, PALETTE } from "./particles.js";
@@ -57,6 +61,37 @@ export const AVATAR = { x: 24, y: 72, size: 84 };
 export const TITLE = { x: 124, y: 72, w: 332, h: 84, lineH: 38 };
 export const PANEL = { x: 24, y: 176, w: 432, h: 280, radius: 28 }; // 24 px from the sides and the bottom
 
+// Tile mode (Muse OS shows the canvas as a small square, see the pitfalls above): the
+// figure fills the square, the status is one dot in the top right corner (where the
+// figure's frame is empty), the soonest timer a chip top left; a celebration keeps its
+// title, a card its picture or its title in large type.
+export const TILE = {
+  figure: { x: 20, y: 30, size: 440 },
+  dot: { x: 438, y: 42, r: 14 },
+  chip: { x: 20, y: 20, h: 52, radius: 26 },
+  celebration: { figure: { x: 70, y: 16, size: 340 }, titleY: 372, w: 440 },
+  disc: { size: 168, gap: 26 }, // centred with the title below it
+  title: { w: 432, lineH: 62, max: 3 },
+  value: { labelY: 76, y: 250, unitY: 384, w: 440, px: 150 },
+};
+
+// The colour of the tile's one dot: the connection while it is not there (red, orange),
+// else the status (green ready, blue listening, ...), so one glance says both.
+export function tileDotColor(d) {
+  if (d.connection === "off" || d.connection === "connecting") return connectionColor(d.connection);
+  const state = d.status >= 0 && d.status <= 6 ? d.status : 0;
+  return PILLS[state].color;
+}
+
+// What a card shows in the tile: "full" (its picture fills the panel anyway), "value"
+// (a big number), "timer" (the time left) or "title" (disc or avatar and the title).
+export function tileCardKind(mode) {
+  if (mode === 5 || mode === 7 || mode === 9) return "full";
+  if (mode === 2 || mode === 4) return "value";
+  if (mode === 11) return "timer";
+  return "title";
+}
+
 const F = (weight, px) => `${weight} ${px}px ${INTER}`;
 export const SQUARE_FONTS = {
   name: F(800, 30), clock: F(700, 28), badge: F(800, 19), status: F(700, 21), celebrate: F(800, 32),
@@ -64,11 +99,13 @@ export const SQUARE_FONTS = {
   value: F(800, 104), unit: F(700, 30), rowTime: F(700, 20), rowText: F(500, 22), question: F(700, 24),
   button: F(700, 20), timer: F(800, 44), label: F(500, 18),
 };
+// The tile's own sizes: about three times smaller on the glass, so three times larger here.
+const TILE_FONTS = { chip: F(800, 30), title: F(800, 50), celebrate: F(800, 46), label: F(800, 44), unit: F(700, 46) };
 const GLYPH_PX = 48;
 
 // Every font of this layout, for document.fonts.load().
 export function squareFonts() {
-  return [...new Set([...Object.values(SQUARE_FONTS), iconFont(GLYPH_PX), iconFont(36)])];
+  return [...new Set([...Object.values(SQUARE_FONTS), iconFont(GLYPH_PX), iconFont(GLYPH_PX * 2), iconFont(36)])];
 }
 
 // The scene and the route are the box's 320 x 240 pictures scaled into the panel.
@@ -243,7 +280,7 @@ export class SquareView {
   signature(d, now, clock, size, k) {
     const fig = d.figure || {};
     const soonest = d.timers.soonest();
-    const parts = [size, k, this.key, d.status, statusLabel(d), d.queue.waiting.length, d.name,
+    const parts = [size, k, this.key, d.tile ? "tile" : "", d.status, statusLabel(d), d.queue.waiting.length, d.name,
       d.connection, soonest ? `${soonest.name}:${soonest.left}` : "",
       d.media ? d.media.state : "", clock.getHours(), clock.getMinutes(), clock.getDate(),
       fig.defaults ? fig.defaults.size : -1, fig.frames ? fig.frames.size : -1];
@@ -273,7 +310,8 @@ export class SquareView {
     const ctx = r.ctx;
     r.begin();
     r.fill(PAGE);
-    this.drawTopBar(r, d, clock);
+    const tile = d.tile === true;
+    if (!tile) this.drawTopBar(r, d, clock);
     const e = easeOut(clamp01(tin / SQUARE.inMs));
     const slide = SQUARE.slide * (1 - e);
     ctx.save();
@@ -282,12 +320,15 @@ export class SquareView {
     switch (d.mode) {
       case 0: this.drawIdle(r, d, now, clock); break;
       case 3: this.drawCelebration(r, d, now); break;
-      default: this.drawCard(r, d, now, clock, slide); break;
+      default:
+        if (tile) this.drawTileCard(r, d, now, clock, slide);
+        else this.drawCard(r, d, now, clock, slide);
+        break;
     }
     ctx.restore();
     if (tout < SQUARE.outMs && this.ghost) {
       // The content before, fading out over the new one (the top bar stays as it is).
-      const top = Math.floor(TOP_BAR.h * r.k);
+      const top = tile ? 0 : Math.floor(TOP_BAR.h * r.k);
       const w = r.canvas.width, h = r.canvas.height - top;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -295,6 +336,7 @@ export class SquareView {
       if (h > 0) ctx.drawImage(this.ghost, 0, top, w, h, 0, top, w, h);
       ctx.restore();
     }
+    if (tile) this.drawTileStatus(r, d, now);
   }
 
   // --------------------------------------------------------------- helpers --
@@ -395,28 +437,32 @@ export class SquareView {
       d.animSince = now;
     }
     const ctx = r.ctx;
+    // Tile mode: the figure fills the square and nothing is clipped at a top bar.
+    const tile = d.tile === true;
+    const f = tile ? TILE.figure : FIGURE;
+    const top = tile ? 0 : TOP_BAR.h;
     const cuddle = d.cuddleUntil - now;
     const wiggle = cuddle > 0 ? Math.round(6 * Math.sin(now / 70)) : 0;
     ctx.save();
     if (state === 5) ctx.globalAlpha *= 0.4; // quiet: the figure at 40 %
-    let move = figureMotion(motion, FIGURE.size);
+    let move = figureMotion(motion, f.size);
     if (move && moving) move = { ...move, angle: followDamp(move.angle, moving.weight) };
     if (move || moving) {
       // The figure's page-coloured square must not cover the top bar when it tilts or rises.
       ctx.beginPath();
-      ctx.rect(0, TOP_BAR.h, SQUARE_W, SQUARE_H - TOP_BAR.h);
+      ctx.rect(0, top, SQUARE_W, SQUARE_H - top);
       ctx.clip();
     }
-    withFigureMotion(ctx, move, FIGURE.x + FIGURE.size / 2, FIGURE.y + FIGURE.size / 2,
-      () => withMotionPose(ctx, moving, FIGURE.x, FIGURE.y, FIGURE.size,
-        () => this.figureTile(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size)));
+    withFigureMotion(ctx, move, f.x + f.size / 2, f.y + f.size / 2,
+      () => withMotionPose(ctx, moving, f.x, f.y, f.size,
+        () => this.figureTile(r, d, pose, now - d.animSince, f.x + wiggle, f.y, f.size)));
     if (moving) {
-      drawMotionEffects(ctx, moving, FIGURE.x, FIGURE.y, FIGURE.size,
-        { x: 0, y: TOP_BAR.h, w: SQUARE_W, h: SQUARE_H - TOP_BAR.h });
+      drawMotionEffects(ctx, moving, f.x, f.y, f.size,
+        { x: 0, y: top, w: SQUARE_W, h: SQUARE_H - top });
     }
     ctx.restore();
-    if (cuddle > 0) this.drawHearts(r, cuddle);
-    this.drawBubble(r, d, now);
+    if (cuddle > 0) this.drawHearts(r, cuddle, f);
+    if (!tile) this.drawBubble(r, d, now);
   }
 
   // The one status bubble under the figure: a dot in the status colour (it pulses while
@@ -435,10 +481,10 @@ export class SquareView {
   }
 
   // Cuddled (a tap on the ready screen): hearts rise for 2.6 s, as on the box.
-  drawHearts(r, cuddle) {
+  drawHearts(r, cuddle, f = FIGURE) {
     const hearts = new Item("particles");
     Object.assign(hearts, { sub: "bubbles", count: 9, glyph: G_HEART, hasColor: true, color: [255, 45, 85],
-      x: FIGURE.x + 20, y: FIGURE.y + 10, w: FIGURE.size - 40, h: FIGURE.size - 20, size: 0, speed: 2.2 });
+      x: f.x + 20, y: f.y + 10, w: f.size - 40, h: f.size - 20, size: 0, speed: 2.2 });
     const fade = cuddle < 600 ? cuddle / 600 : 1;
     for (const q of particles(hearts, 4242, 2600 - cuddle)) {
       r.print(q.x, q.y, iconFont(36), fade >= 1 ? q.color : mix(q.color, PAGE, fade), "C", String.fromCodePoint(G_HEART));
@@ -451,6 +497,14 @@ export class SquareView {
   drawCelebration(r, d, now) {
     const c = d.card;
     const t = now - d.since;
+    if (d.tile === true) {
+      // Tile mode: the figure larger, the title alone under it in large type.
+      const tc = TILE.celebration;
+      this.figure(r, d, "confetti", t, tc.figure.x, tc.figure.y, tc.figure.size);
+      r.print(SQUARE_W / 2, tc.titleY, TILE_FONTS.celebrate, INK, "TC", this.fit(r, "tile-title", c.title, TILE_FONTS.celebrate, tc.w));
+      this.drawConfetti(r, t, d.until - now);
+      return;
+    }
     this.figure(r, d, "confetti", t, FIGURE.x, FIGURE.y, FIGURE.size);
     const cx = SQUARE_W / 2, w = CELEBRATION.w;
     r.print(cx, CELEBRATION.titleY, SQUARE_FONTS.celebrate, INK, "TC", this.fit(r, "title", c.title, SQUARE_FONTS.celebrate, w));
@@ -492,6 +546,97 @@ export class SquareView {
       }
     }
     ctx.globalAlpha = base;
+  }
+
+  // ----------------------------------------------------------------- tile --
+
+  // The tile's status: one dot top right (it pulses while listening or thinking) and the
+  // soonest timer as a chip top left, both large enough to read at a third of the size.
+  drawTileStatus(r, d, now) {
+    const state = d.status >= 0 && d.status <= 6 ? d.status : 0;
+    const dot = TILE.dot;
+    let k = 1;
+    if (state === 1 || state === 2) k = 1 + 0.25 * (0.5 - 0.5 * Math.cos((2 * Math.PI * now) / 1200));
+    r.circle(dot.x, dot.y, dot.r + 4, PAGE);
+    r.circle(dot.x, dot.y, dot.r * k, tileDotColor(d));
+    const soonest = d.timers.soonest();
+    if (soonest && d.mode !== 11) {
+      const c = TILE.chip;
+      const text = timeLeft(soonest.left);
+      const w = Math.round(r.width(text, TILE_FONTS.chip)) + 40;
+      r.roundRect(c.x, c.y, w, c.h, c.radius, ORANGE);
+      r.print(c.x + w / 2, c.y + c.h / 2, TILE_FONTS.chip, WHITE, "C", text);
+    }
+  }
+
+  // A card in the tile (tileCardKind): pictures, scenes and routes as they are; a value
+  // or the time left as one big number; everything else as its disc and its title.
+  drawTileCard(r, d, now, clock, slide) {
+    const c = d.card;
+    const kind = tileCardKind(c.mode);
+    if (kind === "full") {
+      this.drawCard(r, d, now, clock, slide);
+      return;
+    }
+    const cx = SQUARE_W / 2;
+    if (kind === "value" || kind === "timer") {
+      const v = TILE.value;
+      const tm = kind === "timer" ? d.timers.soonest() : null;
+      if (kind === "timer") {
+        // The card stays while its timer runs, as drawTimer keeps it.
+        const keep = now + 2500;
+        if (keep > d.until) d.until = keep;
+      }
+      const label = kind === "timer" ? (tm ? tm.name : c.title) : c.label;
+      const value = String((kind === "timer" ? (tm ? timeLeft(tm.left) : "") : c.value) || "");
+      const unit = kind === "value" && c.mode === 2 ? c.unit : "";
+      r.print(cx, v.labelY, TILE_FONTS.label, SUB, "C", this.fit(r, "tile-label", label, TILE_FONTS.label, v.w));
+      // The number as large as the width allows, never larger than v.px.
+      const wide = r.width(value, F(800, v.px));
+      const px = wide > v.w ? Math.max(48, Math.floor((v.px * v.w) / wide)) : v.px;
+      r.print(cx, v.y, F(800, px), kind === "timer" ? ORANGE : INK, "C", value);
+      if (unit) r.print(cx, v.unitY, TILE_FONTS.unit, SUB, "C", this.fit(r, "tile-unit", unit, TILE_FONTS.unit, v.w));
+      return;
+    }
+    // Disc (weather glyph, event icon, list, calendar) or the avatar, then the title;
+    // the two together are centred in the square.
+    const title = c.mode === 12 ? "Muse Web Screen" : c.mode === 10 ? (c.title || "Heute") : c.mode === 13 ? (c.title || "Liste") : (c.title || d.name);
+    const t = TILE.title;
+    const lines = this.lines(r, "tile-head", title, TILE_FONTS.title, t.w, t.max);
+    const b = TILE.disc;
+    const top = Math.round((SQUARE_H - (b.size + b.gap + lines.length * t.lineH)) / 2);
+    const x = cx - b.size / 2;
+    const disc = this.tileDisc(c);
+    if (disc) {
+      r.circle(cx, top + b.size / 2, b.size / 2, disc.color);
+      r.print(cx, top + b.size / 2, iconFont(GLYPH_PX * 2), WHITE, "C", String.fromCodePoint(disc.glyph));
+    } else if (figureCard || EDGE) {
+      // The avatar on its light rounded tile, as head() shows it in the dark theme.
+      const ctx = r.ctx;
+      r.roundRect(x, top, b.size, b.size, 40, [243, 243, 243]);
+      ctx.save();
+      r.roundRectPath(x, top, b.size, b.size, 40);
+      ctx.clip();
+      this.figure(r, d, "avatar", 0, x, top, b.size);
+      ctx.restore();
+      r.roundRectOutline(x, top, b.size, b.size, 40, 1, [218, 218, 223]);
+    } else {
+      this.figure(r, d, "avatar", 0, x, top, b.size);
+    }
+    const y = top + b.size + b.gap;
+    lines.forEach((line, k) => r.print(cx, y + t.lineH * k + t.lineH / 2, TILE_FONTS.title, INK, "C", line));
+  }
+
+  // The disc of a card in the tile, as head() picks it; null means the avatar.
+  tileDisc(c) {
+    if (c.mode === 1) return c.icon >= 0 && c.icon < WEATHER.length ? weatherGlyph(c.icon) : null;
+    if (c.mode === 6) {
+      const ev = eventIcon(c.event);
+      return { glyph: ev.glyph, color: ev.color };
+    }
+    if (c.mode === 10) return { glyph: G_CALENDAR, color: [255, 45, 85] };
+    if (c.mode === 13) return { glyph: G_LIST, color: TEAL };
+    return null;
   }
 
   // ---------------------------------------------------------------- cards --

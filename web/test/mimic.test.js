@@ -215,7 +215,8 @@ test("the page has the setting, the rail's camera mode and the dialog's mode", (
   const rail = html.match(/<div id="rail-camera-mode"[\s\S]*?<\/div>/);
   assert.ok(rail, "the rail has the camera mode control");
   for (const m of CAMERA_MODES) {
-    assert.match(rail[0], new RegExp(`data-mode="${m}"[^>]*>${CAMERA_MODE_LABELS[m]}<`));
+    // Each segment is an icon with its label below; the name is the accessible name too.
+    assert.match(rail[0], new RegExp(`data-mode="${m}"[^>]*aria-label="${CAMERA_MODE_LABELS[m]}"[^>]*>.*<span>${CAMERA_MODE_LABELS[m]}</span>`));
     assert.match(html, new RegExp(`name="cameraMode" value="${m}"`));
   }
   const css = readFileSync(new URL("../style.css", import.meta.url), "utf8");

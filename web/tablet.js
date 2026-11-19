@@ -1,18 +1,25 @@
 // tablet.js: the rail beside the 480 x 480 canvas in the Tab and iPad profiles, and
 // the small geometry decisions the layout needs.
 //
-// The canvas keeps the square layout; the rail is plain DOM and shows the clock, the
-// connection, the timer, the push-to-talk button and the device controls. It is the
-// only part of the app that is not drawn on the canvas, so it stays crisp at any
-// device pixel ratio and the text is real text.
+// The canvas keeps the square layout; the rail is plain DOM and shows, from the top: a
+// status header (clock, date, connection), the camera card, the composer (push-to-talk
+// beside the text field, a state line, the last question and answer; logic in
+// composer.js), the camera mode and a row of round action buttons. It is the only part
+// of the app that is not drawn on the canvas, so it stays crisp at any device pixel
+// ratio and the text is real text.
 //
 // Pitfalls:
 //  * The rail is optional: mount() tolerates a page without it (the Node tests and
 //    the box/square layouts), and update() never throws when an element is missing.
 //  * The rail width is the leftover width that makes the page square. In portrait the
 //    rail moves to the bottom and the height comes from CSS.
+//  * A narrow rail (1024 x 768 leaves 256 px) is "compact": the CSS then drops the
+//    labels under the icons, so the hint line names the chosen camera mode instead.
+//  * Everything must fit the height without scrolling: the texts set here are single
+//    lines or clamped by CSS, never free-flowing.
 //  * No DOM in the pure helpers, so the tests can call them in Node.
 import { timeLeft } from "./text.js";
+import { waveBars, WAVE_BARS } from "./composer.js";
 
 // The rail width in landscape: the viewport width minus the height, which is exactly
 // the width the square canvas leaves. Capped so a very wide window cannot grow an
@@ -26,8 +33,46 @@ export function railSide(width, height) {
   return width > height ? "right" : "bottom";
 }
 
+// "compact" for a rail too narrow for five labelled columns (under 330 px), else
+// "regular". The bottom rail of portrait (width 0 here) is regular: it has the width.
+export function railDensity(width) {
+  return width > 0 && width < 330 ? "compact" : "regular";
+}
+
 export function profileLabel(profile) {
   return profile === "ipad" ? "iPad" : "Tab";
+}
+
+// `?tile=1` shows the page as Muse OS's small tile for a local check (app.js listens
+// for the shell's `muse-os-tile` event otherwise); null when the URL does not say.
+export function tileParam(search) {
+  const v = new URLSearchParams(search || "").get("tile");
+  if (v === "1" || v === "true") return true;
+  if (v === "0" || v === "false") return false;
+  return null;
+}
+
+// The detail of the shell's `muse-os-tile` event as a boolean: true, 1 and "true" turn
+// the tile on, everything else off.
+export function tileDetail(detail) {
+  return detail === true || detail === 1 || detail === "1" || detail === "true";
+}
+
+// What each camera mode does, one line under the segmented control. A compact rail has
+// no labels under the icons, so the line starts with the mode's name there.
+const MODE_HINTS = {
+  off: ["Aus", "Kamera aus"],
+  follow: ["Folgen", "Muse bewegt sich mit dir"],
+  mimic: ["Nachmachen", "Muse macht deine Bewegungen nach"],
+  detect: ["Erkennen", "Objekte markieren und Vision"],
+  all: ["Alles", "Folgen, Nachmachen und Erkennen"],
+  custom: ["Eigene Auswahl", "Einzeln eingestellt (Einstellungen)"],
+};
+export function cameraModeHint(mode, density = "regular") {
+  const key = Object.hasOwn(MODE_HINTS, mode) ? mode : "custom";
+  const [name, text] = MODE_HINTS[key];
+  if (key === "off") return text;
+  return density === "compact" || key === "custom" ? `${name}: ${text}` : text;
 }
 
 const STATUS = {
@@ -38,8 +83,8 @@ const STATUS = {
 };
 
 const VOICE = {
-  idle: "Halten zum Sprechen",
-  listening: "Ich höre …",
+  idle: "Mikrofon halten oder schreiben",
+  listening: "Ich höre … Loslassen sendet",
   thinking: "Muse denkt …",
   speaking: "Muse spricht",
   error: "Mikrofon nicht verfügbar",
@@ -48,6 +93,13 @@ const VOICE = {
 
 const TIME = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" });
 const DATE = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long" });
+const DATE_SHORT = new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "numeric", month: "short" });
+
+// The header's date: the long form, or the short one for a compact rail
+// ("Donnerstag, 19. November" or "Do., 19. Nov.").
+export function railDate(clock, density = "regular") {
+  return (density === "compact" ? DATE_SHORT : DATE).format(clock);
+}
 
 export class TabletRail {
   constructor(opts = {}) {
@@ -55,7 +107,9 @@ export class TabletRail {
     this.log = opts.log || (() => {});
     this.root = null;
     this.profile = "tab";
+    this.density = "regular";
     this.elements = {};
+    this.bars = [];
   }
 
   mount() {
@@ -71,12 +125,25 @@ export class TabletRail {
       dot: id("rail-dot"),
       status: id("rail-status-text"),
       timer: id("rail-timer"),
+      box: id("rail-voice-box"),
       mic: id("rail-mic"),
       micLabel: id("rail-mic-label"),
+      wave: id("rail-wave"),
+      send: id("rail-text-send"),
+      history: id("rail-history"),
+      historyQ: id("rail-history-q"),
+      historyA: id("rail-history-a"),
+      modeHint: id("rail-mode-hint"),
       light: id("rail-light"),
       battery: id("rail-battery"),
       fullscreen: id("rail-fullscreen"),
     };
+    // The wave's bars are made here, so the page's markup stays short.
+    const wave = this.elements.wave;
+    if (wave && doc.createElement && !wave.firstChild) {
+      for (let i = 0; i < WAVE_BARS; i++) wave.appendChild(doc.createElement("i"));
+    }
+    this.bars = wave && wave.children ? Array.from(wave.children) : [];
     this.setProfile(this.profile);
     return this;
   }
@@ -88,12 +155,18 @@ export class TabletRail {
     if (this.elements.profile) this.elements.profile.textContent = profileLabel(this.profile);
   }
 
+  // "regular" or "compact" (railDensity); the CSS reads it from the rail's data-density.
+  setDensity(density) {
+    this.density = density === "compact" ? "compact" : "regular";
+    if (this.root) this.root.dataset.density = this.density;
+  }
+
   update(state = {}) {
     if (!this.root) return;
     const e = this.elements;
     const clock = state.clock instanceof Date ? state.clock : new Date();
     if (e.time) e.time.textContent = TIME.format(clock);
-    if (e.date) e.date.textContent = DATE.format(clock);
+    if (e.date) e.date.textContent = railDate(clock, this.density);
     const connection = STATUS[state.connection] ? state.connection : "off";
     this.root.dataset.connection = connection;
     if (e.dot) e.dot.dataset.connection = connection;
@@ -122,15 +195,64 @@ export class TabletRail {
       e.fullscreen.setAttribute("aria-pressed", state.fullscreen ? "true" : "false");
       e.fullscreen.title = state.fullscreen ? "Vollbild verlassen" : "Vollbild";
     }
-    if (state.voice) this.setVoice(state.voice, state.voiceDetail);
+    if (state.voice) this.setVoice(state.voice, state.voiceDetail, state.voiceHint);
+    if (state.cameraMode) this.setCameraMode(state.cameraMode);
   }
 
-  setVoice(state = "idle", detail = "") {
+  // The composer's state (composer.js composerState) and its hint line. `hint` is the
+  // full line when the caller has it; without one the state's default (or the error's
+  // detail) stands.
+  setVoice(state = "idle", detail = "", hint = "") {
     if (!this.root) return;
     const s = VOICE[state] ? state : "idle";
+    const changed = this.root.dataset.voice !== s;
     this.root.dataset.voice = s;
     const e = this.elements;
+    if (e.box) e.box.dataset.state = s;
     if (e.mic) e.mic.dataset.state = s;
-    if (e.micLabel) e.micLabel.textContent = s === "error" && detail ? detail : VOICE[s];
+    const text = hint || (s === "error" && detail ? detail : VOICE[s]);
+    if (e.micLabel && e.micLabel.textContent !== text) e.micLabel.textContent = text;
+    // Leaving "listening" lets the bars fall back to the CSS's own heights.
+    if (changed && s !== "listening") this.setLevel(null);
+  }
+
+  // The live microphone level (0..1) at time t in ms; null hands the bars back to CSS.
+  setLevel(level, t = 0) {
+    if (!this.bars.length) return;
+    if (level === null || level === undefined) {
+      for (const bar of this.bars) if (bar.style) bar.style.transform = "";
+      return;
+    }
+    const heights = waveBars(level, t, this.bars.length);
+    for (let i = 0; i < this.bars.length; i++) {
+      if (this.bars[i].style) this.bars[i].style.transform = `scaleY(${heights[i].toFixed(3)})`;
+    }
+  }
+
+  setSendEnabled(enabled) {
+    const send = this.elements.send;
+    if (send) send.disabled = !enabled;
+  }
+
+  // The last question and answer (composer.js LastExchange.view()).
+  setHistory(view) {
+    const e = this.elements;
+    if (!e.history) return;
+    const v = view || { visible: false };
+    e.history.hidden = !v.visible;
+    e.history.dataset.tone = v.tone || "";
+    if (e.historyQ) e.historyQ.textContent = v.question || "";
+    if (e.historyA) {
+      e.historyA.textContent = v.answer || "";
+      e.historyA.title = v.tone === "answer" ? v.answer : "";
+    }
+  }
+
+  // The line under the camera mode control.
+  setCameraMode(mode) {
+    const hint = this.elements.modeHint;
+    if (!hint) return;
+    const text = cameraModeHint(mode, this.density);
+    if (hint.textContent !== text) hint.textContent = text;
   }
 }

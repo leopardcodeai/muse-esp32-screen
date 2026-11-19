@@ -27,10 +27,17 @@
       <div id="overlay"></div>
     </div>
   </main>
-  <aside id="rail" aria-label="Muse Steuerung">
-    <div id="rail-head">
-      <div id="rail-status"><span id="rail-profile">Tab</span><span id="rail-dot" data-connection="off"></span><span id="rail-status-text">Muse</span></div>
-    </div>
+  <aside id="rail" aria-label="Muse Steuerung" data-density="regular">
+    <header id="rail-head">
+      <div id="rail-clock">
+        <span id="rail-time"></span>
+        <span id="rail-date"></span>
+      </div>
+      <div id="rail-head-side">
+        <div id="rail-status" role="status"><span id="rail-dot" data-connection="off"></span><span id="rail-status-text">Muse</span></div>
+        <span id="rail-light" hidden></span>
+      </div>
+    </header>
     <section id="camera" hidden aria-label="Kamera">
       <header id="camera-head">
         <span id="camera-live-dot" aria-hidden="true"></span>
@@ -56,45 +63,53 @@
         <button id="camera-vision" type="button">Vision</button>
       </footer>
     </section>
-    <div id="rail-voice-box">
+    <section id="rail-voice-box" data-state="idle" aria-label="Mit Muse sprechen oder schreiben">
       <div id="rail-timer" hidden></div>
-      <button id="rail-mic" type="button" data-state="idle" title="Halten zum Sprechen" aria-label="Halten zum Sprechen">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
-      </button>
-      <div id="rail-mic-label">Halten zum Sprechen</div>
-      <div id="rail-voice-model" hidden></div>
-      <form id="rail-text" autocomplete="off">
-        <input id="rail-text-input" type="text" enterkeyhint="send" placeholder="An Muse schreiben" aria-label="Frage an Muse">
-        <button id="rail-text-send" type="submit" aria-label="Senden" title="Senden">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6"/></svg>
+      <div id="rail-composer">
+        <button id="rail-mic" type="button" data-state="idle" title="Halten zum Sprechen" aria-label="Halten zum Sprechen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
         </button>
-      </form>
-    </div>
-    <div id="rail-camera-mode" role="radiogroup" aria-label="Kamera-Modus" data-mode="off">
-      <button type="button" role="radio" data-mode="off" aria-checked="true" title="Kamera aus">Aus</button>
-      <button type="button" role="radio" data-mode="follow" aria-checked="false" title="Muse folgt dir">Folgen</button>
-      <button type="button" role="radio" data-mode="mimic" aria-checked="false" title="Muse folgt dir und macht deine Bewegungen nach">Nachmachen</button>
-      <button type="button" role="radio" data-mode="detect" aria-checked="false" title="Objekte markieren und Vision">Erkennen</button>
-      <button type="button" role="radio" data-mode="all" aria-checked="false" title="Alles zusammen">Alles</button>
+        <form id="rail-text" autocomplete="off">
+          <input id="rail-text-input" type="text" enterkeyhint="send" placeholder="An Muse schreiben" aria-label="Frage an Muse" maxlength="500">
+          <div id="rail-wave" aria-hidden="true"></div>
+          <button id="rail-text-send" type="submit" aria-label="Senden" title="Senden" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+          </button>
+        </form>
+      </div>
+      <div id="rail-composer-meta">
+        <span id="rail-mic-label" role="status" aria-live="polite">Mikrofon halten oder schreiben</span>
+        <span id="rail-voice-model" hidden></span>
+      </div>
+      <div id="rail-history" hidden aria-label="Letzte Frage und Antwort">
+        <p id="rail-history-q"></p>
+        <p id="rail-history-a"></p>
+      </div>
+    </section>
+    <div id="rail-mode">
+      <div id="rail-camera-mode" role="radiogroup" aria-label="Kamera-Modus" data-mode="off">
+        <button type="button" role="radio" data-mode="off" aria-checked="true" aria-label="Aus" title="Kamera aus"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><path d="M4 4l16 17"/></svg><span>Aus</span></button>
+        <button type="button" role="radio" data-mode="follow" aria-checked="false" aria-label="Folgen" title="Muse folgt dir"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3"/><path d="M6.5 20c.7-3.7 2.7-5.5 5.5-5.5s4.8 1.8 5.5 5.5"/><path d="M3 9.5 1.5 11 3 12.5M21 9.5l1.5 1.5-1.5 1.5"/></svg><span>Folgen</span></button>
+        <button type="button" role="radio" data-mode="mimic" aria-checked="false" aria-label="Nachmachen" title="Muse folgt dir und macht deine Bewegungen nach"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="2.3"/><path d="M5.5 5 12 11l6.5-6M12 11v5M8 21l4-5 4 5"/></svg><span>Nachmachen</span></button>
+        <button type="button" role="radio" data-mode="detect" aria-checked="false" aria-label="Erkennen" title="Objekte markieren und Vision"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg><span>Erkennen</span></button>
+        <button type="button" role="radio" data-mode="all" aria-checked="false" aria-label="Alles" title="Alles zusammen"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg><span>Alles</span></button>
+      </div>
+      <p id="rail-mode-hint">Kamera aus</p>
     </div>
     <div id="rail-actions">
-      <button id="rail-camera" type="button" title="Kamera-Modus ein- oder ausschalten">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Kamera</span>
-      </button>
-      <button id="rail-photo" type="button" title="Foto als Karte zeigen">
+      <button id="rail-photo" type="button" title="Foto als Karte zeigen" aria-label="Foto als Karte zeigen">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>Foto</span>
       </button>
-      <button id="rail-vision" type="button" title="Was sieht Muse?">
+      <button id="rail-vision" type="button" title="Was sieht Muse?" aria-label="Vision: Was sieht Muse?">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span>Vision</span>
       </button>
-      <button id="rail-fullscreen" type="button" title="Vollbild">
+      <button id="rail-fullscreen" type="button" title="Vollbild" aria-label="Vollbild">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 15v5h-5M15 4h5v5M9 20H4v-5"/></svg><span>Vollbild</span>
       </button>
-      <button id="rail-settings" type="button" title="Einstellungen">
+      <button id="rail-settings" type="button" title="Einstellungen" aria-label="Einstellungen">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg><span>Einstellungen</span>
       </button>
     </div>
-    <div id="rail-foot"><span id="rail-light" hidden></span></div>
   </aside>
   </div>
   <div id="dim" aria-hidden="true"></div>
