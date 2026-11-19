@@ -301,6 +301,17 @@ async function screenAction(action, fields) {
     setTimeout(() => location.reload(), 300);
     return true;
   }
+  if (action === "follow") {
+    // "Muse folgt mir" on or off from HA (tab command, script, automation); turning it on
+    // also turns the camera on, since the pose needs video.
+    const on = mode === "toggle" ? !settings.followMe : !["off", "aus", "false", "0", "stop"].includes(mode);
+    settings.followMe = on;
+    saveSettings(storage(), settings);
+    camera.setOptions(settings);
+    if (on && !settings.camera) setCameraMode(true);
+    log(`follow me ${on ? "on" : "off"}`);
+    return true;
+  }
   if (action === "camera") {
     const on = mode === "toggle" ? !settings.camera : !["off", "aus", "false", "0", "stop"].includes(mode);
     setCameraMode(on);
@@ -657,7 +668,7 @@ function applyAction({ action, fields = {} }) {
   lastActionKey = key;
   lastActionAt = now;
   log(`action ${action} ${JSON.stringify(fields).slice(0, 120)}`);
-  if (["camera", "photo", "vision", "reload"].includes(action)) {
+  if (["camera", "photo", "vision", "reload", "follow"].includes(action)) {
     screenAction(action, fields).then(() => render());
     return;
   }
