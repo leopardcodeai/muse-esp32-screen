@@ -1,10 +1,10 @@
 # Muse on the ESP-Mosaico: install from the terminal
 
-Status 11 November 2026: the app builds (`muse_mosaico-system-update.irisfw`, 2.55 MB),
-but no board was connected, so `iris system-update` stopped at
-`No available ESP-Iris USB device was found`. This is the terminal path only: no HACS,
-no app store, no Espressif Studio server. The app source is `~/Coding/esp/apps/muse`;
-the layout is `docs/SQUARE_LAYOUT.md` of the Muse repository.
+Status 18 November 2026: the app builds (`muse_mosaico-system-update.irisfw`, 2.63 MB),
+and `./sim.sh --frame` renders the 480 x 480 ready screen. No board is connected, so
+`iris system-update` still stops at `No available ESP-Iris USB device was found`. This is
+the terminal path only: no HACS, no app store, no Espressif Studio server. The app source
+is `~/Coding/esp/apps/muse`; the layout is `docs/SQUARE_LAYOUT.md` of the Muse repository.
 
 ## What you need
 
@@ -26,6 +26,15 @@ The build ends with `muse_mosaico-system-update.irisfw` and a SHA-256 per partit
 Without a connected board the command then stops at the gateway with
 `No available ESP-Iris USB device was found`; that is the expected result before the
 board arrives, not a build failure.
+
+The app's `sdkconfig.defaults` already carried the Mosaico template's memory settings:
+XIP, BSS and stacks in PSRAM, 250 MHz PSRAM, 320 MHz CPU and
+`CONFIG_COMPILER_OPTIMIZATION_PERF`. On 18 November 2026 it gained
+`CONFIG_LWIP_DHCP_DOES_NOT_CHECK_OFFERED_IP=y`, which skips the two ARP probes and boots
+about a second sooner. Meta's Wi-Fi-in-flash and smaller-buffer profile was measured but
+left out: the S31 has about 350 KB of SRAM free in this build, and the trade-off buys
+only about 8 KB of IRAM at the cost of Wi-Fi throughput. Wi-Fi IRAM and hardware AES stay
+on for the same reason.
 
 ## 2. First install over USB
 

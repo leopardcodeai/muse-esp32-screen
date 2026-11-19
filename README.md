@@ -66,11 +66,11 @@ Then add the box in Home Assistant (Settings, Devices and services), pick a voic
 
 The assistant never talks to the box directly. It calls Home Assistant actions with a long-lived token; Home Assistant passes them to the box over ESPHome's encrypted API, and Muse Web Screen in a browser mirrors every call by listening to Home Assistant's events (or to a `muse_web` event of its own, for a house without a box). The box is one ESPHome configuration, five C++ headers and a handful of tools; everything that differs from house to house is a substitution or a secret. The full picture with the house's devices: [How it fits together](#how-it-fits-together).
 
-**The actions**, 21 in all (fields, responses and examples: [docs/ACTIONS.md](docs/ACTIONS.md); the table: [Actions](#actions)):
+**The actions**, 22 in all (fields, responses and examples: [docs/ACTIONS.md](docs/ACTIONS.md); the table: [Actions](#actions)):
 
 | Group | Actions (`esphome.<device>_` + name) |
 |---|---|
-| Show | `muse_show_text`, `muse_show_value`, `muse_show_weather`, `muse_show_event`, `muse_show_image`, `muse_show_live`, `muse_show_route`, `muse_show_agenda`, `muse_show_list`, `muse_celebrate` |
+| Show | `muse_show_text`, `muse_show_value`, `muse_show_weather`, `muse_show_event`, `muse_show_image`, `muse_show_image_timed`, `muse_show_live`, `muse_show_route`, `muse_show_agenda`, `muse_show_list`, `muse_celebrate` |
 | Ask | `muse_ask`, `muse_choose`, `muse_wait_answer` |
 | Draw | `muse_draw` ([the scene language](docs/SCENES.md)) |
 | Time | `muse_show_timer`, `muse_cancel_timer` |
@@ -78,9 +78,11 @@ The assistant never talks to the box directly. It calls Home Assistant actions w
 
 ## Roadmap
 
+- **Tab and iPad profiles, camera beta, voice (Muse Web Screen 1.7.0):** a full-screen tablet layout with a control rail, an opt-in camera card with local person boxes, photo cards and camera-based dimming, push-to-talk through the Home Assistant Assist pipeline with Piper playback, and an on-demand Vision description through `ai_task`. See [web/README.md](web/README.md#tab-and-ipad) and [docs/PRIVACY.md](docs/PRIVACY.md).
 - **ESP-Mosaico port, in progress:** the same display on an ESP32-S31 board with a 2.16 inch 480 x 480 touch display. Not in this repository yet.
 - **Square layout, in progress:** one 480 x 480 design shared by the Mosaico firmware and a square mode of Muse Web Screen (`?layout=square`). The spec: [docs/SQUARE_LAYOUT.md](docs/SQUARE_LAYOUT.md). The 320 x 240 layout of the BOX-3 stays as it is.
 - **Your own character:** `tools/make_figure.py --from-image` with `--size 280 --avatar 84` already makes frames for the square layout ([docs/OWN_FIGURE.md](docs/OWN_FIGURE.md)).
+- **Muse on your TV:** Meta's HDMI stick is a "Coming soon" concept, not in the SDK; the DIY paths (Linux SDK on a Pi, Chromium kiosk, Cast and Home Link) and the dongle choices are in [docs/MUSE_ON_TV.md](docs/MUSE_ON_TV.md).
 - **Open for contributions:** ports to the ESP32-S3-BOX and BOX-Lite (other codecs, touch controller and pins), the screen's strings in other languages ([docs/LOCALIZATION.md](docs/LOCALIZATION.md)), and photos of real boxes for `docs/photos/`.
 
 ## Contributing
@@ -283,7 +285,7 @@ The agent runs `esphome run`, watches the log, and reports. It never needs your 
 |---|---|---|
 | `name`, `friendly_name` | `muse-esp32-s3-box-3-screen`, `Muse ESP32-S3-BOX-3 Screen` | the device name, also the mDNS name and the prefix of every action and entity |
 | `ha_url` | `http://homeassistant.local:8123` | where the box fetches your doorbell picture and camera views |
-| `doorbell_image` | `/local/doorbell_latest.jpg` | the still picture under Home Assistant's `www` folder that `muse_show_image` shows when its `url` is empty |
+| `doorbell_image` | `/local/doorbell_latest.jpg` | the still picture under Home Assistant's `www` folder, used as the default URL of the firmware's image component |
 | `map_tiles` | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | the tile server for route maps: any `{z}/{x}/{y}` server with 256 px PNG tiles, your own included |
 | `temperature_offset` | `-8.34` | corrects the dock's AHT20, which sits beside the warm board; `0` shows the raw value |
 | `figure_prefix` | `""` | `""` draws the project's own figure; `muse_` draws Meta's Muse animations after you ran `tools/make_muse_assets.py` on a machine with the Muse app |
@@ -300,7 +302,7 @@ The agent runs `esphome run`, watches the log, and reports. It never needs your 
 
 ## Actions
 
-Twenty-one actions, all under `esphome.<device>_`. Home Assistant makes every field mandatory; send `""` where nothing is meant. Each returns a response when asked for one (`return_response` in REST, `response_variable` in a script). Full reference with examples and responses: [docs/ACTIONS.md](docs/ACTIONS.md).
+Twenty-two actions, all under `esphome.<device>_`. Home Assistant makes every field mandatory; send `""` where nothing is meant. Each returns a response when asked for one (`return_response` in REST, `response_variable` in a script). Full reference with examples and responses: [docs/ACTIONS.md](docs/ACTIONS.md).
 
 | Action | Fields | Shows |
 |---|---|---|
@@ -310,7 +312,8 @@ Twenty-one actions, all under `esphome.<device>_`. Home Assistant makes every fi
 | `muse_show_value` | `label`, `value`, `unit` | one big number with its unit |
 | `muse_show_weather` | `condition`, `temperature`, `message` | an animated weather icon, the temperature, a line |
 | `muse_show_event` | `icon`, `title`, `message` | an event from the house: coloured disc, icon, text |
-| `muse_show_image` | `title`, `message`, `url` | a JPEG, PNG or GIF from a URL, or the doorbell picture when `url` is empty |
+| `muse_show_image` | `title`, `message`, `url` | a JPEG, PNG or GIF from a URL; an empty `url` shows an event card |
+| `muse_show_image_timed` | `title`, `message`, `url`, `seconds` | the same card, on screen for 1 to 600 s |
 | `muse_show_live` | `title`, `url`, `seconds` | a camera's pictures in a row for that long |
 | `muse_show_route` | `title`, `from`, `to`, `mode` | a route on a map: place names, coordinates or `home`; `car`, `bike`, `foot` |
 | `muse_show_agenda` | `title`, `events` | the day's appointments, one per line, four at a time |
@@ -405,7 +408,7 @@ The optional Samsung TV remote package ([firmware/packages/samsung_tv_ir.yaml](f
 
 ## Pictures, GIFs, live views, routes and music
 
-Pictures are fetched and decoded by a task of their own on the second core, so the display never waits and the Bluetooth proxy keeps its events. The format comes from the first bytes, not from the Content-Type header, because file hosts answer `application/octet-stream`. JPEGs decode at 1/2, 1/4 or 1/8 size right away (JPEGDEC [13]), PNGs stream through pngle [14], GIFs play through AnimatedGIF [12] on a canvas of their own. The decoders and the pictures live in PSRAM on purpose: internal RAM has 64 to 82 KB free beside Wi-Fi, Bluetooth and TLS.
+Pictures are fetched and decoded by a task of their own on the second core, so the display never waits and the Bluetooth proxy keeps its events. The format comes from the first bytes, not from the Content-Type header, because file hosts answer `application/octet-stream`. JPEGs decode at 1/2, 1/4 or 1/8 size right away (JPEGDEC [13]), PNGs stream through pngle [14], GIFs play through AnimatedGIF [12] on a canvas of their own. The decoders and the pictures live in PSRAM on purpose. Until 4.3.1 the box had 64 to 82 KB of internal RAM free beside Wi-Fi, Bluetooth and TLS; 4.3.2 moves the BSS of lwIP, Wi-Fi and Bluetooth to PSRAM, runs code and read-only data from PSRAM, keeps Wi-Fi's hot paths in flash and puts Bluedroid's heap in PSRAM. The home-overlay build leaves 211 KB of static DIRAM free (38.2% used); the runtime free-heap figure follows the first flash.
 
 - **Photos and GIFs**: `muse_show_image` with any `http(s)` URL; 3 MB per file, 15 s timeout, five redirects. Home Assistant's camera snapshots work as `url` too, with their token in the query, which the box never logs.
 - **Live view**: `muse_show_live` with a camera's `camera_proxy` URL and `&width=300&height=168` gives about one picture per second.
@@ -429,10 +432,13 @@ All on one box, firmware 4.0 to 4.1, 7 October 2026, from the box's own log line
 | a route by bike, 1.4 km, zoom 14 | 9.0 s: routing 3.5 s, 4 tiles in 2.11 s |
 | the radar before the 30 s hold | 1,423 changes and 696 times "on" in 24 h; now one wave per arrival |
 | the audio chips at boot | both fail to set up although they answer on the bus; the retry 3 s later succeeds at the first try on every boot since |
-| RAM free at rest | 64 to 82 KB internal, 16 MB PSRAM |
+| RAM free at rest | 64 to 82 KB internal, 16 MB PSRAM (4.3.1 and earlier) |
 | build | Flash 95 %, RAM 49 % (static), compile 5 to 8 min cold on an M-series Mac |
+| 4.3.2 home overlay, 18 November 2026 | Flash 95.4 %, static DIRAM 38.2 % (130,499 of 341,760 bytes, 211 KB free); runtime free heap pending the first flash |
 
 Two findings behind those numbers that cost real time: with mbedTLS in internal RAM the display's DMA transfer failed during handshakes (`spi: Transmit failed - err 101`), so TLS buffers go to PSRAM (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`); and routing.openstreetmap.de speaks TLS 1.3 only, which ESPHome's default of dropping the peer certificate after the handshake breaks (`disable_mbedtls_peer_cert: false`, `CONFIG_MBEDTLS_SSL_PROTO_TLS1_3`).
+
+4.3.2 adds the next layer of that memory work: `execute_from_psram` for code and read-only data, lwIP/Wi-Fi/Bluetooth BSS in PSRAM, Wi-Fi hot paths in flash, 8 instead of 16 static TX buffers, Bluedroid's heap in PSRAM and software AES for TLS. The box was not on the network on 18 November 2026, so the build is documented but not yet measured at runtime; `muse_hw_check` will report the free internal RAM and its largest block after the flash.
 
 ## Privacy and security
 
@@ -602,7 +608,7 @@ How much AI work went into this, counted on 24 October 2026:
 | At API list prices | about $494: $373 for the Muse phase since 6 October, $121 for the StackChan firmware on the same box before it. Paid on a subscription, so this is what it would cost on the API |
 | Commits | 40 in six repositories: 8 public, 14 history, 11 ESP workspace, 3 ESP-Mosaico, 4 Home Assistant |
 | Code | 26,113 lines in 244 files in the public repository, generated tables included |
-| Versions | 8 firmware releases (3.0.0 to 4.3.0), Muse Web Screen 1.0 to 1.5.0 |
+| Versions | 8 firmware releases (3.0.0 to 4.3.0), Muse Web Screen 1.0 to 1.7.0 |
 | Tests | 103 web tests, 13 Python tests, 2 C++ host test programs; all pass |
 | Mistakes on record | 6 findings in the last outside review (4 fixed, 2 open), 2 wrong turns written down in the CHANGELOG |
 

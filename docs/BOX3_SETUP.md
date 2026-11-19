@@ -97,9 +97,13 @@ card and the headers hold the drawing language; a plain sensor is 20 lines.
 Memory decides what is possible. The chip has about 340 KB of fast internal RAM, which
 Wi-Fi, Bluetooth, TLS and the display's DMA all want; the 16 MB of PSRAM on the module
 are slower but plentiful, so everything large (pictures, decoders, TLS buffers, audio
-tasks) lives there. Flash holds the program and all assets: fonts, icons, the figure's
-animation frames (one 160 x 160 frame is 51 KB), sounds. This firmware fills 95 % of
-the 8 MB app partition; that is the budget every new icon competes for.
+tasks) lives there. From 4.3.2 the BSS of lwIP, Wi-Fi and Bluetooth, the code and
+read-only data, and Bluedroid's heap also go to PSRAM, and Wi-Fi's hot paths stay in
+flash; the home overlay builds at 38.2 % static DIRAM (130,499 of 341,760 bytes, 211 KB
+free) and uses 95.4 % of the 8 MB app partition. The box was offline on 18 November 2026,
+so the runtime free heap follows the first flash. Flash also holds the program and all
+assets: fonts, icons, the figure's animation frames (one 160 x 160 frame is 51 KB),
+sounds. The 95 % budget is what every new icon competes for.
 
 [1] Espressif, ESP32-S3-BOX-3 hardware overview,
 https://github.com/espressif/esp-box/blob/master/docs/hardware_overview/esp32_s3_box_3/hardware_overview_for_box_3.md

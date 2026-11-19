@@ -37,6 +37,7 @@ An assistant calls these through Home Assistant with its own long-lived token.
 | `esphome.muse_esp32_s3_box_3_screen_muse_show_weather` | `condition`, `temperature`, `message` | big weather icon, temperature, condition, text below |
 | `esphome.muse_esp32_s3_box_3_screen_muse_show_event` | `icon`, `title`, `message` | a coloured disc with an icon, title and text |
 | `esphome.muse_esp32_s3_box_3_screen_muse_show_image` | `title`, `message`, `url` | a photo or an animated GIF (section "Pictures"), title and text below |
+| `esphome.muse_esp32_s3_box_3_screen_muse_show_image_timed` | `title`, `message`, `url`, `seconds` | the same photo or GIF card, on screen for 1 to 600 s |
 | `esphome.muse_esp32_s3_box_3_screen_muse_show_live` | `title`, `url`, `seconds` | the picture at `url` again and again for 5 to 120 s: a live camera view |
 | `esphome.muse_esp32_s3_box_3_screen_muse_show_route` | `title`, `from`, `to`, `mode` | a map with the way, start green, destination red, distance and time |
 | `esphome.muse_esp32_s3_box_3_screen_muse_show_agenda` | `title`, `events` | a calendar sheet and the appointments, one per line of `events` |
@@ -62,7 +63,10 @@ An assistant calls these through Home Assistant with its own long-lived token.
   `rollladen_hoch`, `mail`, `kalender`, `muell`, `tv_an`, `tv_aus`, `zuhause`,
   `briefkasten`, `tuer`, `nachrichten`, `licht`, `solar`, `timer`, `erledigt`,
   `info`. English names (`doorbell`, `calendar`, `news`, ...) work too.
-- `url`: http or https, from the house or the web (section "Pictures").
+- `url`: http or https, from the house or the web (section "Pictures"). An empty `url`
+  gives an event card with title and text, not the doorbell picture.
+- `seconds` (`muse_show_image_timed`, int): 1 to 600; smaller or larger values are
+  clamped. The photo stays that long instead of the fixed 90 s of `muse_show_image`.
 - Route: `from` and `to` as `"52.5163,13.3777"`, a place name (looked up with
   OpenStreetMap's Nominatim) or `"zuhause"` (zone.home); `mode` `car`, `bike` or `foot`
   (also `auto`, `fahrrad`, `zu fuss`).
@@ -84,6 +88,18 @@ An assistant calls these through Home Assistant with its own long-lived token.
   went up at once or waits behind N others.
 - Emojis: the fonts have none. Weather emojis become weather icons, every other
   emoji is dropped; Markdown marks (`**`, `#`, `*` bullets) are cleaned up.
+
+`muse_show_image_timed` takes `title`, `message` and `url` as strings and `seconds` as an
+int; every field is mandatory, as everywhere in Home Assistant. A REST call with the answer:
+
+```bash
+curl -s -X POST \
+  "http://homeassistant.local:8123/api/services/esphome/muse_esp32_s3_box_3_screen_muse_show_image_timed?return_response" \
+  -H "Authorization: Bearer $HA_TOKEN" -H "Content-Type: application/json" \
+  -d '{"title": "Garten", "message": "Kamera 2", "url": "http://homeassistant.local:8123/local/garden.jpg", "seconds": 20}'
+```
+
+It answers `{"on_screen": true, "waiting": 0}` like every card action.
 
 `muse_set_status_text` lets the caller write the pill's text, like the progress text of
 the Muse app, for example `{"status": "thinking", "label": "Ich lese deine E-Mails …"}`.

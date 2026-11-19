@@ -1,0 +1,34 @@
+# shell_command entries for the Muse chart and image webhook.
+#
+# Merge these keys under the ONE existing top-level `shell_command:` key in
+# configuration.yaml. Do not add a second `shell_command:` key: Home Assistant
+# rejects a duplicate top-level key.
+#
+# If configuration.yaml has no shell_command yet, add it once:
+#
+#   shell_command:
+#     muse_chart_render: ...
+#     muse_image_ingest: ...
+#     muse_chart_cleanup: ...
+#
+# Then reload: Settings > Tools > YAML > Shell commands (or call
+# shell_command.reload). Commands run in the Home Assistant Core container as
+# root, with /config as the working directory and a hard 60-second timeout.
+#
+# The scripts need Pillow, which Home Assistant Core already ships (2026.11:
+# Pillow 13.0.0). No add-on and no pip install are needed.
+#
+# The templated commands are split with shlex (shell=False), so the quoted
+# base64 arguments arrive as one argument and no shell expansion happens.
+muse_chart_render: >-
+  python3 /config/muse_charts/muse_chart.py --spec-b64 "{{ spec_b64 }}"
+muse_image_ingest: >-
+  python3 /config/muse_charts/muse_image.py --image-b64 "{{ image_b64 }}"
+  --name "{{ (name | default('muse-image', true)) | slugify }}"
+  --target "{{ target }}" --mode "{{ mode }}"
+# 31 days in minutes = 44640. /local caches a file for 31 days, so an older
+# generated file has no cache entry left. The folder is only for generated
+# charts and images; do not point uploads or a dashboard's originals here.
+muse_chart_cleanup: >-
+  mkdir -p /config/www/muse_images && find /config/www/muse_images -type f
+  -mmin +44640 -delete

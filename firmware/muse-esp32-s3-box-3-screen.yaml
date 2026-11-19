@@ -55,7 +55,7 @@ esphome:
         - script.execute: audio_init
   project:
     name: "leopardcodeai.muse_esp32_s3_box_3_screen"
-    version: "4.3.1"
+    version: "4.3.2"
 
 # Optional parts live in packages/. Uncomment a line to take one in: the Samsung TV
 # remote through the dock's IR (not needed for anything else the box does).
@@ -71,6 +71,9 @@ esp32:
     # drops by default to save about 4 KB of heap per connection.
     advanced:
       disable_mbedtls_peer_cert: false
+      # MUSE: code and read-only data run from PSRAM (octal, 80 MHz), which
+      # frees the flash cache and IRAM for the display and audio DMA.
+      execute_from_psram: true
     sdkconfig_options:
       CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
@@ -82,6 +85,20 @@ esp32:
       # internal RAM, 82 KB free at rest, the display's DMA transfer found no memory during a
       # handshake ("spi: Transmit failed - err 101", 07.10.2026).
       CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: "y"
+      # MUSE: TLS in software AES. At 240 MHz the hardware engine is no faster, but it
+      # bounces PSRAM records through DMA-capable internal RAM, the memory the display's
+      # transfer needs. Software AES keeps the handshake out of that path.
+      CONFIG_MBEDTLS_HARDWARE_AES: "n"
+      # MUSE: lwIP's, Wi-Fi's and Bluetooth's BSS live in PSRAM, so internal RAM stays
+      # with the display, the microphones and TLS. PSRAM is required; ignore_not_found is off.
+      CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY: "y"
+      # MUSE: Wi-Fi keeps its hot paths in flash; the 27 KB of internal RAM it frees go
+      # to the display and the voice pipeline. Meta runs the same box this way for voice.
+      CONFIG_ESP_WIFI_IRAM_OPT: "n"
+      CONFIG_ESP_WIFI_RX_IRAM_OPT: "n"
+      # MUSE: the media player's voice pipeline asks for 8 TX buffers; the 16 the
+      # non-PSRAM fallback leaves cost 13 KB of internal RAM without benefit.
+      CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM: "8"
 
 psram:
   mode: octal
@@ -634,7 +651,7 @@ api:
               root["timers"] = (int) muse::timers().size();
               root["volume"] = (int) lroundf(id(muse_player)->volume * 100);
               root["display_off"] = id(muse_screen_off);
-              root["version"] = "4.3.0";
+              root["version"] = "4.3.2";
     # Hardware check: asks every chip of the box and of the sensor dock
     # who it is, reads the pins of buttons, touch and radar, the battery voltage and how
     # the audio chips came up. Read only. The answer lists every reading with what a
@@ -861,6 +878,11 @@ time:
 # =============================================================================
 # BLUETOOTH PROXY
 # =============================================================================
+
+esp32_ble:
+  # MUSE: Bluedroid's heap goes to PSRAM; the BLE proxy then keeps its
+  # about 40 KB out of the internal RAM the display and the wake word use.
+  use_psram: true
 
 esp32_ble_tracker:
   scan_parameters:
@@ -1795,7 +1817,7 @@ display:
       }
       if (mode == 12) {
         // The box about itself (a tap on the top bar): power, air, memory, what waits.
-        it.print(160, 36, id(m_title), INK, TextAlign::TOP_CENTER, "Muse Screen 4.3.0", BG);
+        it.print(160, 36, id(m_title), INK, TextAlign::TOP_CENTER, "Muse Screen 4.3.2", BG);
         char line[6][64];
         snprintf(line[0], 64, "%.2f V  ·  %d %%", id(battery_voltage).state, (int) id(battery_pct).state);
         snprintf(line[1], 64, "%d dBm", (int) id(wifi_rssi).state);

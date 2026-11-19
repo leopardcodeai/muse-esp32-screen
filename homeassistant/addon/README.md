@@ -1,6 +1,7 @@
 # A Home Assistant add-on for Muse Web Screen
 
-`muse-web-screen/` is a local Home Assistant add-on. It serves the web app from
+`muse-web-screen/` is a local Home Assistant add-on (the folder on Home Assistant is
+`muse_web_screen/`, matching its slug). It serves the web app from
 `/config/www/muse-web` over HTTPS on port 8322 and proxies `/api/` to Home Assistant, so
 an HTTPS page can talk to a Home Assistant that still runs on HTTP.
 

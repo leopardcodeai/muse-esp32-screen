@@ -22,8 +22,8 @@ RULES
   Every card action answers {"on_screen": true|false, "waiting": N}. muse_clear removes
   everything; muse_get_state tells what the box shows and knows.
 - Durations: text, value and events 20 s, confetti 30 s, lists and agendas from 30 s,
-  weather and routes 60 s, photos 90 s, a question 2 min, a timer while it runs, a live
-  view and a scene as long as they say.
+  weather and routes 60 s, photos 90 s (or 1 to 600 s with muse_show_image_timed), a
+  question 2 min, a timer while it runs, a live view and a scene as long as they say.
 - The fonts carry no emoji; use icons instead.
 
 1. WHEN YOU TALK TO SOMEONE
@@ -46,6 +46,8 @@ RULES
 - muse_show_image: title, message, url. JPEG, PNG or animated GIF, http or https, small
   (about 320 px wide). Camera pictures from Home Assistant scaled: the camera's
   entity_picture URL plus &width=300&height=168.
+- muse_show_image_timed: title, message, url, seconds (1 to 600, clamped): the same
+  card, on screen for that many seconds.
 - muse_show_live: title, url, seconds (5 to 120): a live camera view.
 - muse_show_agenda: title ("" = today), events: one appointment per line, for example
   "09:00-10:00 Team meeting @ Office" or "all-day Holiday". Use it for "what is on today".
@@ -126,8 +128,8 @@ REGELN
   Kartenaktion antwortet {"on_screen": true|false, "waiting": N}. muse_clear räumt alles
   ab, muse_get_state sagt, was die Box zeigt und weiß.
 - Standzeiten: Text, Wert, Ereignis 20 s, Konfetti 30 s, Liste und Kalender ab 30 s,
-  Wetter und Route 60 s, Foto 90 s, Frage 2 min, Timer solange er läuft, Live und Szene
-  wie angegeben.
+  Wetter und Route 60 s, Foto 90 s (oder 1 bis 600 s mit muse_show_image_timed), Frage
+  2 min, Timer solange er läuft, Live und Szene wie angegeben.
 - Keine Emojis (die Schrift hat keine), nimm Icons.
 
 1. WENN WIR REDEN
@@ -148,6 +150,8 @@ REGELN
 - muse_show_image: title, message, url. JPEG, PNG oder animiertes GIF, klein (etwa 320 px
   breit). Kamerabilder aus Home Assistant verkleinert: entity_picture der Kamera plus
   &width=300&height=168.
+- muse_show_image_timed: title, message, url, seconds (1 bis 600, begrenzt): dieselbe
+  Karte, so viele Sekunden sichtbar.
 - muse_show_live: title, url, seconds (5 bis 120): Live-Kamera.
 - muse_show_agenda: title ("" = Heute), events: ein Termin pro Zeile, z. B.
   "09:00-10:00 Teammeeting @ Büro" oder "ganztägig Urlaub". Nimm das bei "Was steht heute an?".

@@ -65,6 +65,7 @@ def main():
     s = sub.add_parser("weather", help="a weather card"); s.add_argument("condition"); s.add_argument("temperature"); s.add_argument("message", nargs="?", default="")
     s = sub.add_parser("celebrate", help="confetti"); s.add_argument("title"); s.add_argument("message", nargs="?", default="")
     s = sub.add_parser("image", help="a photo or GIF from a URL"); s.add_argument("title"); s.add_argument("url"); s.add_argument("message", nargs="?", default="")
+    s = sub.add_parser("image-timed", help="a photo or GIF for a given number of seconds"); s.add_argument("title"); s.add_argument("url"); s.add_argument("seconds", type=int); s.add_argument("message", nargs="?", default="")
     s = sub.add_parser("live", help="a live camera view"); s.add_argument("title"); s.add_argument("url"); s.add_argument("seconds", type=int, nargs="?", default=30)
     s = sub.add_parser("route", help="a route on a map"); s.add_argument("title"); s.add_argument("start"); s.add_argument("destination"); s.add_argument("mode", nargs="?", default="car")
     s = sub.add_parser("agenda", help="appointments, one per line or a file"); s.add_argument("events"); s.add_argument("--title", default="")
@@ -98,6 +99,8 @@ def main():
         r = call(d, "muse_celebrate", {"title": a.title, "message": a.message})
     elif a.cmd == "image":
         r = call(d, "muse_show_image", {"title": a.title, "message": a.message, "url": a.url})
+    elif a.cmd == "image-timed":
+        r = call(d, "muse_show_image_timed", {"title": a.title, "message": a.message, "url": a.url, "seconds": a.seconds})
     elif a.cmd == "live":
         r = call(d, "muse_show_live", {"title": a.title, "url": a.url, "seconds": a.seconds})
     elif a.cmd == "route":

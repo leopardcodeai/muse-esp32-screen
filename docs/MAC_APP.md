@@ -29,6 +29,10 @@ open:
 https://homeassistant.local:8322/
 ```
 
+If that name resets the connection, use the Home Assistant IPv4 address instead, for example
+`https://192.0.2.10:8322/` (replace with your Home Assistant IPv4 address, for example from Settings → About): the add-on listens on IPv4, while `homeassistant.local` also
+resolves to IPv6. The certificate includes both names.
+
 The add-on serves `web/` over HTTPS and proxies Home Assistant's websocket, so the app also
 connects when Home Assistant itself runs on HTTP. Chrome can install it as a real app, and
 the Mac may sleep or be closed. The add-on guide covers the certificate, the three Samba
@@ -37,7 +41,7 @@ folders and the add-on configuration.
 The settings belong to the origin: the add-on app uses `https://homeassistant.local:8322`,
 the local app below uses `http://localhost:8321`. Switching means installing the app once
 from the add-on URL and entering the Home Assistant URL, token and figure folder there. The
-figure folder is `https://homeassistant.local:8322/local`. To carry the old settings over,
+figure folder is `https://homeassistant.local:8322/local` (or the same path on the IPv4 address). To carry the old settings over,
 open the old app's console and run `copy(localStorage.getItem('muse-web-settings'))`, then
 paste the JSON into this snippet in the new origin's console:
 
@@ -78,7 +82,7 @@ Press **E** in the app (or the *Einstellungen* button):
 
 | Field | Value |
 |---|---|
-| Home Assistant URL | the LAN address, for example `http://homeassistant.local:8123`; with the add-on use `https://homeassistant.local:8322`, the add-on's proxy, not the HA address |
+| Home Assistant URL | the LAN address, for example `http://homeassistant.local:8123`; with the add-on use the add-on's origin, `https://homeassistant.local:8322` (or its IPv4 address), not the HA address |
 | Long-lived access token | create one for this screen only: Home Assistant, your profile, *Security*, *Long-lived access tokens*. Paste it yourself; it stays in this browser's storage on this Mac |
 | Device name | `muse_esp32_s3_box_3_screen`, or the name your box has (the part before `_muse_` in its actions) |
 | Figure source | the project's figure, or your own frames (step 5) |

@@ -29,10 +29,22 @@ uses 95 % of the 8 MB app partition and 51 % of the 342 KB of static RAM. Both a
 codecs fail to set up at boot although they answer on the bus; a retry 3 s later works
 every time, which is what the `audio_init` script does.
 
+The 4.3.2 build on 18.11.2026 attacks the same limit from four sides: code and read-only
+data run from PSRAM (`execute_from_psram`), lwIP's, Wi-Fi's and Bluetooth's BSS live in
+PSRAM (`CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY`), Wi-Fi's hot paths stay in flash
+(`CONFIG_ESP_WIFI_IRAM_OPT` and `CONFIG_ESP_WIFI_RX_IRAM_OPT` off), and the BLE proxy's
+Bluedroid heap moves to PSRAM (`esp32_ble: use_psram`). The media player's voice pipeline
+uses 8 instead of 16 static TX buffers. The home overlay builds at 38.2 % static DIRAM
+(130,499 of 341,760 bytes, 211 KB free) and 95.4 % flash (5 % of the app partition free).
+The box was offline that day, so the runtime free heap, the audio chips and the wake word
+still wait for the first flash; `muse_hw_check` is the reading to compare.
+
 Large buffers go to PSRAM on purpose: the picture decoders (a PNG decoder needs 44 KB),
 the pictures, and the TLS buffers of mbedTLS (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`); with
 TLS in internal RAM the display's DMA transfer failed during handshakes
-(`spi: Transmit failed - err 101`).
+(`spi: Transmit failed - err 101`). From 4.3.2 TLS also uses software AES
+(`CONFIG_MBEDTLS_HARDWARE_AES` off): at 240 MHz the hardware engine is no faster, and it
+would bounce the PSRAM records through DMA-capable internal RAM again.
 
 [1] Espressif, esp-bsp, `bsp/esp-box-3/include/bsp/esp-box-3.h`,
 https://github.com/espressif/esp-bsp/blob/master/bsp/esp-box-3/include/bsp/esp-box-3.h

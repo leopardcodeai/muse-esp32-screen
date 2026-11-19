@@ -61,7 +61,8 @@ Panel contents, coordinates relative to the panel:
 | value (`show_value`) | value Inter 800 104 INK centred at (24, 36, 384, 120); unit Inter 700 30 SUB centred at (24, 160, 384, 44) |
 | weather (`show_weather`) | disc in the weather colour with its glyph; title the condition in German; value the temperature with „°"; unit line the message, one line |
 | event (`show_event`) | disc with the event's glyph and colour; title; body as for text |
-| image (`show_image`, `show_live`) | the picture fills the panel (cover, radius 28); title above as usual; message, if any, as a 1-line caption on a 50 % white strip at the panel's bottom |
+| image (`show_image`, `show_image_timed`, `show_live`) | the picture fills the panel (cover, radius 28); title above as usual; message, if any, as a 1-line caption on a 50 % white strip at the panel's bottom. `show_image_timed` stays `seconds` (1 to 600, 30 when missing); `show_image` keeps the layout's 20 s |
+| chart (`show_chart`) | a server-rendered PNG like an image, but fitted whole into the panel (contain, radius 28, never cropped) and with no caption; title above as usual; stays `seconds` (1 to 600, 30 when missing) |
 | list (`show_list`) | up to 5 rows of 48 px from y 14: a 10 px ORANGE dot at x 24, text Inter 500 24 TXT at x 46; more than 5: last row „+N weitere" in SUB |
 | agenda (`show_agenda`) | title empty gives „Heute"; rows as list, time Inter 700 20 SUB in a 110 px column, text Inter 500 22 TXT after it |
 | ask (`show_ask`/`muse_ask`) | question Inter 700 24 INK at (24, 22, 384, 96), up to 3 lines; buttons below |
@@ -77,8 +78,13 @@ yes left, no right. A pressed button shows ORANGE for 150 ms.
 
 - Queue of up to 8 cards. A card with the title of the one on screen replaces it at once; a
   doorbell event (`icon` klingel/doorbell/bell) goes first. The badge shows how many wait.
-- Dwell: 20 s, then the next card or idle. Questions: until answered, at most 60 s (then the answer
-  `none`). Timer: until it ends, then „Fertig" for 5 s. A tap on the panel shows the next card.
+- Dwell: 20 s, then the next card or idle. An image card with `seconds` (`show_image_timed`,
+  `show_chart`) stays those seconds instead (1 to 600, 30 when missing); a live view keeps its
+  own seconds. Questions: until answered, at most 60 s (then the answer `none`). Timer: until it
+  ends, then „Fertig" for 5 s. A tap on the panel shows the next card.
+- A picture that does not load — an error, or no answer within 15 s — becomes an event card that
+  keeps its title, its event icon and the time left, with the body „Bild nicht erreichbar" (as
+  the box's display lambda does).
 - Answers go back as the box sends them: `<answer>: <question>`, `none: <question>` on time-out.
 - Status: `set_status` changes the bubble and the pose; `set_status_text` replaces only the bubble's
   text until the status changes. `clear` empties the queue and returns to idle.
