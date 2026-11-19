@@ -2,7 +2,7 @@
 
 The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-screen.yaml`; the box reports it in `muse_get_state` and on its info screen. Dates are the day the firmware ran on the box. Wrong turns are recorded, because the same mistake comes back otherwise.
 
-## Muse Web Screen, unreleased (web, no add-on rebuild)
+## Muse Web Screen 1.8.16, 19 November 2026 (web, no add-on rebuild)
 
 - **Muse moves.** New `muse_web` action `animate` (`motion`, optional `seconds` 0.5 to 30, optional `device`): dance, party (dance, waving frames, confetti, disco light), jump, hop, spin, nod, shake, bow, shiver (cold marks), sleep (floating Zs), love (heartbeat, hearts), look, celebrate (jumps with the confetti frames), wave, and stop; German names work too. Drawn in code over the figure's frames (`motion.js`), so it works with the project's and the owner's figure. Status poses and cards win; a move asked for during a card plays after it. Follow offsets add, the follow tilt is damped while a move runs; reduced motion turns every move into a gentle pulse. New setting "Muse bewegt sich von selbst" (on): every 30 to 90 s of still ready screen a soft look around, hop or nod. Proposal `homeassistant/scripts/muse_screen_animate.yaml`. The demo ends its round with a party.
 
