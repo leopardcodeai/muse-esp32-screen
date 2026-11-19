@@ -2,7 +2,7 @@
 
 The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-screen.yaml`; the box reports it in `muse_get_state` and on its info screen. Dates are the day the firmware ran on the box. Wrong turns are recorded, because the same mistake comes back otherwise.
 
-## Muse Web Screen, unreleased (web, no add-on rebuild)
+## Muse Web Screen 1.8.17, 19 November 2026 (web, no add-on rebuild)
 
 - **Muse copies your moves.** New setting "Muse macht meine Bewegungen nach (Beta)" (on whenever "Muse folgt mir" is on, unless switched by itself): a DOM-free gesture classifier over the pose landmarks (`gestures.js`) answers a jump, a dance (with arms up: party), arms up held (celebrate), a wave, a nod, a head shake, a bow, a heart with the hands (love), a turn on the spot (spin), crossed arms (shiver) and a long still look down (look) with the matching move. Per-gesture thresholds and cooldowns (4 to 6 s, 2 s between any two), priority rules; only on the plain ready screen, never over an `animate` move; each played gesture logged once (`gesture jump (0.82)`). It turns the pose tracker on by itself while the camera is on. Not yet tried with a real camera.
 - **Camera mode.** One choice for the camera features, Aus, Folgen, Nachmachen, Erkennen, Alles: a segmented control in the Tab and iPad rail (iOS glass look), the same in the settings dialog, and the `muse_web` action `camera_mode` (`mode`, optional `device`).

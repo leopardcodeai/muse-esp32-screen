@@ -24,7 +24,7 @@ import { SceneDrawer } from "./draw.js";
 import { SquareView, SQUARE, squareButtonAt, toScene, squareCaption } from "./square.js";
 import { MotionPlayer, IdleVariety, parseMotion, MOTIONS, IDLE_INTENSITY } from "./motion.js";
 
-export const VERSION = "1.8.16";
+export const VERSION = "1.8.17";
 // "thinking" without a card ends after this long (owner, 19.11.2026: Muse said what it was
 // doing, the card never came, and the panel showed it for hours).
 export const THINKING_MS = 60000;

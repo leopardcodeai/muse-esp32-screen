@@ -10,7 +10,7 @@
 // seen on the next visit. The project's figure (figure-default/) is part of the shell;
 // the owner's own figure frames are never cached here: they come from another origin,
 // which this worker leaves alone.
-const VERSION = "muse-web-screen-1.8.16";
+const VERSION = "muse-web-screen-1.8.17";
 const RUNTIME = "muse-web-runtime-1.7.0";
 const SHELL = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
