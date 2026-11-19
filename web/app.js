@@ -166,6 +166,8 @@ camera = new Camera({
   log,
 });
 camera.setProfile(tabletProfile);
+// "Muse folgt mir": every layout's ready screen samples the camera's pose tracker.
+display.follow = camera.follow;
 camera.hasLightSensor = sensors.hasLight;
 camera.setOptions(settings);
 camera.setBeta(settings.camera && !demoMode);
@@ -766,6 +768,7 @@ function openSettings() {
   form.speak.checked = settings.speak;
   form.camera.checked = settings.camera;
   form.personBoxes.checked = settings.personBoxes;
+  form.followMe.checked = settings.followMe;
   form.autoBrightness.checked = settings.autoBrightness;
   form.vision.checked = settings.vision;
   form.visionAuto.checked = settings.visionAuto;
@@ -802,6 +805,7 @@ form.addEventListener("submit", (ev) => {
     camera: form.camera.checked,
     cameraFacing: settings.cameraFacing,
     personBoxes: form.personBoxes.checked,
+    followMe: form.followMe.checked,
     autoBrightness: form.autoBrightness.checked,
     vision: form.vision.checked,
     visionAuto: form.visionAuto.checked,

@@ -30,7 +30,7 @@ export const DEFAULTS = Object.freeze({
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
   theme: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
   tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
-  autoBrightness: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
+  autoBrightness: true, followMe: false, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
   visionModel: "Gemini 3.5 Flash Lite", visionDailyLimit: 1000,
   voiceModel: "Gemini Sprache", voiceDailyLimit: 1000,
 });
@@ -49,7 +49,7 @@ export function loadSettings(storage) {
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
   s.bare = s.bare === true;
   s.pixel = s.pixel === true;
-  for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "vision", "visionAuto"]) {
+  for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "followMe", "vision", "visionAuto"]) {
     s[key] = stored[key] === undefined ? DEFAULTS[key] : stored[key] === true;
   }
   s.tabletProfile = TABLET_PROFILES.includes(s.tabletProfile) ? s.tabletProfile : DEFAULTS.tabletProfile;

@@ -2,6 +2,12 @@
 
 The version is `esphome: project: version` in `firmware/muse-esp32-s3-box-3-screen.yaml`; the box reports it in `muse_get_state` and on its info screen. Dates are the day the firmware ran on the box. Wrong turns are recorded, because the same mistake comes back otherwise.
 
+## Muse Web Screen, unreleased: "Muse folgt mir (Beta)"
+
+- **The figure follows the person in front of the camera.** A new switch next to the camera switches, off by default. With camera mode on, MediaPipe PoseLandmarker (lite, same tasks-vision 1.2.3 as the detector, VIDEO mode, about 12 frames a second, GPU delegate with a CPU fallback) feeds `follow.js`, and the ready screen of every layout (box on the Mac, Mosaico, Tab and iPad) moves the figure like a mirror image: sideways with the shoulders, tilted with shoulders and eyes (up to 10 degrees), lifted by a jump, slightly larger when the person comes closer, and a hand above the head plays the wave. Dead zones, slow baselines and time-based exponential smoothing keep it calm; the person boxes keep working unchanged. The pose model is cached by the service worker's runtime cache (`/mediapipe-models/`).
+- Not verified on a real camera yet: the motion was checked in the browser with injected landmarks only.
+- Tests: 188 (17 new in `test/follow.test.js`).
+
 ## Muse Web Screen 1.8.7 to 1.8.11, 19 November 2026 (web, no add-on rebuild)
 
 - **1.8.7: "thinking" ends.** A `set_status` / `set_status_text` "thinking" without a following card returns to ready after 60 s (`THINKING_MS`). A Dyson label had stood on the Samsung Tab for hours because Muse's card never came.

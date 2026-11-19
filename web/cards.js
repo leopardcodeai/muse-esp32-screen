@@ -12,7 +12,8 @@ import { particles } from "./particles.js";
 import { cardFont, iconFont, PAGE, INK, SUB, CARD, TXT, SHADOW, WHITE, ORANGE } from "./render.js";
 import { Item, mix } from "./scene.js";
 import { PHOTO_W, PHOTO_H, PHOTO_TOP } from "./media.js";
-import { CARD_STEP_MS } from "./figure.js";
+import { CARD_STEP_MS, SIZE as FIGURE_SIZE } from "./figure.js";
+import { figureMotion, followPose, withFigureMotion } from "./follow.js";
 
 const BG = PAGE;
 const RED = [255, 59, 48];
@@ -60,14 +61,27 @@ export function drawTopBar(r, d, now, clock) {
 // The ready screen: the figure for the status, hearts when cuddled, the status pill.
 export function drawStatus(r, d, now) {
   const state = d.status;
-  const anim = state === 1 || state === 6 ? "wave" : state === 2 ? "working" : state === 3 ? "making" : "idle";
+  // "Muse folgt mir": the camera's pose tracker (follow.js) moves the figure; null when off.
+  const motion = d.follow ? d.follow.sample(now) : null;
+  const base = state === 1 || state === 6 ? "wave" : state === 2 ? "working" : state === 3 ? "making" : "idle";
+  const anim = state === 0 ? followPose(base, motion) : base;
   if (anim !== d.animName) {
     d.animName = anim;
     d.animSince = now;
   }
   const cuddle = d.cuddleUntil - now;
   const wiggle = cuddle > 0 ? Math.round(4 * Math.sin(now / 70)) : 0;
-  d.figure.draw(r, anim, now - d.animSince, 80 + wiggle, 30, CARD_STEP_MS);
+  const move = figureMotion(motion, FIGURE_SIZE);
+  if (move) {
+    // The figure's page-coloured square must not cover the top bar when it tilts or rises.
+    r.ctx.save();
+    r.ctx.beginPath();
+    r.ctx.rect(0, 30, 320, 210);
+    r.ctx.clip();
+  }
+  withFigureMotion(r.ctx, move, 80 + FIGURE_SIZE / 2, 30 + FIGURE_SIZE / 2,
+    () => d.figure.draw(r, anim, now - d.animSince, 80 + wiggle, 30, CARD_STEP_MS));
+  if (move) r.ctx.restore();
   if (cuddle > 0) {
     // Cuddled: hearts rise for 2.6 s, drawn like a particles element of a scene.
     const hearts = new Item("particles");

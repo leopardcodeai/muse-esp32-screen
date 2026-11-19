@@ -36,6 +36,7 @@ import { css, iconFont, INTER, PAGE, INK, SUB, CARD, TXT, SHADOW, WHITE, ORANGE,
 import { Item, mix } from "./scene.js";
 import { CARD_STEP_MS } from "./figure.js";
 import { drawRoute } from "./cards.js";
+import { figureMotion, followPose, withFigureMotion } from "./follow.js";
 
 export const SQUARE_W = 480;
 export const SQUARE_H = 480;
@@ -232,7 +233,8 @@ export class SquareView {
   animates(d, now) {
     return (d.mode === 0 && d.status !== 5 && Boolean(d.figure && d.figure.smooth))
       || d.status === 1 || d.status === 2 || d.mode === 3 || d.mode === 7 || d.mode === 11
-      || d.cuddleUntil > now || !!d.pressed || this.pending;
+      || d.cuddleUntil > now || !!d.pressed || this.pending
+      || (d.mode === 0 && !!(d.follow && d.follow.active));
   }
 
   // Everything a still picture depends on.
@@ -381,7 +383,9 @@ export class SquareView {
 
   drawIdle(r, d, now, clock) {
     const state = d.status;
-    const pose = poseOf(state);
+    // "Muse folgt mir": the camera's pose tracker (follow.js) moves the figure; null when off.
+    const motion = d.follow ? d.follow.sample(now) : null;
+    const pose = state === 0 ? followPose(poseOf(state), motion) : poseOf(state);
     if (pose !== d.animName) {
       d.animName = pose;
       d.animSince = now;
@@ -391,7 +395,15 @@ export class SquareView {
     const wiggle = cuddle > 0 ? Math.round(6 * Math.sin(now / 70)) : 0;
     ctx.save();
     if (state === 5) ctx.globalAlpha *= 0.4; // quiet: the figure at 40 %
-    this.figureTile(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size);
+    const move = figureMotion(motion, FIGURE.size);
+    if (move) {
+      // The figure's page-coloured square must not cover the top bar when it tilts or rises.
+      ctx.beginPath();
+      ctx.rect(0, TOP_BAR.h, SQUARE_W, SQUARE_H - TOP_BAR.h);
+      ctx.clip();
+    }
+    withFigureMotion(ctx, move, FIGURE.x + FIGURE.size / 2, FIGURE.y + FIGURE.size / 2,
+      () => this.figureTile(r, d, pose, now - d.animSince, FIGURE.x + wiggle, FIGURE.y, FIGURE.size));
     ctx.restore();
     if (cuddle > 0) this.drawHearts(r, cuddle);
     this.drawBubble(r, d, now);

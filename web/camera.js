@@ -20,9 +20,16 @@
 //  * The Vision upload endpoint needs an admin token; a restricted token gets a clear
 //    message while camera, voice and local boxes keep working.
 //  * Only one Vision run at a time; a second press is ignored.
+//  * "Muse folgt mir (Beta)" runs MediaPipe PoseLandmarker (lite, VIDEO mode) on the
+//    same video, about 12 times a second, only while the camera and that setting are
+//    on. It tries the GPU delegate first and falls back to the CPU when creating fails
+//    or three detections in a row throw. The landmarks go to the FollowTracker of
+//    follow.js, which the renderers sample; a failure only stops the following.
 //
 // The pure helpers are exported for the Node tests; the class is only built in the
 // browser, with all browser APIs injectable.
+
+import { FollowTracker, FOLLOW_MS, POSE_MODEL_URL } from "./follow.js";
 
 export const PERSON_MODEL_URL = "https://storage.googleapis.com/mediapipe-tasks/object_detector/efficientdet_lite0_uint8.tflite";
 export const VISION_JS_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/vision_bundle.mjs";
@@ -32,6 +39,7 @@ export const VISION_FOLDER = "media-source://media_source/local/muse-camera";
 const VISION_MS = 30000;
 const DETECT_MS = 500;
 const LUMA_MS = 2000;
+const POSE_FAILS = 3;
 
 // The German caption of the local detection.
 export function captionFor(count, state = "ready") {
@@ -279,6 +287,17 @@ export class Camera {
     this.lastDetect = 0;
     this.detectFails = 0;
     this.scratch = null;
+    // "Muse folgt mir": the tracker is always there (display.follow points at it); it
+    // only moves the figure while poses arrive.
+    this.followMe = false;
+    this.follow = opts.follow || new FollowTracker();
+    this.pose = null;
+    this.poseState = "idle"; // idle, loading, ready, failed
+    this.poseDelegate = "";
+    this.poseFails = 0;
+    this.poseTimer = null;
+    this.lastPoseAt = 0;
+    this.importVision = opts.importVision || (() => import(VISION_JS_URL));
     this.bind();
   }
 
@@ -329,6 +348,9 @@ export class Camera {
     if (!this.autoBrightness) this.stopLuma();
     else if (this.on && !this.lumaTimer) this.startLuma();
     this.startVisionAuto();
+    this.followMe = settings.followMe === true;
+    if (!this.followMe) this.stopFollow();
+    else if (this.on) this.startFollow();
     if (facingChanged && this.on) {
       this.stop();
       this.start({ quiet: true });
@@ -368,6 +390,7 @@ export class Camera {
       if (this.el.power) this.el.power.setAttribute("aria-pressed", "true");
       this.updateCaption();
       if (this.personBoxes) this.startDetection();
+      if (this.followMe) this.startFollow();
       if (this.autoBrightness && !this.hasLightSensor) this.startLuma();
       this.startVisionAuto();
       this.log(`camera on (${this.profile})`);
@@ -390,6 +413,7 @@ export class Camera {
     this.on = false;
     this.starting = false;
     this.clearTimers();
+    this.stopFollow();
     this.clearBoxes();
     this.stopLuma();
     if (this.el.power) this.el.power.setAttribute("aria-pressed", "false");
@@ -548,6 +572,108 @@ export class Camera {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
     this.persons = [];
+  }
+
+  // ------------------------------------------------------- Muse folgt mir --
+
+  async createPose(vision, fileset, delegate) {
+    return vision.PoseLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate },
+      runningMode: "VIDEO",
+      numPoses: 1,
+      minPoseDetectionConfidence: 0.5,
+      minPosePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+  }
+
+  async loadPose(delegate) {
+    const vision = await this.importVision();
+    const fileset = await vision.FilesetResolver.forVisionTasks(VISION_WASM_URL);
+    if (delegate === "GPU") {
+      try {
+        this.pose = await this.createPose(vision, fileset, "GPU");
+        this.poseDelegate = "GPU";
+        return;
+      } catch (err) {
+        this.log("pose GPU failed, trying CPU: " + (err && err.message ? err.message : err));
+      }
+    }
+    this.pose = await this.createPose(vision, fileset, "CPU");
+    this.poseDelegate = "CPU";
+  }
+
+  async startFollow() {
+    if (!this.followMe || !this.on) return;
+    if (this.poseState === "ready") {
+      this.armFollow();
+      return;
+    }
+    if (this.poseState === "loading" || this.poseState === "failed") return;
+    this.poseState = "loading";
+    try {
+      await this.loadPose("GPU");
+      this.poseState = "ready";
+      this.poseFails = 0;
+      this.log(`pose tracker ready (${this.poseDelegate})`);
+      if (this.followMe && this.on) this.armFollow();
+    } catch (err) {
+      this.poseState = "failed";
+      this.pose = null;
+      this.log("pose tracker failed: " + (err && err.message ? err.message : err));
+    }
+  }
+
+  armFollow() {
+    if (this.poseTimer) return;
+    this.poseTimer = setInterval(() => this.followStep(), FOLLOW_MS);
+  }
+
+  // Stops the pose frames and lets the figure glide back; the model stays loaded.
+  stopFollow() {
+    if (this.poseTimer) clearInterval(this.poseTimer);
+    this.poseTimer = null;
+    this.follow.release();
+  }
+
+  followStep() {
+    if (!this.on || !this.followMe || !this.pose || typeof document === "undefined" || document.hidden) return;
+    const video = this.el.video;
+    if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+    const at = this.now();
+    if (at <= this.lastPoseAt) return; // VIDEO mode needs rising timestamps
+    this.lastPoseAt = at;
+    try {
+      const result = this.pose.detectForVideo(video, at);
+      const landmarks = result && result.landmarks && result.landmarks[0] ? result.landmarks[0] : null;
+      this.poseFails = 0;
+      this.follow.observe(landmarks, at, this.facing === "user");
+    } catch (err) {
+      this.poseFails++;
+      this.log("pose failed: " + (err && err.message ? err.message : err));
+      if (this.poseFails < POSE_FAILS) return;
+      const wasGpu = this.poseDelegate === "GPU";
+      if (this.poseTimer) clearInterval(this.poseTimer);
+      this.poseTimer = null;
+      try { this.pose?.close?.(); } catch { /* ignore */ }
+      this.pose = null;
+      this.follow.release();
+      if (!wasGpu) {
+        this.poseState = "failed";
+        return;
+      }
+      // The GPU delegate broke at run time (a lost WebGL context): once more on the CPU.
+      this.poseState = "loading";
+      this.loadPose("CPU").then(() => {
+        this.poseState = "ready";
+        this.poseFails = 0;
+        this.log("pose tracker on CPU");
+        if (this.followMe && this.on) this.armFollow();
+      }).catch((e) => {
+        this.poseState = "failed";
+        this.log("pose tracker failed: " + (e && e.message ? e.message : e));
+      });
+    }
   }
 
   // --------------------------------------------------------------- luma --
