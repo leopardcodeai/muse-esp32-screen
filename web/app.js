@@ -33,6 +33,7 @@ import { TabletRail, railWidth, railSide } from "./tablet.js";
 import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY } from "./camera.js";
 import { Voice } from "./voice.js";
 import { Sensors } from "./sensors.js";
+import { RemoteLog } from "./remotelog.js";
 import { applyTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
@@ -82,7 +83,21 @@ const themeColor = document.querySelector('meta[name="theme-color"]');
 if (themeColor) themeColor.content = theme === "dark" ? "#000000" : "#f3f3f3";
 const fonts = () => (square ? [...allFonts(), ...squareFonts()] : allFonts());
 
-const log = (line) => console.info("[muse] " + line);
+// The log goes to the console and, while HA is connected, to HA's logbook under this
+// panel's name (remotelog.js); `bin/lch tab_logs` reads it back.
+const remoteLog = new RemoteLog({
+  send: (_name, message) => (ha
+    ? ha.callService("logbook", "log", {
+      name: `Muse Web ${settings.device || ""}${tablet ? " (" + tabletProfile + ")" : ""}`.trim(),
+      message, domain: "muse_web",
+    })
+    : Promise.reject(new Error("no HA"))),
+});
+const log = (line) => {
+  console.info("[muse] " + line);
+  remoteLog.line(line);
+};
+setInterval(() => remoteLog.flush(!demoMode && display.connection === "on"), 5000);
 const renderer = new Renderer(canvas, { width: LW, height: LH });
 const figure = new FigureSource({ placeholder: new Figure(), log });
 figure.dark = theme === "dark" && !figureCard;
