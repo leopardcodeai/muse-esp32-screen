@@ -11,6 +11,16 @@
 export const LIMIT_PER_MINUTE = 40;
 export const MAX_QUEUE = 200;
 
+// Drops URL queries and fragments, bearer tokens and JWTs: a line may echo an address
+// that carries an access token.
+export function scrub(raw) {
+  return String(raw)
+    .replace(/([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s?#]*)[?#][^\s)"']*/g, "$1?…")
+    .replace(/(bearer\s+)[A-Za-z0-9._~+/=-]+/gi, "$1…")
+    .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "…")
+    .replace(/(access_token|token|auth|code|signature|authSig)=[^&\s]+/gi, "$1=…");
+}
+
 export class RemoteLog {
   constructor(opts = {}) {
     this.send = opts.send || (async () => {}); // (name, message) => Promise
@@ -36,7 +46,7 @@ export class RemoteLog {
     this.sentThisMinute++;
     const prefix = this.dropped > 0 ? `(${this.dropped} Zeilen ausgelassen) ` : "";
     this.dropped = 0;
-    this.queue.push((prefix + String(text)).slice(0, 250));
+    this.queue.push((prefix + scrub(text)).slice(0, 250));
     if (this.queue.length > MAX_QUEUE) this.queue.splice(0, this.queue.length - MAX_QUEUE);
     return true;
   }

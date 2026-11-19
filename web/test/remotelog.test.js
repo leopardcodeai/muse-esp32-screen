@@ -2,7 +2,7 @@
 // and waits while HA is away.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RemoteLog, LIMIT_PER_MINUTE } from "../remotelog.js";
+import { RemoteLog, LIMIT_PER_MINUTE, scrub } from "../remotelog.js";
 
 function make() {
   const clock = { t: 1000000 };
@@ -51,4 +51,11 @@ test("a loop is capped per minute and the gap is reported", async () => {
   log.line("after");
   await log.flush(true);
   assert.equal(sent.at(-1)[1], "(5 Zeilen ausgelassen) after");
+});
+
+test("no token or URL query leaves in a log line", () => {
+  assert.equal(scrub("load https://h:8322/?token=abc&x=1 failed"), "load https://h:8322/?… failed");
+  assert.equal(scrub("Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc"), "Bearer …");
+  assert.equal(scrub("x access_token=zzz y"), "x access_token=… y");
+  assert.equal(scrub("plain"), "plain");
 });
