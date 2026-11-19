@@ -5,6 +5,7 @@ local/
 figure/
 frames/
 muse_*.png
+muse_*.webp
 *.apng
 # Files the Vercel CLI may write (vercel link pulls a short-lived OIDC token into .env.local).
 .env*

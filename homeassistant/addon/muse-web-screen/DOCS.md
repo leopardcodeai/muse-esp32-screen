@@ -56,7 +56,12 @@ In Finder: **Go → Connect to Server →** `smb://homeassistant.local`, then us
 | this `muse_web_screen/` folder | `/addons/muse_web_screen/` |
 
 Copy `web/local/` only if you use your own figure frames. That folder is Meta's artwork
-or your own; it stays private and is never committed to the repository. Do **not** copy
+or your own; it stays private and is never committed to the repository. With the compact
+`muse_*.webp` sheets and `muse_start.webp` beside the PNGs (`tools/make_figure_sheets.py`)
+a cold start loads about 2 MB instead of about 30 MB. Your own app icon: put
+`icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` into
+`/config/www/muse-web/icons/` in place of the neutral ones (`tools/make_web_icons.py --own
+<your square icon>` writes them to `web/local/icons/`). Do **not** copy
 the certificate or key into `/config/www`; they belong in `/ssl`.
 
 ## 3. Install and start the add-on

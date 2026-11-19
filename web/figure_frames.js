@@ -15,6 +15,14 @@
 // leaves the place empty and says so in the log and in the settings. The blue figure of
 // the project (figure-default/, up to 1.8.20) is gone.
 //
+// Each pose is one file, tried in FIGURE_FORMATS order: first the compact sheet WebP
+// (figure_sheet.js, about 300 KB a pose), then the animated PNG (5 to 6 MB), so a folder
+// from before 1.8.23 still works. Beside them a set may have a start pose,
+// muse_start.webp: one still of idle, a few KB, requested together with idle. It stands
+// in for idle (and every pose that borrows idle) until idle's own frames are decoded, so
+// a cold start draws the figure in its first frame; the animated idle then replaces it.
+// A folder without a start pose simply waits for idle, as before.
+//
 // Every set is played as the box plays it: ping-pong one step per 160 ms in a scene and
 // 200 ms on the cards, confetti once, the avatar as a still.
 //
@@ -33,10 +41,14 @@
 //    this machine (http://127.0.0.1, http://localhost); Chrome and Edge then ask once
 //    whether the page may reach this device (Local Network Access).
 import { Figure, SIZE, AVATAR, STEP_MS, pingPongStep, onceStep, neutralTone } from "./figure.js";
-import { decodeApng } from "./apng.js";
+import { decodeFigure } from "./figure_sheet.js";
 import { css } from "./render.js";
 
 export const FIGURE_NAMES = ["idle", "wave", "working", "making", "confetti", "avatar"];
+// The file types of one pose, in the order they are tried: the compact sheet first.
+export const FIGURE_FORMATS = Object.freeze(["webp", "png"]);
+// The start pose: one still of idle, drawn until idle's own frames are decoded.
+export const START_POSE = "start";
 // The owner's figure folder beside the page (the add-on and the Mac's local server).
 export const DEFAULT_FOLDER = "./local";
 // How long an empty figure place stays plain before the loading dot appears: a figure
@@ -51,13 +63,20 @@ export const SAME_SET = Object.freeze({
 
 // The URL of one picture in folder `base`; the dark theme has the same six files under
 // base/dark, their page faded to black (tools/make_figure_dark.py).
-export function frameUrl(base, name, dark = false) {
-  return `${String(base || "").trim().replace(/\/+$/, "")}${dark ? "/dark" : ""}/muse_${name}.png`;
+export function frameUrl(base, name, dark = false, format = "png") {
+  return `${String(base || "").trim().replace(/\/+$/, "")}${dark ? "/dark" : ""}/muse_${name}.${format}`;
+}
+
+// Every URL pose `name` may come from, in the order they are tried: each format of the
+// theme's folder; the avatar in the dark theme tries the light folder first.
+export function poseUrls(base, name, dark = false, formats = FIGURE_FORMATS) {
+  const themes = name === "avatar" && dark ? [false, true] : [dark];
+  return themes.flatMap((d) => formats.map((f) => frameUrl(base, name, d, f)));
 }
 
 // The fetch options of one picture: idle first, since the ready screen shows it.
 export function fetchOptions(name) {
-  return { mode: "cors", cache: "no-cache", credentials: "omit", priority: name === "idle" ? "high" : "auto" };
+  return { mode: "cors", cache: "no-cache", credentials: "omit", priority: name === "idle" || name === START_POSE ? "high" : "auto" };
 }
 
 // The two frames and the mix between them at time t, for a smooth 60 fps draw of a
@@ -95,7 +114,10 @@ export function pulseAlpha(ms) {
 }
 
 export class FigureSource {
-  constructor({ placeholder = new Figure(), fetchImpl, decode = decodeApng, log = () => {}, now } = {}) {
+  constructor({ placeholder = new Figure(), fetchImpl, decode = decodeFigure, log = () => {}, now,
+    formats = FIGURE_FORMATS, startPose = true } = {}) {
+    this.formats = formats; // the file types tried for every pose, in order
+    this.startPose = startPose; // request <folder>/muse_start.webp beside idle
     this.placeholder = placeholder; // the neutral figure drawn in code, public page only
     this.fetchImpl = fetchImpl || ((url, opts) => fetch(url, opts));
     this.decode = decode;
@@ -106,6 +128,7 @@ export class FigureSource {
     this.name = ""; // the style's name, for describe()
     this.dark = false; // load base/dark (the black-page copies) instead of base
     this.frames = new Map(); // name -> [ImageBitmap] of the chosen set
+    this.starting = false; // idle is still the start pose's single still
     this.failed = [];
     this.loading = false;
     this.loadingSince = 0;
@@ -176,10 +199,11 @@ export class FigureSource {
 
   // Fetches and decodes one picture, with one retry: six requests at once against a
   // small local server lost one now and then ("Failed to fetch", 08.10.2026).
-  // `onBytes` is called once the file has arrived (or failed), before it is decoded.
+  // `onBytes(ok)` is called once the file has arrived (or failed), before it is decoded.
   async fetchOne(url, opts, onBytes = () => {}) {
     const get = () => this.fetchImpl(url, opts);
     let bytes;
+    let ok = false;
     try {
       let res;
       try {
@@ -190,8 +214,9 @@ export class FigureSource {
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       bytes = new Uint8Array(await res.arrayBuffer());
+      ok = true;
     } finally {
-      onBytes();
+      onBytes(ok);
     }
     const frames = await this.decode(bytes);
     if (!frames || !frames.length) throw new Error("no frames");
@@ -208,6 +233,7 @@ export class FigureSource {
     this.url = String(url || "").trim();
     this.name = String(name || "").trim();
     this.frames = new Map();
+    this.starting = false;
     this.failed = [];
     this.version++;
     if (!this.url) {
@@ -228,18 +254,40 @@ export class FigureSource {
       const timer = setTimeout(resolve, IDLE_HEAD_START_MS);
       if (timer && timer.unref) timer.unref();
     });
+    const started = this.loadingSince;
+    // The start pose: a tiny still of idle, asked for together with idle. It only counts
+    // while idle's own frames are not there; a folder without one costs one 404.
+    const start = this.startPose ? (async () => {
+      try {
+        const frames = await this.fetchOne(frameUrl(base, START_POSE, dark, "webp"), fetchOptions(START_POSE));
+        if (serial !== this.serial || this.frames.has("idle")) return;
+        this.frames.set("idle", frames.slice(0, 1));
+        this.starting = true;
+        this.version++;
+        this.log(`figure start pose ready after ${Math.round(this.now() - started)} ms`);
+        this.notify();
+      } catch {
+        // no start pose in this folder: idle itself is the first picture
+      }
+    })() : null;
     await Promise.all(FIGURE_NAMES.map(async (name) => {
       if (name !== "idle" && name !== "avatar") await idleGate;
       if (serial !== this.serial) return;
       // The small card avatar stays light in the dark theme, like the question view in
       // the light theme; its dark copy is only the fallback.
-      const urls = name === "avatar" && dark ? [frameUrl(base, name, false), frameUrl(base, name, true)] : [frameUrl(base, name, dark)];
+      const urls = poseUrls(base, name, dark, this.formats);
       let error = null;
-      for (const u of urls) {
+      for (const [k, u] of urls.entries()) {
+        const last = k === urls.length - 1;
+        const onBytes = name === "idle" ? (ok) => { if (ok || last) idleArrived(); } : undefined;
         try {
-          const frames = await this.fetchOne(u, fetchOptions(name), name === "idle" ? idleArrived : undefined);
+          const frames = await this.fetchOne(u, fetchOptions(name), onBytes);
           if (serial !== this.serial) return;
           this.frames.set(name, frames);
+          if (name === "idle") {
+            if (this.starting) this.log(`figure idle animated after ${Math.round(this.now() - started)} ms (${frames.length} frames)`);
+            this.starting = false;
+          }
           this.version++;
           this.notify();
           return;
@@ -249,8 +297,10 @@ export class FigureSource {
       }
       if (serial !== this.serial) return;
       this.failed.push(name);
-      this.log(`figure ${name} not loaded from ${urls[0]}: ${error ? error.message : "no frames"}`);
+      const tried = urls.length > 1 ? ` (after ${urls.length - 1} other file${urls.length > 2 ? "s" : ""})` : "";
+      this.log(`figure ${name} not loaded from ${urls[urls.length - 1]}${tried}: ${error ? error.message : "no frames"}`);
     }));
+    if (start) await start;
     if (serial !== this.serial) return { loaded: 0, failed: [], stale: true };
     this.failed.sort((a, b) => FIGURE_NAMES.indexOf(a) - FIGURE_NAMES.indexOf(b));
     this.loading = false;

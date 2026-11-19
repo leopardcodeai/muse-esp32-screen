@@ -5,14 +5,20 @@ What: cuts the Hatch*.mp4 animations of /Applications/Muse.app at their own 24 f
   animated PNGs of SIZE x SIZE for web/local/muse_<name>.png, faded into the page colour
   by the squircle vignette of make_muse_assets.py, then writes the dark set to
   web/local/dark through make_figure_dark.py. The avatar is left alone (it is a still).
+  Last, make_figure_sheets.py turns both sets into the compact WebP sheets the page loads
+  first (muse_<name>.webp, about 300 KB a pose instead of 5 to 6 MB) and writes the start
+  pose muse_start.webp (idle's first frame, a few KB); the PNGs stay as the fallback.
 Why: the first web set was 280 px at 15 fps with 48 frames, sampled down from the
   24 fps originals; the figure moved in visible steps on the tablet (owner, 19.11.2026:
   "Muse smoother"). Meta publishes no other source; the app's own videos (512 px,
-  24 fps) are the best there is, so every original frame is kept.
+  24 fps) are the best there is, so every original frame is kept. Since Web 1.8.23
+  (19.11.2026, "schnell laden und eine schnelle start pose") the page loads the WebP
+  sheets, so the frame count no longer costs seconds on a cold start.
 Usage:
   uv run --python 3.14 --with pillow --with numpy tools/make_muse_web.py            # build what is missing
   uv run --python 3.14 --with pillow --with numpy tools/make_muse_web.py --force    # rebuild everything
   uv run --python 3.14 --with pillow --with numpy tools/make_muse_web.py --dry-run  # show the plan
+  uv run --python 3.14 --with pillow --with numpy tools/make_muse_web.py --sheets   # only the WebP sheets
 Pitfalls:
   * Meta's artwork: web/local is ignored by git and Vercel and must never be published.
   * Memory: the page decodes every frame. SIZE 320 and about 3 s per clip keep one clip
@@ -72,13 +78,29 @@ def build(force, dry):
     if built or force:
         run([sys.executable, str(HERE / "make_figure_dark.py"),
              "--src", str(OUT), "--out", str(OUT / "dark"), "--prefix", "muse_"], dry)
+    sheets(built or force or missing_sheets(), dry)
+
+
+def missing_sheets():
+    return any(not (OUT / d / f"muse_{n}.webp").exists() for d in ("", "dark") for n in (*ANIMATIONS, "avatar"))
+
+
+def sheets(needed, dry):
+    if not needed:
+        print("sheets: present")
+        return
+    run([sys.executable, str(HERE / "make_figure_sheets.py"), "--src", str(OUT), "--prefix", "muse_"], dry)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--force", action="store_true", help="rebuild everything")
     ap.add_argument("--dry-run", action="store_true", help="show the plan, write nothing")
+    ap.add_argument("--sheets", action="store_true", help="only (re)write the WebP sheets and the start pose")
     args = ap.parse_args()
+    if args.sheets:
+        sheets(True, args.dry_run)
+        return 0
     if not SOURCE.exists():
         print(f"missing {SOURCE}: install the Muse app", file=sys.stderr)
         return 1

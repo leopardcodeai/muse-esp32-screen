@@ -4,6 +4,8 @@
 // pictures requested at once with idle first, and each pose drawn as soon as it is decoded.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+// The loading order of a folder from before 1.8.23: animated PNGs only, no start pose.
+const PNG_ONLY = Object.freeze({ formats: ["png"], startPose: false });
 import {
   FigureSource, FIGURE_NAMES, frameUrl, frameBlend, fetchOptions, pulseAlpha, PULSE_DELAY_MS, SAME_SET,
 } from "../figure_frames.js";
@@ -63,7 +65,7 @@ function drawRecorder() {
 
 test("before use() the source draws nothing at all, not even the placeholder", () => {
   const calls = [];
-  const src = new FigureSource({ placeholder: { smooth: false, draw: (...a) => calls.push(a[1]) } });
+  const src = new FigureSource({ ...PNG_ONLY,  placeholder: { smooth: false, draw: (...a) => calls.push(a[1]) } });
   const { r, drawn } = drawRecorder();
   src.draw(r, "idle", 0, 80, 30);
   src.draw(r, "avatar", 0, 12, 32);
@@ -76,7 +78,7 @@ test("a screen with a folder: idle first and high, the rest once idle is in; the
   const calls = [];
   let clock = 0;
   const gate = gatedFetch();
-  const src = new FigureSource({
+  const src = new FigureSource({ ...PNG_ONLY,
     placeholder: { smooth: false, draw: (...a) => calls.push(a[1]) },
     fetchImpl: gate.fetchImpl, decode: decodeUrl, now: () => clock,
   });
@@ -125,7 +127,7 @@ test("a screen with a folder: idle first and high, the rest once idle is in; the
 test("a set that fails completely leaves the place empty and still; nothing stands in", async () => {
   const calls = [];
   const lines = [];
-  const src = new FigureSource({
+  const src = new FigureSource({ ...PNG_ONLY,
     placeholder: { smooth: false, draw: (...a) => calls.push(a[1]) },
     fetchImpl: async () => ({ ok: false, status: 404 }),
     decode: decodeUrl, log: (l) => lines.push(l), now: () => 10000,
@@ -143,7 +145,7 @@ test("a set that fails completely leaves the place empty and still; nothing stan
 
 test("the dark theme takes the light avatar, its dark copy only as the fallback", async () => {
   const asked = [];
-  const src = new FigureSource({
+  const src = new FigureSource({ ...PNG_ONLY,
     fetchImpl: async (url) => {
       asked.push(url);
       if (url === "./local/muse_avatar.png") return { ok: false, status: 404 };
@@ -161,7 +163,7 @@ test("the dark theme takes the light avatar, its dark copy only as the fallback"
 test("a later use() makes the earlier one stale; use('') is the neutral placeholder", async () => {
   const gate = gatedFetch();
   const calls = [];
-  const src = new FigureSource({ placeholder: { smooth: true, draw: (...a) => calls.push(a[1]) }, fetchImpl: gate.fetchImpl, decode: decodeUrl });
+  const src = new FigureSource({ ...PNG_ONLY,  placeholder: { smooth: true, draw: (...a) => calls.push(a[1]) }, fetchImpl: gate.fetchImpl, decode: decodeUrl });
   const first = src.use("./local");
   const second = src.use("");
   assert.equal(src.mode, "placeholder");
@@ -180,7 +182,7 @@ test("a later use() makes the earlier one stale; use('') is the neutral placehol
 
 test("loadDefault() is kept for the camera add-on and loads nothing", async () => {
   const asked = [];
-  const src = new FigureSource({ fetchImpl: async (u) => { asked.push(u); return { ok: false }; } });
+  const src = new FigureSource({ ...PNG_ONLY,  fetchImpl: async (u) => { asked.push(u); return { ok: false }; } });
   assert.deepEqual(await src.loadDefault("/web/figure-default"), { loaded: 0, failed: [] });
   assert.deepEqual(asked, []);
   assert.equal(src.mode, "none", "still nothing chosen: nothing drawn until use()");

@@ -258,6 +258,10 @@ A web screen with a figure folder (settings: Figur, Eigene Figur, Bilderordner; 
 on the Home Assistant add-on and the Mac) plays one **figure style**, a set of six animated
 PNGs: `muse_idle.png`, `muse_wave.png`, `muse_working.png`, `muse_making.png`,
 `muse_confetti.png`, `muse_avatar.png`, and the same six under `dark/` for the dark theme.
+Since Web 1.8.23 the page first asks for `muse_<name>.webp`, the same frames as one compact
+WebP sheet (about 300 KB instead of 5 to 6 MB; `tools/make_figure_sheets.py --src <folder>`
+writes them from the PNGs), and for `muse_start.webp`, a single still of idle that is drawn
+in the very first frame until the animated idle is decoded; the PNGs stay the fallback.
 Today there is one, **Muse**, the files directly in the folder. Another style is a
 subfolder plus one line in `figures.json` in the same folder:
 

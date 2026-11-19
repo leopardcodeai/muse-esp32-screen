@@ -5,6 +5,8 @@
 // the set fails.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+// The loading order of a folder from before 1.8.23: animated PNGs only, no start pose.
+const PNG_ONLY = Object.freeze({ formats: ["png"], startPose: false });
 import { readFileSync } from "node:fs";
 import {
   BUILTIN_STYLES, DEFAULT_STYLE, cleanStyleId, cleanStylePath, parseManifest, mergeStyles, pickStyle,
@@ -106,7 +108,7 @@ test("figurePlan(): a folder means the chosen style; no folder or ?figure=placeh
 
 // A FigureSource whose fetch answers from a table: url -> true (a picture) or false (404).
 function sourceWith(files, asked = []) {
-  return new FigureSource({
+  return new FigureSource({ ...PNG_ONLY,
     fetchImpl: async (url) => {
       asked.push(url);
       if (url.endsWith("figures.json")) {
@@ -182,7 +184,7 @@ test("home gives nothing: the folder for away; both give nothing: an empty place
 test("a later choice wins over one still waiting for its manifest", async () => {
   let release;
   const gate = new Promise((r) => { release = r; });
-  const src = new FigureSource({
+  const src = new FigureSource({ ...PNG_ONLY,
     fetchImpl: async (url) => {
       if (url.endsWith("figures.json")) {
         await gate;

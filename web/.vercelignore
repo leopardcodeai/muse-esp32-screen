@@ -12,6 +12,7 @@
 
 # Never, wherever it sits: the owner's figure frames and any local frame folder.
 muse_*.png
+muse_*.webp
 *.apng
 local/
 figure/

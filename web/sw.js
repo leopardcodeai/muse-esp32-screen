@@ -10,32 +10,29 @@
 // seen on the next visit. The project ships no figure pictures any more (its blue figure
 // folder was removed on 19.11.2026); the owner's figure under ./local is kept
 // in this cache, see PRIVATE below. Frames from another origin are left alone.
-const VERSION = "muse-web-screen-1.8.22";
+const VERSION = "muse-web-screen-1.8.23";
 const RUNTIME = "muse-web-runtime-1.7.0";
 const SHELL = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./app.js", "./display.js", "./cards.js", "./draw.js", "./render.js", "./figure.js", "./scene.js", "./icons.js",
   "./particles.js", "./text.js", "./tables.js", "./queue.js", "./timers.js", "./weather.js", "./media.js",
-  "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_frames.js", "./figure_styles.js",
+  "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_sheet.js", "./figure_frames.js", "./figure_styles.js",
   "./square.js", "./theme.js", "./tablet.js", "./camera.js", "./voice.js", "./sensors.js", "./pcm.js", "./pcm-worklet.js", "./remotelog.js", "./textask.js", "./composer.js", "./follow.js", "./motion.js", "./gestures.js",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
 ];
 
 // The owner's Muse figure is private and lives under /local; it is not in the public
 // shell list, but an installed app must still show it when the LAN address is gone.
-// Each file is optional: on the public site the requests 404 and are skipped. Other
-// figure styles (./local/<style>/muse_*.png, named in ./local/figures.json) are cached
-// the first time they are shown.
-const PRIVATE = [
-  "./local/muse_idle.png", "./local/muse_wave.png", "./local/muse_working.png",
-  "./local/muse_making.png", "./local/muse_confetti.png", "./local/muse_avatar.png",
-  "./local/dark/muse_idle.png", "./local/dark/muse_wave.png", "./local/dark/muse_working.png",
-  "./local/dark/muse_making.png", "./local/dark/muse_confetti.png", "./local/dark/muse_avatar.png",
-];
+// Each file is optional: on the public site the requests 404 and are skipped. Since
+// 1.8.23 these are the compact sheet WebPs and the start pose (figure_sheet.js); a folder
+// that still has only the animated PNGs gets them cached on first use, like other
+// figure styles (./local/<style>/muse_*, named in ./local/figures.json).
+const PRIVATE = ["", "dark/"].flatMap((d) => ["start", "idle", "wave", "working", "making", "confetti", "avatar"]
+  .map((n) => `./local/${d}muse_${n}.webp`));
 
-// A picture of a figure style under ./local: ./local/muse_idle.png,
-// ./local/dark/muse_idle.png, ./local/winter/muse_idle.png, ./local/winter/dark/...
-const FIGURE_FRAME = /^\.\/local\/(?:[a-z0-9][a-z0-9_-]*\/){0,3}muse_[a-z]+\.png$/i;
+// A picture of a figure style under ./local: ./local/muse_idle.webp or .png,
+// ./local/dark/muse_start.webp, ./local/winter/muse_idle.webp, ./local/winter/dark/...
+const FIGURE_FRAME = /^\.\/local\/(?:[a-z0-9][a-z0-9_-]*\/){0,3}muse_[a-z]+\.(?:png|webp)$/i;
 function isFigureFrame(rel) {
   return FIGURE_FRAME.test(rel);
 }
