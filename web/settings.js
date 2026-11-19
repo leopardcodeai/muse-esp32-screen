@@ -10,8 +10,11 @@
 //    stored by an earlier version are kept.
 import { DEFAULT_DEVICE } from "./ha.js";
 import { normaliseFps, DEFAULT_FPS } from "./pace.js";
+import { DEFAULT_STYLE, cleanStyleId } from "./figure_styles.js";
 
 export const SETTINGS_KEY = "muse-web-settings";
+// "url": a figure style from the folder `figureUrl` (figure_styles.js, `figureStyle`);
+// "placeholder": the neutral placeholder drawn in code, for the public page only.
 export const FIGURE_SOURCES = ["placeholder", "url"];
 // "box": the box's 320 x 240; "square": 480 x 480 (docs/SQUARE_LAYOUT.md, square.js);
 // "tablet": the same 480 x 480 canvas at full height beside a control rail (tablet.js).
@@ -32,7 +35,7 @@ export const LOOKS = ["auto", "ios", "classic"];
 export const LAYOUT_VERSION = 2;
 export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
-  fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", bare: false, layout: "square",
+  fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", figureStyle: DEFAULT_STYLE, bare: false, layout: "square",
   theme: "auto", look: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
   tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
   autoBrightness: true, followMe: false, mimicMe: null, autoMotion: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
@@ -52,6 +55,8 @@ export function loadSettings(storage) {
   s.device = String(s.device || "").trim() || DEFAULT_DEVICE;
   s.fps = normaliseFps(s.fps);
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
+  s.figureUrl = String(s.figureUrl || "").trim();
+  s.figureStyle = cleanStyleId(s.figureStyle) || DEFAULTS.figureStyle;
   s.bare = s.bare === true;
   s.pixel = s.pixel === true;
   for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "followMe", "autoMotion", "vision", "visionAuto"]) {
@@ -211,7 +216,7 @@ export function updateWanted(current, server, idle) {
 // "listening" ...) belongs to the moment it was sent; restoring it replayed an old
 // "Prüfe Dyson …" on every start (19.11.2026). Only content is restored; a motion
 // (animate) belongs to its moment too.
-export const TRANSIENT_ACTIONS = ["set_status", "set_status_text", "reload", "camera", "camera_mode", "photo", "vision", "animate"];
+export const TRANSIENT_ACTIONS = ["set_status", "set_status_text", "reload", "camera", "camera_mode", "photo", "vision", "animate", "figure_style"];
 export function restorable(action) {
   return Boolean(action) && !TRANSIENT_ACTIONS.includes(String(action));
 }

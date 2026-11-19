@@ -4,8 +4,9 @@
 What: scans every tracked or untracked text file of the project for patterns of personal
   data (private IP ranges, Tailscale names, tokens, e-mail addresses, the owner's house
   names) and for files that must never leave the house (firmware/secrets.yaml, Meta's
-  Muse artwork in firmware/figure/ or web/figure-default/, which is recognised by its
-  checksums not matching the project's own figure). Exit code 1 means: do not push.
+  Muse artwork in firmware/figure/, which is recognised by its checksums not matching the
+  project's own figure, and any picture in web/ outside web/icons/: the web app ships no
+  figure set of its own). Exit code 1 means: do not push.
 Why: the firmware grew up in a real house; names, addresses and tokens crept into
   comments and examples more than once. A check that runs before every push is cheaper
   than a leaked token.
@@ -39,6 +40,7 @@ PATTERNS = [
     ("Spotify client id", re.compile(r"\b[0-9a-f]{32}\b(?=.*(?:client|spotify))", re.I)),
 ]
 MUST_NOT_EXIST = ["firmware/secrets.yaml"]
+WEB_PICTURES = {".png", ".apng", ".gif", ".webp", ".jpg", ".jpeg", ".avif"}
 
 
 def tracked_files():
@@ -74,13 +76,15 @@ def main():
         for name, digest in figure_checksums().items():
             if known.get(name) != digest:
                 findings.append(f"firmware/figure/{name}: not the project's figure (Meta's artwork? never publish it)")
-        # The web app's copy of the figure is deployed: it must be the same six files.
-        tracked = set(tracked_files())
-        for path in sorted((ROOT / "web" / "figure-default").glob("*")):
-            if path in tracked and known.get(path.name) != hashlib.sha256(path.read_bytes()).hexdigest():
-                findings.append(f"web/figure-default/{path.name}: not the project's figure (copy firmware/figure/)")
     else:
         findings.append("tools/figure_checksums.txt missing: run --record-figure after tools/make_figure.py")
+    # The web app ships no figure pictures since 19.11.2026: its figure styles come from the
+    # owner's ignored web/local/ at run time. Any picture in web/ outside the app icons is
+    # refused, so neither Meta's artwork nor a copied figure set slips into a deployment.
+    for path in tracked_files():
+        rel = path.relative_to(ROOT).as_posix()
+        if rel.startswith("web/") and not rel.startswith("web/icons/") and path.suffix.lower() in WEB_PICTURES:
+            findings.append(f"{rel}: a picture in web/ (figure sets belong in the ignored web/local/, never in git)")
     for path in tracked_files():
         if path.suffix.lower() not in TEXT_SUFFIXES or not path.exists():
             continue

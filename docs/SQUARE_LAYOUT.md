@@ -22,8 +22,9 @@ one; a renderer that differs from it is wrong, not the file.
   „Ich antworte …", error `#FF453A` „Da ging etwas schief", off `#8E8E93` „Ruhe".
 - Fonts: Inter Medium (500), Bold (700), ExtraBold (800); Material Design Icons 7.4.47 for event and
   weather glyphs (same code points as `EVENTS` in `web/tables.js`).
-- Figure: the project's own frames in `web/figure-default/` (idle, wave, working, making,
-  confetti, avatar). Pose per status: ready idle, listening wave, thinking working, speaking
+- Figure: the six frames of the chosen figure style (idle, wave, working, making,
+  confetti, avatar; on the web screen from the owner's folder, `web/local/` or the camera
+  add-on's `/figure`; the box's firmware embeds its own). Pose per status: ready idle, listening wave, thinking working, speaking
   making, error idle, off idle at 40 % opacity; celebrate confetti. Meta's Muse frames are never
   part of a commit or an image; they come only from a local folder at run time.
 

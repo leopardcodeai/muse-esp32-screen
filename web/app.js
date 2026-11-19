@@ -17,10 +17,15 @@
 //    (detail true or false; `?tile=1` for a local check). Only the tablet layout listens:
 //    the canvas then draws its tile picture (square.js TILE) and the rail's invisible
 //    work rests (setTile below).
+//  * The figure loads first: useFigure() runs while the module is evaluated, before the
+//    fonts, and the first frame waits up to FIRST_PAINT_WAIT_MS for the idle pictures.
+//    A screen with a figure folder shows its chosen style or an empty place, never the
+//    neutral placeholder (figure_frames.js); a set that fails is retried later.
 import { Renderer, allFonts, W, H } from "./render.js";
 import { SQUARE_W, SQUARE_H, squareFonts, setFigureCard } from "./square.js";
 import { Figure } from "./figure.js";
-import { FigureSource, FIGURE_NAMES } from "./figure_frames.js";
+import { FigureSource } from "./figure_frames.js";
+import { figurePlan, loadChosenFigure, loadStyles, parseStyleChoice, mergeStyles, DEFAULT_STYLE } from "./figure_styles.js";
 import { WeatherIcons } from "./weather.js";
 import { MediaOverlay } from "./media.js";
 import { Display, VERSION } from "./display.js";
@@ -63,8 +68,8 @@ function storage() {
 }
 let settings = loadSettings(storage());
 // The HA add-on is the Muse screen: its default character is the owner's Muse figure in
-// ./local, not the project's public placeholder. The migration runs once per browser
-// and never touches the public Vercel demo or an explicit figure URL.
+// ./local (figure style "Muse"), not the public placeholder. The migration runs once per
+// browser and never touches the public Vercel demo or an explicit figure URL.
 const addonOrigin = location.port === "8322" || location.pathname.startsWith("/local/muse-web/");
 if (addonOrigin && !settings.figureVersion) {
   settings.figureVersion = 1;
@@ -436,6 +441,31 @@ async function screenAction(action, fields) {
     camera.setOptions(settings);
     if (on && !settings.camera) setCameraMode(true);
     log(`follow me ${on ? "on" : "off"}`);
+    return true;
+  }
+  if (action === "figure_style") {
+    // The figure style from HA: a style of the folder's figures.json by id or name
+    // ("muse", "Muse"), or "placeholder" for the neutral placeholder. Stored as a setting.
+    const wanted = fields.style ?? fields.name ?? fields.mode ?? "";
+    figureStyles = await loadStyles(settings.figureUrl);
+    const choice = parseStyleChoice(wanted, figureStyles);
+    if (choice.unknown !== undefined) {
+      log(`figure_style: unknown style '${wanted}' (${figureStyles.map((s) => s.id).join(", ")}, placeholder)`);
+      return true;
+    }
+    if (choice.placeholder) {
+      settings.figureSource = "placeholder";
+    } else if (!settings.figureUrl) {
+      log("figure_style: this screen has no figure folder (Einstellungen, Figur, Bilderordner)");
+      return true;
+    } else {
+      if (choice.unlisted) log(`figure_style: '${choice.id}' is not in the folder's figures.json yet; the figure shows Muse until it is`);
+      settings.figureSource = "url";
+      settings.figureStyle = choice.id;
+    }
+    saveSettings(storage(), settings);
+    log(`figure style ${choice.placeholder ? "placeholder" : choice.id}`);
+    await useFigure();
     return true;
   }
   if (action === "camera_mode") {
@@ -821,7 +851,7 @@ function applyAction({ action, fields = {} }) {
   lastActionKey = key;
   lastActionAt = now;
   log(`action ${action} ${JSON.stringify(fields).slice(0, 120)}`);
-  if (["camera", "camera_mode", "photo", "vision", "reload", "follow"].includes(action)) {
+  if (["camera", "camera_mode", "photo", "vision", "reload", "follow", "figure_style"].includes(action)) {
     screenAction(action, fields).then(() => render());
     return;
   }
@@ -867,34 +897,80 @@ async function restoreLast() {
 // ---------------------------------------------------------------- figure --
 
 const figureStatus = $("figure-status");
-// The project's figure (figure-default/) loads once at the start; until it is there the
-// figure drawn in code stands in.
-async function loadDefaultFigure() {
-  const r = await figure.loadDefault();
-  if (r.failed.length) log(`project figure: ${r.loaded} of ${FIGURE_NAMES.length} loaded, missing ${r.failed.join(", ")}`);
-  if (settings.figureSource !== "url") figureStatus.textContent = "";
-}
+// The first frame waits this long at most for the idle pictures, so a figure from the
+// service worker's cache is in the very first picture; a slow network shows the page
+// with an empty figure place instead of waiting longer.
+const FIRST_PAINT_WAIT_MS = 700;
+// After a figure set failed completely: try again (a panel often starts before its Wi-Fi).
+const FIGURE_RETRY_MS = [10000, 30000, 60000, 300000];
+let figureRetry = null;
+let figureRetries = 0;
+// The styles the figure folder offers (figure_styles.js); the dialog lists them.
+let figureStyles = mergeStyles([]);
 
+// Loads the figure this screen's settings name: the chosen style from the figure folder
+// (folder for away as the fallback), or the neutral placeholder on a screen without a
+// folder. `?figure=placeholder` shows the placeholder for this visit only, whatever the
+// setting says: screenshots for the public repository never carry Meta's artwork.
 async function useFigure() {
-  // ?figure=placeholder shows the project's own figure for this visit only, whatever the
-  // setting says: screenshots for the public repository never carry Meta's artwork.
-  const forcePlaceholder = params.get("figure") === "placeholder";
-  const url = !forcePlaceholder && settings.figureSource === "url" ? settings.figureUrl : "";
-  figureStatus.textContent = url ? "lädt …" : "";
-  let used = url;
-  let r = await figure.use(url);
-  if (r.stale) return;
-  if (url && r.loaded === 0 && settings.figureUrlAway && settings.figureUrlAway !== url) {
-    log(`figure from ${url} did not answer; trying ${settings.figureUrlAway}`);
-    used = settings.figureUrlAway;
-    r = await figure.use(used);
-    if (r.stale) return;
+  clearTimeout(figureRetry);
+  const plan = figurePlan(settings, location.search);
+  if (figureStatus) figureStatus.textContent = plan.placeholder ? "" : "lädt …";
+  const r = await loadChosenFigure(figure, plan, { log });
+  if (r.stale) return r;
+  if (plan.placeholder) return r;
+  figureStatus.textContent = figure.describe() + (r.failed.length && r.loaded ? `, fehlt: ${r.failed.join(", ")}` : "");
+  if (r.loaded > 0) {
+    figureRetries = 0;
+    return r;
   }
-  if (used) {
-    log(`figure from ${used}: ${r.loaded} of ${FIGURE_NAMES.length} loaded${r.failed.length ? ", missing " + r.failed.join(", ") : ""}`);
-    if (r.loaded === 0) say("Die eigenen Bilder der Figur kamen nicht an: die Anzeige zeigt die Figur des Projekts (Konsole und Einstellungen sagen mehr).");
-  }
-  figureStatus.textContent = used ? figure.describe() + (r.failed.length && r.loaded ? `, fehlt: ${r.failed.join(", ")}` : "") : "";
+  const wait = FIGURE_RETRY_MS[Math.min(figureRetries, FIGURE_RETRY_MS.length - 1)];
+  if (figureRetries === 0) say("Die Bilder der Figur kamen nicht an: ihr Platz bleibt leer, bis sie da sind (Konsole und Einstellungen sagen mehr).");
+  figureRetries++;
+  log(`figure: next try in ${Math.round(wait / 1000)} s`);
+  figureRetry = setTimeout(useFigure, wait);
+  return r;
+}
+// Started now, while the module is evaluated: before the fonts, before the first frame.
+useFigure();
+window.addEventListener("online", () => {
+  if (figure.failedAll) useFigure();
+});
+
+// The dialog's style choice: one segment per style of the folder's figures.json.
+function renderStyleChoice(styles, chosen) {
+  const seg = $("figure-style-seg");
+  if (!seg) return;
+  seg.replaceChildren(...styles.map((s) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "figureStyle";
+    input.value = s.id;
+    input.checked = s.id === chosen;
+    const span = document.createElement("span");
+    const b = document.createElement("b");
+    b.textContent = s.name;
+    span.append(b);
+    label.append(input, span);
+    return label;
+  }));
+  seg.style.gridTemplateColumns = `repeat(${Math.min(Math.max(styles.length, 1), 4)}, 1fr)`;
+  // A stored style the folder does not (yet) name stays chosen instead of being lost.
+  if (!styles.some((s) => s.id === chosen)) seg.dataset.unlisted = chosen;
+  else delete seg.dataset.unlisted;
+}
+// The style the dialog shows as chosen (a stored one the folder does not name included).
+function dialogStyle() {
+  const checked = form.querySelector('input[name="figureStyle"]:checked');
+  return checked ? checked.value : ($("figure-style-seg")?.dataset.unlisted || settings.figureStyle || DEFAULT_STYLE);
+}
+async function refreshStyleChoice(chosen = dialogStyle()) {
+  const folder = form.figureUrl.value.trim();
+  const styles = await loadStyles(folder);
+  if (form.figureUrl.value.trim() !== folder) return; // typed on meanwhile
+  figureStyles = styles;
+  renderStyleChoice(figureStyles, chosen);
 }
 
 // ------------------------------------------------------------- settings --
@@ -935,7 +1011,14 @@ function updateDialog() {
   const own = form.figureSource.value === "url";
   $("figure-url-row").hidden = !own;
   $("figure-url-away-row").hidden = !own;
+  $("figure-style-row").hidden = !own;
 }
+// A new folder in the dialog may offer other styles: ask its figures.json after typing.
+let styleLookup = null;
+form.figureUrl.addEventListener("input", () => {
+  clearTimeout(styleLookup);
+  styleLookup = setTimeout(() => refreshStyleChoice(), 600);
+});
 function openSettings() {
   form.url.value = settings.url;
   form.urlAway.value = settings.urlAway;
@@ -947,6 +1030,8 @@ function openSettings() {
   form.figureSource.value = settings.figureSource;
   form.figureUrl.value = settings.figureUrl;
   form.figureUrlAway.value = settings.figureUrlAway;
+  renderStyleChoice(figureStyles, settings.figureStyle);
+  refreshStyleChoice(settings.figureStyle);
   form.integer.checked = settings.integer;
   form.sound.checked = settings.sound;
   form.bare.checked = settings.bare;
@@ -985,6 +1070,7 @@ form.addEventListener("submit", (ev) => {
     figureSource: form.figureSource.value === "url" && form.figureUrl.value.trim() ? "url" : "placeholder",
     figureUrl: form.figureUrl.value.trim(),
     figureUrlAway: form.figureUrlAway.value.trim(),
+    figureStyle: dialogStyle(),
     integer: form.integer.checked,
     sound: form.sound.checked,
     bare: form.bare.checked,
@@ -1049,7 +1135,8 @@ form.addEventListener("submit", (ev) => {
   updateRail();
   if (settings.fps !== before.fps) setFps(settings.fps); // a ?fps= of the URL holds until the setting changes
   else fit();
-  if (settings.figureSource !== before.figureSource || settings.figureUrl !== before.figureUrl || settings.figureUrlAway !== before.figureUrlAway) useFigure();
+  if (settings.figureSource !== before.figureSource || settings.figureUrl !== before.figureUrl
+    || settings.figureUrlAway !== before.figureUrlAway || settings.figureStyle !== before.figureStyle) useFigure();
   if (settings.url !== before.url || settings.urlAway !== before.urlAway || settings.token !== before.token || settings.device !== before.device || !ha) connect();
 });
 $("settings-cancel").addEventListener("click", () => dialog.close());
@@ -1184,14 +1271,17 @@ async function start() {
   }
   await Promise.all(fonts().map((f) => document.fonts.load(f).catch(() => null)));
   await document.fonts.ready;
+  // The figure has been loading since the module ran; give its idle pictures a moment
+  // more, so a warm start paints the figure in its very first frame.
+  const t0 = performance.now();
+  const idle = await Promise.race([figure.whenReady("idle"), new Promise((r) => setTimeout(() => r(null), FIRST_PAINT_WAIT_MS))]);
+  if (figure.mode === "frames") log(`figure idle ${idle ? "ready" : "not ready"} at the first frame (waited ${Math.round(performance.now() - t0)} ms)`);
   fontsReady = true;
   applyTabletMetrics();
   applyBare();
   window.addEventListener("resize", fit);
   watchPixelRatio();
   startLoop();
-  loadDefaultFigure();
-  useFigure();
   if (demoMode) {
     $("btn-demo").textContent = "Demo aus";
     demo = new Demo(display, {

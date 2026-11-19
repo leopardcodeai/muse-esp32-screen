@@ -165,17 +165,20 @@
             <h3><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Figur</h3>
             <div class="field">
               <div class="seg seg-2" role="radiogroup" aria-label="Figur">
-                <label><input type="radio" name="figureSource" value="url"><span><b>Muse</b><i>eigene Bilder</i></span></label>
-                <label><input type="radio" name="figureSource" value="placeholder"><span><b>Projekt</b><i>öffentlich</i></span></label>
+                <label><input type="radio" name="figureSource" value="url"><span><b>Eigene Figur</b><i>aus dem Bilderordner</i></span></label>
+                <label><input type="radio" name="figureSource" value="placeholder"><span><b>Platzhalter</b><i>neutral, öffentlich</i></span></label>
               </div>
             </div>
             <label class="field" id="figure-url-row" hidden><span class="f-name">Bilderordner<button type="button" class="info" aria-label="Info">i</button></span>
-              <input name="figureUrl" type="url" placeholder="./local" autocomplete="off" spellcheck="false">
-              <small class="hint">Lädt die sechs Muse-Bilder (muse_idle.png bis muse_avatar.png) aus diesem Ordner, nur in diesem Browser.</small>
+              <input name="figureUrl" type="text" inputmode="url" placeholder="./local" autocomplete="off" spellcheck="false">
+              <small class="hint">Lädt die sechs Bilder des Figur-Stils (muse_idle.png bis muse_avatar.png) aus diesem Ordner, nur in diesem Browser. Weitere Stile nennt eine Datei figures.json im Ordner.</small>
               <small class="status" id="figure-status"></small>
             </label>
+            <div class="field" id="figure-style-row" hidden><span class="f-name">Figur-Stil</span>
+              <div class="seg" id="figure-style-seg" role="radiogroup" aria-label="Figur-Stil"></div>
+            </div>
             <label class="field" id="figure-url-away-row" hidden><span class="f-name">Bilderordner unterwegs<span class="opt">optional</span></span>
-              <input name="figureUrlAway" type="url" placeholder="https://100.64.0.10:8322/local" autocomplete="off" spellcheck="false">
+              <input name="figureUrlAway" type="text" inputmode="url" placeholder="https://100.64.0.10:8322/local" autocomplete="off" spellcheck="false">
             </label>
             <label class="switch"><span>Muse bewegt sich von selbst</span><input name="autoMotion" type="checkbox"><i></i>
               <small class="hint">Ab und zu schaut Muse sich um, hüpft kurz oder nickt, wenn nichts los ist (alle 30 bis 90 Sekunden). Tanzen, Party und Co. kommen über die Aktion animate.</small>

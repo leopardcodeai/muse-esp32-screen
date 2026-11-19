@@ -252,6 +252,47 @@ event_data:
 
 A camera mode is never restored after a reload (it is stored as settings instead).
 
+### Figure style (web screen: `figure_style`)
+
+A web screen with a figure folder (settings: Figur, Eigene Figur, Bilderordner; `./local`
+on the Home Assistant add-on and the Mac) plays one **figure style**, a set of six animated
+PNGs: `muse_idle.png`, `muse_wave.png`, `muse_working.png`, `muse_making.png`,
+`muse_confetti.png`, `muse_avatar.png`, and the same six under `dark/` for the dark theme.
+Today there is one, **Muse**, the files directly in the folder. Another style is a
+subfolder plus one line in `figures.json` in the same folder:
+
+```json
+{"styles": [
+  {"id": "muse", "name": "Muse"},
+  {"id": "winter", "name": "Muse Winter", "path": "winter"}
+]}
+```
+
+`winter` then plays `./local/winter/muse_*.png` and `./local/winter/dark/muse_*.png`.
+Without `path` the id is the folder. Muse always stays at the folder itself (an entry
+may rename it, not move it), so the first start never waits for the manifest. Ids and
+paths take lower-case letters, digits, `-` and `_` only. The folder and the manifest are
+the owner's (git and Vercel ignore `web/local/`); the public repository carries no set.
+The settings dialog lists the folder's styles under "Figur-Stil".
+
+| Action | Data | Does |
+|---|---|---|
+| `muse_web` event, `action: figure_style` | `style` (id or name, any case; `placeholder` or `platzhalter` for the neutral placeholder), `device` (optional) | stores the style and loads it; an unknown value is logged and ignored, a style the manifest does not (yet) name shows Muse with a log line |
+
+```yaml
+event: muse_web
+event_data:
+  action: figure_style
+  style: muse
+  device: muse_tab_screen
+```
+
+While a style loads, the figure's place stays empty (after 0.6 s a small grey dot
+pulses); nothing else stands in. A style whose pictures all fail leaves the place empty,
+logs `figure Muse: no picture arrived, the figure's place stays empty` and tries again
+after 10 s, 30 s, 60 s and then every 5 minutes. A figure style is never restored after a
+reload (it is stored as a setting instead).
+
 ## Pictures
 
 Since 3.4 a task of its own on the second core loads and decodes photos, GIFs, live views

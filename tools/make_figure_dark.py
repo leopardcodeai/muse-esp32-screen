@@ -22,7 +22,7 @@ Usage:
   uv run --python 3.14 --with pillow --with numpy tools/make_figure_dark.py \
       --src web/local --out web/local/dark --prefix muse_
   uv run --python 3.14 --with pillow --with numpy tools/make_figure_dark.py \
-      --src web/figure-default --out web/figure-default/dark
+      --src web/local/winter --out web/local/winter/dark --prefix muse_   # another figure style
 """
 from __future__ import annotations
 

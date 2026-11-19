@@ -225,10 +225,12 @@ function poseOf(status) {
   return status === 1 || status === 6 ? "wave" : status === 2 ? "working" : status === 3 ? "making" : "idle";
 }
 
-// Whether the figure of `sub` is a picture (else the figure drawn in code, which moves
-// on every frame).
-function isPicture(fig, sub) {
-  return !!((fig.frames && fig.frames.get && fig.frames.get(sub)) || (fig.defaults && fig.defaults.get && fig.defaults.get(sub)));
+// Whether the figure of `sub` changes on every frame by itself (the placeholder drawn in
+// code, the loading dot of figure_frames.js), so a still picture must not be kept. A
+// figure without moving() (the tests' stubs) counts as moving unless it has the picture.
+function figureMoves(fig, sub) {
+  if (fig && typeof fig.moving === "function") return fig.moving(sub);
+  return !(fig && fig.frames && fig.frames.get && fig.frames.get(sub));
 }
 
 export class SquareView {
@@ -283,7 +285,7 @@ export class SquareView {
     const parts = [size, k, this.key, d.tile ? "tile" : "", d.hideClock ? "noclock" : "", d.status, statusLabel(d), d.queue.waiting.length, d.name,
       d.connection, soonest ? `${soonest.name}:${soonest.left}` : "",
       d.media ? d.media.state : "", clock.getHours(), clock.getMinutes(), clock.getDate(),
-      fig.defaults ? fig.defaults.size : -1, fig.frames ? fig.frames.size : -1];
+      fig.version ?? -1, fig.frames ? fig.frames.size : -1];
     if (d.mode === 0) parts.push(poseOf(d.status), Math.floor((now - d.animSince) / CARD_STEP_MS));
     if (d.mode === 12) parts.push(Math.floor(now / 60000), d.connection, d.host, d.displayInfo, d.browserInfo, d.timers.size);
     return parts.join("|");
@@ -389,7 +391,7 @@ export class SquareView {
   }
 
   figure(r, d, sub, t, x, y, size) {
-    if (!isPicture(d.figure, sub)) this.pending = true;
+    if (figureMoves(d.figure, sub)) this.pending = true;
     d.figure.draw(r, sub, t, x, y, CARD_STEP_MS, size);
   }
 

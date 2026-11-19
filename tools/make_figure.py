@@ -45,8 +45,8 @@ Pitfalls:
     cleared. Everything is scaled in premultiplied alpha (Pillow's "RGBa"), or the
     transparent pixels bleed a dark fringe into the edges.
   * Changing a frame changes its checksum: run `python3 tools/check_private.py
-    --record-figure` afterwards, then the web copies (web/figure-default/) and the
-    previews follow (README "Make it yours").
+    --record-figure` afterwards, then the previews follow (README "Make it yours"). The
+    web app has no copy since 19.11.2026: it plays the owner's figure styles only.
   * The checksums in tools/figure_checksums.txt hold for the Pillow and zlib that wrote
     the files. Another Pillow writes the same pixels into different bytes; compare the
     decoded frames, not the files, when you check a rebuild on another machine.

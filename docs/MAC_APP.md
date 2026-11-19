@@ -85,7 +85,7 @@ Press **E** in the app (or the *Einstellungen* button):
 | Home Assistant URL | the LAN address, for example `http://homeassistant.local:8123`; with the add-on use the add-on's origin, `https://homeassistant.local:8322` (or its IPv4 address), not the HA address |
 | Long-lived access token | create one for this screen only: Home Assistant, your profile, *Security*, *Long-lived access tokens*. Paste it yourself; it stays in this browser's storage on this Mac |
 | Device name | `muse_esp32_s3_box_3_screen`, or the name your box has (the part before `_muse_` in its actions) |
-| Figure source | the project's figure, or your own frames (step 5) |
+| Figur | *Platzhalter* (a neutral grey stand-in), or *Eigene Figur* with your frames (step 5) |
 | Nur Display | on: no toolbar and no frame |
 
 Without a box, automations can address the screen directly with the event `muse_web`
@@ -104,13 +104,17 @@ listens to Home Assistant's `call_service` events.
 
 ## 5. Your own figure (optional)
 
-The app shows the project's own figure (`web/figure-default/`). To show your own animations, put six animated PNGs
+Without a figure folder the app shows a neutral grey placeholder drawn in code; the project ships
+no figure pictures for the browser. To show your own animations, put six animated PNGs
 into `web/local/`: `muse_idle.png`, `muse_wave.png`, `muse_working.png`, `muse_making.png`,
 `muse_confetti.png` (160 x 160) and `muse_avatar.png` (72 x 72), the same set the firmware uses
-(`tools/make_muse_assets.py` cuts them from the Muse app if you have it). Then set the figure
-source to *Eigene Bilder aus einem Ordner* with `http://localhost:8321/local`. git and Vercel
-ignore `web/local/`: an assistant's figure is usually someone else's artwork and stays on your
-Mac. `?figure=placeholder` in the address shows the project's figure for one visit, for screenshots you
+(`tools/make_muse_assets.py` cuts them from the Muse app if you have it). Then choose *Eigene
+Figur* with the Bilderordner `http://localhost:8321/local`. From then on the screen never shows the
+placeholder: until your pictures are decoded the figure's place stays empty. More sets of
+pictures ("Figur-Stil") are subfolders named in `web/local/figures.json`
+([ACTIONS.md](ACTIONS.md#figure-style-web-screen-figure_style)). git and Vercel ignore
+`web/local/`: an assistant's figure is usually someone else's artwork and stays on your Mac.
+`?figure=placeholder` in the address shows the placeholder for one visit, for screenshots you
 want to publish.
 
 ## 6. Your own icon (optional)

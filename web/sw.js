@@ -7,33 +7,38 @@
 // not, so an edited file reaches an installed app on the next start and the app still
 // opens without the server. Bump VERSION to drop files that no longer exist. The hosted
 // page serves this file with Cache-Control: no-cache (vercel.json), so a new version is
-// seen on the next visit. The project's figure (figure-default/) is part of the shell;
-// the owner's own figure frames are never cached here: they come from another origin,
-// which this worker leaves alone.
-const VERSION = "muse-web-screen-1.8.21";
+// seen on the next visit. The project ships no figure pictures any more (its blue figure
+// folder was removed on 19.11.2026); the owner's figure under ./local is kept
+// in this cache, see PRIVATE below. Frames from another origin are left alone.
+const VERSION = "muse-web-screen-1.8.22";
 const RUNTIME = "muse-web-runtime-1.7.0";
 const SHELL = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./app.js", "./display.js", "./cards.js", "./draw.js", "./render.js", "./figure.js", "./scene.js", "./icons.js",
   "./particles.js", "./text.js", "./tables.js", "./queue.js", "./timers.js", "./weather.js", "./media.js",
-  "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_frames.js",
+  "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_frames.js", "./figure_styles.js",
   "./square.js", "./theme.js", "./tablet.js", "./camera.js", "./voice.js", "./sensors.js", "./pcm.js", "./pcm-worklet.js", "./remotelog.js", "./textask.js", "./composer.js", "./follow.js", "./motion.js", "./gestures.js",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
-  "./figure-default/idle.png", "./figure-default/wave.png", "./figure-default/working.png",
-  "./figure-default/making.png", "./figure-default/confetti.png", "./figure-default/avatar.png",
-  "./figure-default/dark/idle.png", "./figure-default/dark/wave.png", "./figure-default/dark/working.png",
-  "./figure-default/dark/making.png", "./figure-default/dark/confetti.png", "./figure-default/dark/avatar.png",
 ];
 
 // The owner's Muse figure is private and lives under /local; it is not in the public
 // shell list, but an installed app must still show it when the LAN address is gone.
-// Each file is optional: on the public site the requests 404 and are skipped.
+// Each file is optional: on the public site the requests 404 and are skipped. Other
+// figure styles (./local/<style>/muse_*.png, named in ./local/figures.json) are cached
+// the first time they are shown.
 const PRIVATE = [
   "./local/muse_idle.png", "./local/muse_wave.png", "./local/muse_working.png",
   "./local/muse_making.png", "./local/muse_confetti.png", "./local/muse_avatar.png",
   "./local/dark/muse_idle.png", "./local/dark/muse_wave.png", "./local/dark/muse_working.png",
   "./local/dark/muse_making.png", "./local/dark/muse_confetti.png", "./local/dark/muse_avatar.png",
 ];
+
+// A picture of a figure style under ./local: ./local/muse_idle.png,
+// ./local/dark/muse_idle.png, ./local/winter/muse_idle.png, ./local/winter/dark/...
+const FIGURE_FRAME = /^\.\/local\/(?:[a-z0-9][a-z0-9_-]*\/){0,3}muse_[a-z]+\.png$/i;
+function isFigureFrame(rel) {
+  return FIGURE_FRAME.test(rel);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
@@ -44,7 +49,7 @@ self.addEventListener("install", (event) => {
         const res = await fetch(url, { cache: "no-cache" });
         if (res.ok) await cache.put(url, res);
       } catch {
-        // no owner figure on this host: the project's figure stands in
+        // no owner figure on this host (the public page): nothing to keep
       }
     }));
     await self.skipWaiting();
@@ -115,8 +120,26 @@ self.addEventListener("fetch", (event) => {
   const scope = new URL("./", self.location.href).pathname;
   if (!url.pathname.startsWith(scope)) return;
   const rel = "./" + url.pathname.slice(scope.length);
-  const shell = rel === "./" || SHELL.includes(rel) || rel.startsWith("./demo/")
-    || rel.startsWith("./local/muse_") || rel.startsWith("./local/dark/muse_");
+  // The figure's pictures come from the cache at once (the figure is the first thing a
+  // panel shows) and are refreshed behind it for the next start: a regenerated set shows
+  // after one more reload.
+  if (isFigureFrame(rel)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(VERSION);
+      const hit = await cache.match(event.request, { ignoreSearch: true });
+      const fresh = fetch(event.request).then((res) => {
+        if (res.ok) cache.put(event.request, res.clone());
+        return res;
+      });
+      if (hit) {
+        event.waitUntil(fresh.catch(() => null));
+        return hit;
+      }
+      return fresh;
+    })());
+    return;
+  }
+  const shell = rel === "./" || SHELL.includes(rel) || rel.startsWith("./demo/") || rel === "./local/figures.json";
   if (!shell) return;
   event.respondWith(
     fetch(event.request).then((res) => {

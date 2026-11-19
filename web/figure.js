@@ -1,4 +1,4 @@
-// figure.js: the figure's pace, and the figure drawn in code as the last resort.
+// figure.js: the figure's pace, and the neutral placeholder drawn in code.
 //
 // On the box the figure is a set of pictures: idle, wave, working and making with 16
 // frames each, played forwards and back; confetti with 18 frames played once; a 72 px
@@ -7,30 +7,35 @@
 // 160 ms have passed, checked on its 100 ms display ticks, which is one step every
 // second tick: 200 ms (CARD_STEP_MS). The step functions here serve every source.
 //
-// The figure itself comes from pictures (figure_frames.js): the project's own frames in
-// figure-default/, the same files the box embeds (tools/make_figure.py), or the owner's
-// own frames at run time. Figure below draws only while those pictures load or when they
-// fail: the flat round character the project shipped before its generated figure (a
-// blue body with a darker lower half, white eyes, pink cheeks, a smile; a waving arm,
-// thought dots, an orbiting spark, falling confetti), with its geometry and colours,
-// including the fade of every frame's edges into the page colour. tools/render_scene.py
-// keeps the same stand-in (draw_coded_figure). Meta's own Muse artwork is not part of
-// this project.
+// The figure itself comes from pictures (figure_frames.js): a figure style, a set of six
+// animated PNGs in the owner's folder (today "Muse", web/local/muse_*.png). Figure below
+// is only the placeholder of the public page (demo, screenshots, `?figure=placeholder`):
+// a soft neutral silhouette in a mix of the page and the ink colour (a round body with a
+// slightly darker lower half and two eyes; a waving arm, thought dots, an orbiting spark,
+// a bounce with falling flecks), so it suits the light and the dark palette and carries
+// no colour of its own. Up to 1.8.20 this was a blue character with cheeks and a smile;
+// the owner retired that look on 19.11.2026, and a screen that names a figure style never
+// shows this placeholder at all, not even while its pictures load.
 //
-// Smooth: above the box's 10 frames a second the drawn figure is drawn between its
-// frames (`smooth`), with the same timing, so it moves like the box's, only without the
-// steps. At 10 frames a second it shows the box's frames exactly.
+// Pitfalls:
+//  * Meta's Muse artwork never goes into this file or the repository; the placeholder is
+//    deliberately plain so nobody mistakes it for a brand.
+//  * The frame is an opaque square in the page colour (like the box's pictures), which
+//    motion.js and the scene's disc clip rely on.
+//  * Smooth: above the box's 10 frames a second the placeholder is drawn between its
+//    frames (`smooth`), with the same timing; at 10 frames a second it shows whole steps.
 import { PAGE, INK, css } from "./render.js";
 
 export const SIZE = 160;
 export const AVATAR = 72;
-export const BODY = [76, 150, 214];
-export const BODY_DARK = [54, 112, 168];
-export const CHEEK = [255, 158, 158];
-export const SPARK = [255, 204, 0];
-export const CONFETTI = [
-  [255, 59, 48], [255, 149, 0], [255, 204, 0], [52, 199, 89], [48, 176, 199], [0, 122, 255], [175, 82, 222], [255, 45, 85],
-];
+// The placeholder's tones as a share of the way from the page colour to the ink colour:
+// grey on the light page, dark grey on the black one, never a hue of its own.
+export const TONES = Object.freeze({ body: 0.16, shade: 0.24, detail: 0.55, fleck: 0.32 });
+
+// The colour `share` of the way from `page` to `ink`, per channel, rounded.
+export function neutralTone(share, page = PAGE, ink = INK) {
+  return page.map((p, i) => Math.round(p + (ink[i] - p) * share));
+}
 export const FRAMES = 16;
 export const CONFETTI_FRAMES = 18;
 export const STEP_MS = 160; // a step in a scene
@@ -89,107 +94,79 @@ export class Figure {
 }
 
 // One frame of idle, wave, working, making or the avatar, on a canvas whose origin is
-// the frame's top left corner (the port of draw_coded_figure in tools/render_scene.py);
-// `smooth` draws the position between two frames.
+// the frame's top left corner; `smooth` draws the position between two frames.
 export function drawFrame(c, sub, t, size, stepMs = STEP_MS, smooth = false) {
   const step = smooth ? pingPongPos(t, stepMs) : pingPongStep(t, stepMs);
   const phase = step / FRAMES;
   const cx = size / 2;
   const [cy, br] = sub === "avatar" ? [size * 0.5, size * 0.4]
     : sub === "working" || sub === "making" ? [size * 0.56, size * 0.28] : [size * 0.54, size * 0.3];
+  const shade = neutralTone(TONES.shade);
   if (sub === "wave") { // the waving hand: a small disc on an arm that swings
     const ang = deg(-60 + 35 * Math.sin(4 * Math.PI * phase));
     const ax = cx + br * 0.95, ay = cy - br * 0.1;
     const hx = ax + Math.cos(ang) * br * 0.55, hy = ay + Math.sin(ang) * br * 0.55;
-    thickLine(c, ax, ay, hx, hy, br * 0.16, BODY_DARK);
-    disc(c, hx, hy, br * 0.14, BODY);
+    thickLine(c, ax, ay, hx, hy, br * 0.16, shade);
+    disc(c, hx, hy, br * 0.14, shade);
   }
   const squash = sub === "idle" ? 1 + 0.03 * Math.sin(2 * Math.PI * phase) : 1; // breathing
   body(c, cx, cy, br, squash);
   const look = sub === "working" ? Math.sin(2 * Math.PI * phase) : 0;
   const blink = sub === "idle" && Math.round(step) === 11;
-  face(c, cx, cy, br, look, blink, { wave: 1.2, working: 0.4, making: 0.9 }[sub] ?? 1.0);
+  eyes(c, cx, cy, br, look, blink);
   if (sub === "working") { // three thought dots above, swelling one after another
     for (let k = 0; k < 3; k++) {
       const p = (Math.sin(2 * Math.PI * (phase - k * 0.18)) + 1) / 2;
-      disc(c, cx + (k - 1) * br * 0.32, cy - br * 1.25 - k * br * 0.05, br * (0.06 + 0.05 * p), BODY_DARK);
+      disc(c, cx + (k - 1) * br * 0.32, cy - br * 1.25 - k * br * 0.05, br * (0.06 + 0.05 * p), shade);
     }
   }
   if (sub === "making") { // a spark that orbits the head
     const ang = 2 * Math.PI * phase;
-    star(c, cx + Math.cos(ang) * br * 1.25, cy - br * 0.4 + Math.sin(ang) * br * 0.5, br * 0.16, SPARK);
+    star(c, cx + Math.cos(ang) * br * 1.25, cy - br * 0.4 + Math.sin(ang) * br * 0.5, br * 0.16, shade);
   }
 }
 
-// Frame i of the drawn confetti animation: the body bounces,
-// confetti falls from the top at fixed positions; a fractional i lies between two.
+// Frame i of the drawn confetti animation: the body bounces, neutral flecks fall from
+// the top at fixed positions; a fractional i lies between two.
 export function drawConfettiFrame(c, i, size) {
   const n = CONFETTI_FRAMES;
   const t = i / (n - 1);
   const cx = size / 2, cy = size * 0.58, br = size * 0.26;
   const bounce = Math.abs(Math.sin(Math.PI * t * 2)) * br * 0.15;
   body(c, cx, cy - bounce, br, 1);
-  face(c, cx, cy - bounce, br, 0, false, 1.3);
+  eyes(c, cx, cy - bounce, br, 0, false);
+  c.fillStyle = css(neutralTone(TONES.fleck));
   for (let k = 0; k < 26; k++) {
     const seed = ((k * 7919) % 1000) / 1000;
     const x = (k * 61) % size;
     const y = ((seed * size + t * size * 1.4) % (size * 1.2)) - size * 0.1;
     const w = br * 0.09, h = br * 0.05 * (0.5 + Math.abs(Math.sin(2 * Math.PI * (t + seed))));
-    c.fillStyle = css(CONFETTI[k % 8]);
     c.fillRect(x - w, y - h, 2 * w, 2 * h);
   }
 }
 
-// A round body with a darker lower half, slightly squashed for breathing.
+// A round body with a slightly darker lower half, squashed a little for breathing.
 function body(c, cx, cy, r, squash) {
   const rx = r, ry = r * squash;
   c.beginPath();
   c.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-  c.fillStyle = css(BODY);
+  c.fillStyle = css(neutralTone(TONES.body));
   c.fill();
   c.beginPath();
   c.ellipse(cx, cy, rx, ry, 0, deg(20), deg(160));
   c.closePath();
-  c.fillStyle = css(BODY_DARK);
+  c.fillStyle = css(neutralTone(TONES.shade));
   c.fill();
-  c.beginPath();
-  c.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-  c.lineWidth = 3;
-  c.strokeStyle = css(BODY_DARK);
-  c.stroke();
 }
 
-function face(c, cx, cy, r, look, blink, smile) {
-  const ex = r * 0.34, ey = cy - r * 0.12, er = r * 0.11;
+// Two eyes and nothing else (no mouth, no cheeks), so the silhouette reads as a stand-in.
+function eyes(c, cx, cy, r, look, blink) {
+  const ex = r * 0.34, ey = cy - r * 0.12, er = r * 0.09;
+  const tone = neutralTone(TONES.detail);
   for (const sx of [-1, 1]) {
     const x = cx + sx * ex + look * r * 0.1;
-    if (blink) {
-      thickLine(c, x - er, ey, x + er, ey, 3, INK, false);
-    } else {
-      disc(c, x, ey, er, [255, 255, 255]);
-      disc(c, x + look * er * 0.4, ey, er * 0.55, INK);
-    }
-  }
-  for (const sx of [-1, 1]) {
-    const x = cx + sx * r * 0.52;
-    c.beginPath();
-    c.ellipse(x, cy + r * 0.12, r * 0.1, r * 0.06, 0, 0, 2 * Math.PI);
-    c.fillStyle = css(CHEEK);
-    c.fill();
-  }
-  const my = cy + r * 0.3, mw = r * 0.26;
-  if (smile >= 0) {
-    c.beginPath();
-    c.ellipse(cx, my, mw, Math.max(0.01, mw * smile), 0, deg(10), deg(170));
-    c.lineWidth = 3;
-    c.lineCap = "butt";
-    c.strokeStyle = css(INK);
-    c.stroke();
-  } else {
-    c.beginPath();
-    c.ellipse(cx, my, mw * 0.4, mw * 0.3, 0, 0, 2 * Math.PI);
-    c.fillStyle = css(INK);
-    c.fill();
+    if (blink) thickLine(c, x - er, ey, x + er, ey, 3, tone, false);
+    else disc(c, x, ey, er, tone);
   }
 }
 
