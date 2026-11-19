@@ -141,6 +141,8 @@ const display = new Display({
     if (ha) ha.answer(answer, question, settings.inputText).catch((e) => log("answer not sent: " + e.message));
   },
 });
+// The rail's status header carries the clock on the Tab and iPad; the canvas drops its own.
+display.hideClock = tablet;
 display.browserInfo = browserName();
 // "Muse bewegt sich von selbst" (motion.js IdleVariety), and prefers-reduced-motion, which
 // turns every move into a gentle pulse; the system setting may change while the page runs.

@@ -280,7 +280,7 @@ export class SquareView {
   signature(d, now, clock, size, k) {
     const fig = d.figure || {};
     const soonest = d.timers.soonest();
-    const parts = [size, k, this.key, d.tile ? "tile" : "", d.status, statusLabel(d), d.queue.waiting.length, d.name,
+    const parts = [size, k, this.key, d.tile ? "tile" : "", d.hideClock ? "noclock" : "", d.status, statusLabel(d), d.queue.waiting.length, d.name,
       d.connection, soonest ? `${soonest.name}:${soonest.left}` : "",
       d.media ? d.media.state : "", clock.getHours(), clock.getMinutes(), clock.getDate(),
       fig.defaults ? fig.defaults.size : -1, fig.frames ? fig.frames.size : -1];
@@ -417,6 +417,9 @@ export class SquareView {
     const waiting = d.queue.waiting.length;
     if (waiting > 0 && d.mode !== 0) chip(`+${waiting}`);
     // The clock in the middle; when both chips reach into it, it moves right of them.
+    // On the Tab and iPad the rail's status header shows the clock already (owner,
+    // 19.11.2026: "doppelte Uhrzeit"): the canvas leaves it out there.
+    if (d.hideClock === true) return;
     const time = clockText(clock);
     const half = r.width(time, SQUARE_FONTS.clock) / 2;
     const cx = Math.max(CLOCK.x + CLOCK.w / 2, Math.ceil(x + 4 + half));
