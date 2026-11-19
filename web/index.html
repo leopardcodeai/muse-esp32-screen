@@ -51,6 +51,7 @@
         <canvas id="camera-boxes"></canvas>
       </div>
       <p id="camera-caption">Kamera bereit</p>
+      <p id="camera-model" hidden></p>
       <footer id="camera-foot">
         <button id="camera-photo" type="button">Foto</button>
         <button id="camera-vision" type="button">Vision</button>
@@ -97,87 +98,120 @@
   </nav>
   <dialog id="settings">
     <form id="settings-form" method="dialog">
-      <h2>Einstellungen</h2>
-      <label>Home Assistant URL
-        <input name="url" type="url" placeholder="http://homeassistant.local:8123" autocomplete="off" spellcheck="false">
-        <small id="mixed-note" class="warn" hidden></small>
-      </label>
-      <label>Home Assistant URL unterwegs (optional)
-        <input name="urlAway" type="url" placeholder="https://100.75.6.2:8322" autocomplete="off" spellcheck="false">
-        <small>Dieselbe Add-on-Adresse über Tailscale. Zuhause nimmt die App die erste URL, unterwegs diese; die Seite selbst startet aus dem Offline-Cache.</small>
-      </label>
-      <label>Langlebiger Zugriffstoken
-        <input name="token" type="password" autocomplete="off" spellcheck="false">
-        <small>Bleibt im localStorage dieses Browsers auf diesem Rechner. Ein eigener Token für diese Anzeige ist klug.</small>
-      </label>
-      <label>Gerätename der Box
-        <input name="device" type="text" autocomplete="off" spellcheck="false">
-        <small>Der Teil vor <code>_muse_</code> in den Aktionen, zum Beispiel <code id="device-example"></code> für <code id="device-action"></code>.</small>
-      </label>
-      <label>input_text für Antworten (optional)
-        <input name="inputText" type="text" placeholder="input_text.muse_web_answer" autocomplete="off" spellcheck="false">
-      </label>
-      <label>Name in der Leiste
-        <input name="name" type="text" placeholder="Muse" autocomplete="off">
-      </label>
-      <label>Bildrate
-        <select name="fps">
-          <option value="60">60 Bilder/s, flüssig (Standard)</option>
-          <option value="30">30 Bilder/s</option>
-          <option value="10">10 Bilder/s, genau wie die Box (für den Vergleich)</option>
-        </select>
-        <small>Szenen behalten ihre Zeiten in Millisekunden: sie sehen aus wie auf der Box, nur flüssiger.</small>
-      </label>
-      <label>Layout
-        <select name="layout">
-          <option value="square">480 x 480, Mosaico (Standard)</option>
-          <option value="box">320 x 240, wie die Box</option>
-          <option value="tablet-tab">Tab</option>
-          <option value="tablet-ipad">iPad</option>
-        </select>
-      </label>
-      <h3>Sprache</h3>
-      <label class="check"><input name="voice" type="checkbox"> Mikrofon: mit Muse sprechen</label>
-      <label class="check"><input name="speak" type="checkbox"> Antworten vorlesen</label>
-      <small>Das Mikrofon hört nur, solange der Knopf gedrückt ist. Whisper und Piper laufen in Home Assistant; an Meta Muse geht nur Text.</small>
-      <h3>Kamera (Beta)</h3>
-      <label class="check"><input name="camera" type="checkbox"> Kamera (Beta) einschalten</label>
-      <label class="check"><input name="personBoxes" type="checkbox"> Personen im Kamerabild markieren</label>
-      <label class="check"><input name="autoBrightness" type="checkbox"> Helligkeit über die Kamera anpassen</label>
-      <label class="check"><input name="vision" type="checkbox"> Vision-Beschreibung anbieten</label>
-      <label class="check"><input name="visionAuto" type="checkbox"> Vision automatisch, jede Minute</label>
-      <label>AI-Task-Entität für Vision
-        <input name="visionEntity" type="text" placeholder="ai_task.google_ai_task" autocomplete="off" spellcheck="false">
-        <small>Die Entität aus Home Assistant, die Bilder beschreiben kann. Standard ist der Google-AI-Task. Der Vision-Knopf schickt ein Foto dorthin und löscht es nach der Antwort. Der Zugriffstoken muss Admin-Rechte haben.</small>
-      </label>
-      <small>Kamera und Mikrofon brauchen HTTPS und eine einmalige Freigabe. Einen echten Umgebungssensor geben mobile Browser nicht frei; die Helligkeit wird aus dem Kamerabild geschätzt.</small>
-      <label>Design
-        <select name="theme">
-          <option value="auto">Automatisch (Mosaico dunkel, Box hell)</option>
-          <option value="dark">Dunkel (AMOLED)</option>
-          <option value="light">Hell</option>
-        </select>
-        <small>Das Design ändert Leiste und Karten, nie die Farben einer eigenen Szene.</small>
-      </label>
-      <label>Figur-Quelle
-        <select name="figureSource">
-          <option value="placeholder">Figur des Projekts (Standard)</option>
-          <option value="url">Eigene Bilder aus einem Ordner</option>
-        </select>
-      </label>
-      <label id="figure-url-row" hidden>Ordner-URL der Bilder
-        <input name="figureUrl" type="url" placeholder="http://127.0.0.1:8322" autocomplete="off" spellcheck="false">
-        <small>Lädt <code>muse_idle.png</code>, <code>muse_wave.png</code>, <code>muse_working.png</code>, <code>muse_making.png</code>, <code>muse_confetti.png</code> und <code>muse_avatar.png</code> aus diesem Ordner, nur in diesem Browser; der Server dieser Seite bekommt nichts davon. <span id="figure-status"></span></small>
-      </label>
-      <label id="figure-url-away-row" hidden>Ordner-URL unterwegs (optional)
-        <input name="figureUrlAway" type="url" placeholder="https://100.75.6.2:8322/local" autocomplete="off" spellcheck="false">
-        <small>Derselbe Bilderordner über Tailscale, falls die erste Adresse unterwegs nicht antwortet.</small>
-      </label>
-      <label class="check"><input name="pixel" type="checkbox"> Pixelgenau 1:1: 480 × 480 ohne Skalierung</label>
-      <label class="check"><input name="integer" type="checkbox"> Nur ganzzahlig vergrößern (pixelgenau)</label>
-      <label class="check"><input name="sound" type="checkbox"> Töne (Timer, Frage)</label>
-      <label class="check"><input name="bare" type="checkbox"> Nur Display: ohne Leiste und Rand (die Leiste erscheint, wenn die Maus an den unteren Rand fährt; Tasten: F schweben, K Vollbild, E Einstellungen)</label>
-      <menu>
+      <header class="s-head">
+        <div class="s-title">
+          <h2>Einstellungen</h2>
+          <span class="s-version" id="settings-version"></span>
+        </div>
+        <button type="button" class="s-close" id="settings-close" aria-label="Schließen" title="Schließen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+
+      <div class="s-body" tabindex="-1" autofocus>
+        <div class="s-col">
+          <section class="s-card">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>Verbindung</h3>
+            <label class="field"><span class="f-name">Home Assistant<button type="button" class="info" aria-label="Info">i</button></span>
+              <input name="url" type="url" placeholder="https://homeassistant.local:8322" autocomplete="off" spellcheck="false">
+              <small class="hint">Die Adresse des Muse-Add-ons. Zuhause diese, unterwegs die zweite.</small>
+              <small id="mixed-note" class="warn" hidden></small>
+            </label>
+            <label class="field"><span class="f-name">Unterwegs<span class="opt">optional</span><button type="button" class="info" aria-label="Info">i</button></span>
+              <input name="urlAway" type="url" placeholder="https://100.64.0.10:8322" autocomplete="off" spellcheck="false">
+              <small class="hint">Dieselbe Add-on-Adresse über Tailscale. Die App nimmt die erste, die antwortet.</small>
+            </label>
+            <label class="field"><span class="f-name">Zugriffstoken<button type="button" class="info" aria-label="Info">i</button></span>
+              <input name="token" type="password" autocomplete="off" spellcheck="false">
+              <small class="hint">Ein langlebiger Token nur für diese Anzeige. Er bleibt in diesem Browser. Für Vision braucht er Admin-Rechte.</small>
+            </label>
+          </section>
+          <section class="s-card">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Sprache &amp; Ton<button type="button" class="info" aria-label="Info">i</button></h3>
+            <small class="hint">Das Mikrofon hört nur, solange der Knopf gedrückt ist. Whisper und Piper laufen in Home Assistant, an Meta Muse geht nur Text.</small>
+            <label class="switch"><span>Mit Muse sprechen</span><input name="voice" type="checkbox"><i></i></label>
+            <label class="switch"><span>Antworten vorlesen</span><input name="speak" type="checkbox"><i></i></label>
+            <label class="switch"><span>Töne bei Timer und Frage</span><input name="sound" type="checkbox"><i></i></label>
+          </section>
+          <section class="s-card">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Figur</h3>
+            <div class="field">
+              <div class="seg seg-2" role="radiogroup" aria-label="Figur">
+                <label><input type="radio" name="figureSource" value="url"><span><b>Muse</b><i>eigene Bilder</i></span></label>
+                <label><input type="radio" name="figureSource" value="placeholder"><span><b>Projekt</b><i>öffentlich</i></span></label>
+              </div>
+            </div>
+            <label class="field" id="figure-url-row" hidden><span class="f-name">Bilderordner<button type="button" class="info" aria-label="Info">i</button></span>
+              <input name="figureUrl" type="url" placeholder="./local" autocomplete="off" spellcheck="false">
+              <small class="hint">Lädt die sechs Muse-Bilder (muse_idle.png bis muse_avatar.png) aus diesem Ordner, nur in diesem Browser.</small>
+              <small class="status" id="figure-status"></small>
+            </label>
+            <label class="field" id="figure-url-away-row" hidden><span class="f-name">Bilderordner unterwegs<span class="opt">optional</span></span>
+              <input name="figureUrlAway" type="url" placeholder="https://100.64.0.10:8322/local" autocomplete="off" spellcheck="false">
+            </label>
+          </section>
+          <details class="s-card s-more">
+            <summary><h3><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Erweitert</h3></summary>
+            <label class="field"><span class="f-name">Gerätename<button type="button" class="info" aria-label="Info">i</button></span>
+              <input name="device" type="text" autocomplete="off" spellcheck="false">
+              <small class="hint">Der Teil vor <code>_muse_</code> in den Aktionen, zum Beispiel <code id="device-example"></code> für <code id="device-action"></code>.</small>
+            </label>
+            <label class="field"><span class="f-name">input_text für Antworten<span class="opt">optional</span></span>
+              <input name="inputText" type="text" placeholder="input_text.muse_web_answer" autocomplete="off" spellcheck="false">
+            </label>
+          </details>
+        </div>
+        <div class="s-col">
+          <section class="s-card">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Anzeige</h3>
+            <div class="field"><span class="f-name">Layout</span>
+              <div class="seg seg-4" role="radiogroup" aria-label="Layout">
+                <label><input type="radio" name="layout" value="square"><span><b>Mosaico</b><i>480 × 480</i></span></label>
+                <label><input type="radio" name="layout" value="box"><span><b>Box</b><i>320 × 240</i></span></label>
+                <label><input type="radio" name="layout" value="tablet-tab"><span><b>Tab</b><i>Vollbild</i></span></label>
+                <label><input type="radio" name="layout" value="tablet-ipad"><span><b>iPad</b><i>Vollbild</i></span></label>
+              </div>
+            </div>
+            <div class="field"><span class="f-name">Design</span>
+              <div class="seg seg-3" role="radiogroup" aria-label="Design">
+                <label><input type="radio" name="theme" value="auto"><span><b>Auto</b></span></label>
+                <label><input type="radio" name="theme" value="dark"><span><b>Dunkel</b></span></label>
+                <label><input type="radio" name="theme" value="light"><span><b>Hell</b></span></label>
+              </div>
+            </div>
+            <div class="field"><span class="f-name">Bildrate<button type="button" class="info" aria-label="Info">i</button></span>
+              <div class="seg seg-3" role="radiogroup" aria-label="Bildrate">
+                <label><input type="radio" name="fps" value="60"><span><b>60</b><i>flüssig</i></span></label>
+                <label><input type="radio" name="fps" value="30"><span><b>30</b></span></label>
+                <label><input type="radio" name="fps" value="10"><span><b>10</b><i>wie die Box</i></span></label>
+              </div>
+              <small class="hint">Bilder pro Sekunde. Szenen behalten ihre Zeiten, sie werden nur flüssiger.</small>
+            </div>
+            <label class="field"><span class="f-name">Name in der Leiste</span>
+              <input name="name" type="text" placeholder="Muse" autocomplete="off">
+            </label>
+            <label class="switch"><span>Nur Display<button type="button" class="info" aria-label="Info">i</button></span><input name="bare" type="checkbox"><i></i>
+              <small class="hint">Ohne Leiste und Rand. Tasten: F schweben, K Vollbild, E Einstellungen.</small>
+            </label>
+            <label class="switch"><span>Pixelgenau 1:1</span><input name="pixel" type="checkbox"><i></i></label>
+            <label class="switch"><span>Nur ganzzahlig vergrößern</span><input name="integer" type="checkbox"><i></i></label>
+          </section>
+          <section class="s-card">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Kamera<span class="badge">Beta</span><button type="button" class="info" aria-label="Info">i</button></h3>
+            <small class="hint">Braucht HTTPS und eine einmalige Freigabe. Personenrahmen laufen lokal; nur Vision schickt ein Foto an Home Assistant und löscht es danach.</small>
+            <label class="switch"><span>Kamera-Modus</span><input name="camera" type="checkbox"><i></i></label>
+            <label class="switch"><span>Personen markieren</span><input name="personBoxes" type="checkbox"><i></i></label>
+            <label class="switch"><span>Helligkeit anpassen</span><input name="autoBrightness" type="checkbox"><i></i></label>
+            <label class="switch"><span>Vision-Knopf</span><input name="vision" type="checkbox"><i></i></label>
+            <label class="switch"><span>Vision jede Minute</span><input name="visionAuto" type="checkbox"><i></i></label>
+            <label class="field"><span class="f-name">AI-Task für Vision</span>
+              <input name="visionEntity" type="text" placeholder="ai_task.google_ai_task" autocomplete="off" spellcheck="false">
+            </label>
+          </section>
+        </div>
+      </div>
+
+      <menu class="s-foot">
         <button type="button" id="settings-cancel">Abbrechen</button>
         <button type="submit">Speichern</button>
       </menu>

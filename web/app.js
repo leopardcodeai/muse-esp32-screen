@@ -770,6 +770,22 @@ form.addEventListener("submit", (ev) => {
   if (settings.url !== before.url || settings.urlAway !== before.urlAway || settings.token !== before.token || settings.device !== before.device || !ha) connect();
 });
 $("settings-cancel").addEventListener("click", () => dialog.close());
+$("settings-close").addEventListener("click", () => dialog.close());
+$("settings-version").textContent = `Version ${VERSION}`;
+// The "i" buttons open the short hint of their field or card; a label must not take the
+// click for its input, so the event stops here.
+form.addEventListener("click", (ev) => {
+  const info = ev.target.closest("button.info");
+  if (!info) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const box = info.closest(".field, .switch, .s-card");
+  if (box) box.classList.toggle("show-hint");
+});
+// A click on the backdrop closes the dialog like Abbrechen.
+dialog.addEventListener("click", (ev) => {
+  if (ev.target === dialog) dialog.close();
+});
 $("btn-settings").addEventListener("click", openSettings);
 
 // ------------------------------------------------------------ float --

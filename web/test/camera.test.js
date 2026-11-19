@@ -76,3 +76,21 @@ test("dataUrlBlob(): decodes JPEG bytes", () => {
   assert.equal(blob.size, 4);
   assert.equal(dataUrlBlob("nonsense"), null);
 });
+
+test("vision usage: counted per day, shown as a share of the daily limit", async () => {
+  const { countVisionCall, visionUsage, visionUsageText } = await import("../camera.js");
+  const store = {};
+  const storage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } };
+  const day1 = new Date("2026-11-19T10:00:00");
+  assert.equal(visionUsage(storage, day1), 0);
+  countVisionCall(storage, day1);
+  countVisionCall(storage, day1);
+  assert.equal(visionUsage(storage, day1), 2);
+  assert.equal(visionUsage(storage, new Date("2026-11-20T08:00:00")), 0);
+  assert.equal(visionUsageText("Gemini 3.5 Flash Lite", 2, 1000), "Gemini 3.5 Flash Lite · 0,2 % heute");
+  assert.equal(visionUsageText("Gemini 3.5 Flash Lite", 250, 1000), "Gemini 3.5 Flash Lite · 25 % heute");
+  assert.equal(visionUsageText("Gemini", 5, 0), "Gemini · 5 heute");
+  const broken = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
+  assert.equal(visionUsage(broken, day1), 0);
+  countVisionCall(broken, day1);
+});

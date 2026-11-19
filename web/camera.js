@@ -106,6 +106,42 @@ export function cameraErrorMessage(err) {
   return "Kamera nicht verfügbar";
 }
 
+// Vision requests of this screen per day, in localStorage. Google's API reports no
+// balance, so the share of the daily limit (a setting) is the only meter there is.
+export const VISION_USAGE_KEY = "muse-vision-usage";
+
+function dayOf(now) {
+  const d = now instanceof Date ? now : new Date(now);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function visionUsage(storage, now = new Date()) {
+  try {
+    const u = JSON.parse(storage.getItem(VISION_USAGE_KEY) || "{}") || {};
+    return u.day === dayOf(now) ? Number(u.count) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function countVisionCall(storage, now = new Date()) {
+  const count = visionUsage(storage, now) + 1;
+  try {
+    storage.setItem(VISION_USAGE_KEY, JSON.stringify({ day: dayOf(now), count }));
+  } catch {
+    // blocked storage: the meter stays at zero, Vision still works
+  }
+  return count;
+}
+
+// "Gemini 3.5 Flash Lite · 25 % heute"; without a limit the plain count.
+export function visionUsageText(label, count, limit) {
+  if (!(limit > 0)) return `${label} · ${count} heute`;
+  const pct = (100 * count) / limit;
+  const shown = pct >= 10 || pct === 0 ? String(Math.round(pct)) : pct.toFixed(1).replace(".", ",");
+  return `${label} · ${shown} % heute`;
+}
+
 export function visionErrorMessage(status, message = "") {
   if (status === 401 || status === 403) return "Vision braucht einen Admin-Token";
   if (status === 404) return "Vision ist nicht eingerichtet";
@@ -133,7 +169,7 @@ export class Camera {
   constructor(opts = {}) {
     this.el = opts.elements || {
       root: byId("camera"), video: byId("camera-video"), boxes: byId("camera-boxes"),
-      caption: byId("camera-caption"), badge: byId("camera-badge"), power: byId("camera-power"),
+      caption: byId("camera-caption"), model: byId("camera-model"), badge: byId("camera-badge"), power: byId("camera-power"),
       photo: byId("camera-photo"), vision: byId("camera-vision"), drag: byId("camera-drag"),
       swap: byId("camera-swap"), torch: byId("camera-torch"),
     };
@@ -543,7 +579,32 @@ export class Camera {
 
   // -------------------------------------------------------------- vision --
 
+  storage() {
+    try {
+      return typeof localStorage !== "undefined" ? localStorage : { getItem: () => null, setItem: () => {} };
+    } catch {
+      return { getItem: () => null, setItem: () => {} };
+    }
+  }
+
+  // The model line under the camera: which model answers Vision and how much of the
+  // day's limit this screen has used; the details sit in the tooltip.
+  updateModel() {
+    const el = this.el.model;
+    if (!el) return;
+    const s = this.getSettings();
+    const label = String(s.visionModel || "Gemini").trim();
+    const limit = Number(s.visionDailyLimit) || 0;
+    const count = visionUsage(this.storage());
+    el.textContent = visionUsageText(label, count, limit);
+    el.title = `Vision über ${s.visionEntity || "ai_task"} (Home Assistant). Heute ${count}`
+      + (limit > 0 ? ` von ${limit} Anfragen dieses Bildschirms.` : " Anfragen dieses Bildschirms.")
+      + " Google meldet kein Guthaben; das Limit ist eine Einstellung.";
+    el.hidden = !s.vision;
+  }
+
   updateCaption(state = "ready") {
+    this.updateModel();
     const caption = this.el.caption;
     if (!caption) return;
     const visible = this.visionText && Date.now() < this.visionUntil;
@@ -629,6 +690,8 @@ export class Camera {
         const body = await response.text().catch(() => "");
         throw Object.assign(new Error(body || "ai task"), { status: response.status });
       }
+      countVisionCall(this.storage());
+      this.updateModel();
       const json = await response.json().catch(() => ({}));
       const text = json && json.service_response && typeof json.service_response.data === "string"
         ? json.service_response.data.trim() : "";

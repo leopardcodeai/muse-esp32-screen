@@ -140,7 +140,7 @@ html.square .stage-placeholder { width: 480px; height: 480px; }
   justify-content: center;
   padding: 0 12px;
 }
-#toolbar button, #settings button {
+#toolbar button {
   font: 600 13px/1 "Inter", system-ui, sans-serif;
   color: var(--ink);
   background: var(--card);
@@ -149,9 +149,8 @@ html.square .stage-placeholder { width: 480px; height: 480px; }
   padding: 8px 14px;
   cursor: pointer;
 }
-#toolbar button:hover, #settings button:hover { border-color: #c7c7cc; }
+#toolbar button:hover { border-color: #c7c7cc; }
 #toolbar button:disabled { opacity: 0.4; cursor: default; }
-#settings button[type="submit"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 #notice {
   position: absolute;
@@ -168,35 +167,181 @@ html.square .stage-placeholder { width: 480px; height: 480px; }
   line-height: 1.4;
 }
 
+/* ------------------------------------------------------------- settings --
+
+   Cards with an icon per topic, switches instead of checkboxes, tiles instead of
+   dropdowns, the long explanations behind an "i". Header and buttons stay in view;
+   on a wide screen the cards flow in two columns. */
 dialog#settings {
+  --s-bg: #f2f2f7;
+  --s-card: #ffffff;
+  --s-line: #e5e5ea;
+  --s-field: #f2f2f7;
+  --s-ink: #1c1c1e;
+  --s-sub: #8e8e93;
+  --s-accent: #ff9f0a;
   border: none;
-  border-radius: 16px;
-  padding: 20px 24px;
-  width: min(92vw, 460px);
-  max-height: 92vh;
-  overflow: auto;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+  padding: 0;
+  width: min(94vw, 880px);
+  max-height: min(92vh, 980px);
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--s-bg);
+  color: var(--s-ink);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
 }
-dialog#settings::backdrop { background: rgba(0, 0, 0, 0.3); }
-#settings h2 { margin: 0 0 12px; font-size: 18px; }
-#settings label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0; }
-#settings label.check { font-weight: 500; }
-#settings input[type="text"], #settings input[type="url"], #settings input[type="password"], #settings select {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-  padding: 8px 10px;
-  font: 500 14px "Inter", system-ui, sans-serif;
-  border: 1px solid var(--shadow);
-  border-radius: 8px;
+html[data-theme="dark"] dialog#settings {
+  --s-bg: #0b0b0d;
+  --s-card: #18181b;
+  --s-line: #2a2a2e;
+  --s-field: #232327;
+  --s-ink: #f5f5f7;
+  --s-sub: #8e8e93;
+  color-scheme: dark;
 }
-#settings select { background: var(--card); color: var(--ink); }
-#settings small { display: block; margin-top: 4px; font-weight: 500; color: var(--sub); }
-#settings small.warn { color: #b25000; }
-#settings [hidden] { display: none; }
-#figure-status { color: var(--ink); }
-#settings code { font-size: 12px; }
-#settings menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; margin: 16px 0 0; }
+dialog#settings[open] { display: flex; animation: s-in 180ms ease-out; }
+@keyframes s-in { from { opacity: 0; transform: translateY(12px) scale(0.985); } to { opacity: 1; transform: none; } }
+dialog#settings::backdrop { background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#settings-form { display: flex; flex-direction: column; width: 100%; min-height: 0; font-family: "Inter", system-ui, sans-serif; }
+#settings [hidden] { display: none !important; }
+
+.s-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 18px 22px 14px; border-bottom: 1px solid var(--s-line); background: var(--s-bg);
+}
+.s-title { display: flex; align-items: baseline; gap: 10px; }
+.s-head h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.s-version { color: var(--s-sub); font-size: 12px; font-weight: 600; }
+.s-close {
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
+  border: 0; border-radius: 50%; background: var(--s-field); color: var(--s-sub); cursor: pointer;
+}
+.s-close:focus:not(:focus-visible) { outline: none; }
+.s-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+
+.s-body {
+  flex: 1; min-height: 0; overflow: auto; padding: 16px 18px 4px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start;
+}
+.s-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.s-card {
+  display: block; margin: 0; padding: 6px 16px 10px;
+  background: var(--s-card); border: 1px solid var(--s-line); border-radius: 18px;
+}
+.s-card h3 {
+  display: flex; align-items: center; gap: 10px; margin: 8px 0 6px;
+  font-size: 15px; font-weight: 800; letter-spacing: -0.01em;
+}
+.s-card h3 svg {
+  width: 30px; height: 30px; padding: 6px; flex: none; border-radius: 9px;
+  background: rgba(255, 159, 10, 0.16); color: var(--s-accent);
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.s-card h3 .info { margin-left: auto; }
+.badge {
+  padding: 2px 8px; border-radius: 999px; background: rgba(255, 159, 10, 0.16);
+  color: var(--s-accent); font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+/* A field: name over the input; a switch: name left, toggle right. */
+#settings .field { display: block; padding: 10px 0; border-top: 1px solid var(--s-line); }
+#settings .s-card h3 + .field, #settings .s-card h3 + .hint + .field { border-top: 0; }
+.f-name { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--s-sub); }
+.opt { font-weight: 500; font-size: 11px; color: var(--s-sub); opacity: 0.8; }
+#settings input[type="text"], #settings input[type="url"], #settings input[type="password"] {
+  display: block; width: 100%; padding: 11px 12px;
+  font: 500 15px "Inter", system-ui, sans-serif; color: var(--s-ink);
+  background: var(--s-field); border: 1px solid transparent; border-radius: 12px; outline: none;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+#settings input[type="text"]:focus, #settings input[type="url"]:focus, #settings input[type="password"]:focus {
+  border-color: var(--s-accent); background: var(--s-card);
+}
+#settings input::placeholder { color: var(--s-sub); opacity: 0.7; }
+
+.switch {
+  position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px;
+  min-height: 50px; padding: 6px 0; border-top: 1px solid var(--s-line); cursor: pointer;
+  font-size: 15px; font-weight: 600;
+}
+.s-card h3 + .switch, .s-card h3 + .hint + .switch { border-top: 0; }
+.switch > span { flex: 1; display: flex; align-items: center; gap: 6px; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch > i {
+  position: relative; flex: none; width: 51px; height: 31px; border-radius: 999px;
+  background: var(--s-line); transition: background 160ms ease;
+}
+.switch > i::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); transition: transform 180ms cubic-bezier(.3,.7,.4,1.2);
+}
+.switch input:checked + i { background: #34c759; }
+.switch input:checked + i::after { transform: translateX(20px); }
+.switch input:focus-visible + i { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.switch .hint { flex-basis: 100%; }
+
+/* Tiles: a radio group that looks like iOS segmented buttons with a sub line. */
+.seg { display: grid; gap: 8px; }
+.seg-2 { grid-template-columns: repeat(2, 1fr); }
+.seg-3 { grid-template-columns: repeat(3, 1fr); }
+.seg-4 { grid-template-columns: repeat(4, 1fr); }
+.seg label { position: relative; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 52px; padding: 8px 6px; border-radius: 12px; text-align: center;
+  background: var(--s-field); border: 1.5px solid transparent;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.seg b { font-size: 14px; font-weight: 700; }
+.seg i { font-style: normal; font-size: 11px; font-weight: 500; color: var(--s-sub); }
+.seg input:checked + span { border-color: var(--s-accent); background: rgba(255, 159, 10, 0.12); }
+.seg input:focus-visible + span { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+
+/* The "i": a small round button; its hint opens below. */
+.info {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; flex: none;
+  border: 1.5px solid currentColor; border-radius: 50%; background: transparent;
+  color: var(--s-sub); font: italic 700 11px/1 Georgia, serif; cursor: pointer; opacity: 0.8;
+}
+.info:hover { opacity: 1; color: var(--s-accent); }
+#settings .hint { display: none; margin: 6px 0 2px; font-size: 12.5px; line-height: 1.45; font-weight: 500; color: var(--s-sub); }
+#settings .show-hint > .hint, #settings .s-card.show-hint > .hint { display: block; }
+#settings small.warn { display: block; margin-top: 6px; font-size: 12.5px; color: #ff9f0a; }
+#settings small.status { display: block; margin-top: 6px; font-size: 12px; font-weight: 600; color: #34c759; }
+#settings small.status:empty { display: none; }
+#settings code { font-size: 12px; padding: 1px 5px; border-radius: 5px; background: var(--s-field); }
+
+.s-more summary { list-style: none; cursor: pointer; }
+.s-more summary::-webkit-details-marker { display: none; }
+.s-more summary h3::after {
+  content: ""; margin-left: auto; width: 8px; height: 8px;
+  border-right: 2px solid var(--s-sub); border-bottom: 2px solid var(--s-sub);
+  transform: rotate(45deg); transition: transform 160ms ease;
+}
+.s-more[open] summary h3::after { transform: rotate(-135deg); }
+
+.s-foot {
+  display: flex; gap: 10px; justify-content: flex-end; margin: 0; padding: 12px 18px;
+  border-top: 1px solid var(--s-line); background: var(--s-bg);
+}
+.s-foot button {
+  min-width: 132px; min-height: 46px; padding: 0 22px; border-radius: 14px; cursor: pointer;
+  font: 700 15px/1 "Inter", system-ui, sans-serif;
+  border: 1px solid var(--s-line); background: var(--s-card); color: var(--s-ink);
+}
+.s-foot button[type="submit"] { background: var(--s-accent); border-color: var(--s-accent); color: #1c1c1e; }
+.s-foot button:active { transform: scale(0.98); }
+
+@media (max-width: 760px) {
+  .s-body { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  dialog#settings { width: 100vw; max-height: 100dvh; height: 100dvh; border-radius: 0; }
+  .s-body { grid-template-columns: 1fr; padding: 12px; }
+  .seg-4 { grid-template-columns: repeat(2, 1fr); }
+  .s-foot button { flex: 1; }
+}
 
 .pip-body { margin: 0; background: var(--page); display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
 .stage-placeholder { width: 320px; height: 240px; display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 13px; }
@@ -390,6 +535,8 @@ html.tablet #dim { right: var(--rail-w, 360px); }
 #camera-foot button[disabled] { opacity: 0.45; cursor: default; }
 #camera-badge { padding: 2px 7px; border-radius: 999px; background: rgba(0,122,255,0.18); color: #409cff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
 #camera-badge[hidden] { display: none; }
+#camera-model { margin: 0 12px 6px; font-size: 11px; opacity: 0.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#camera-model[hidden] { display: none; }
 
 /* The dim layer covers the display, not the rail on a tablet, so the controls stay
    readable while the canvas follows the room. */
@@ -419,3 +566,4 @@ html.tablet #dim { right: var(--rail-w, 360px); }
 #camera-off svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 #camera[data-facing="environment"] #camera-video { transform: none; }
+.s-body:focus { outline: none; }
