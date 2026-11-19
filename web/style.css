@@ -566,3 +566,11 @@ html.tablet #dim { right: var(--rail-w, 360px); }
 
 #camera[data-facing="environment"] #camera-video { transform: none; }
 .s-body:focus { outline: none; }
+
+/* Holding the microphone on a tablet: no tap highlight, no text selection, no callout,
+   which the Android WebView drew as a square over the rail (owner, 19.11.2026). */
+#rail, #rail * { -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#rail button:focus:not(:focus-visible) { outline: none; }
+#rail-mic { touch-action: none; }
+#rail-voice-model { margin-top: 6px; font-size: 11px; opacity: 0.55; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#rail-voice-model[hidden] { display: none; }

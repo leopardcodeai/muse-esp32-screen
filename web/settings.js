@@ -32,6 +32,7 @@ export const DEFAULTS = Object.freeze({
   tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
   autoBrightness: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
   visionModel: "Gemini 3.5 Flash Lite", visionDailyLimit: 1000,
+  voiceModel: "Gemini Sprache", voiceDailyLimit: 1000,
 });
 
 // The stored settings over the defaults, cleaned.

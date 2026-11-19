@@ -162,25 +162,26 @@ export function cameraErrorMessage(err) {
 // Vision requests of this screen per day, in localStorage. Google's API reports no
 // balance, so the share of the daily limit (a setting) is the only meter there is.
 export const VISION_USAGE_KEY = "muse-vision-usage";
+export const VOICE_USAGE_KEY = "muse-voice-usage";
 
 function dayOf(now) {
   const d = now instanceof Date ? now : new Date(now);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function visionUsage(storage, now = new Date()) {
+export function visionUsage(storage, now = new Date(), key = VISION_USAGE_KEY) {
   try {
-    const u = JSON.parse(storage.getItem(VISION_USAGE_KEY) || "{}") || {};
+    const u = JSON.parse(storage.getItem(key) || "{}") || {};
     return u.day === dayOf(now) ? Number(u.count) || 0 : 0;
   } catch {
     return 0;
   }
 }
 
-export function countVisionCall(storage, now = new Date()) {
-  const count = visionUsage(storage, now) + 1;
+export function countVisionCall(storage, now = new Date(), key = VISION_USAGE_KEY) {
+  const count = visionUsage(storage, now, key) + 1;
   try {
-    storage.setItem(VISION_USAGE_KEY, JSON.stringify({ day: dayOf(now), count }));
+    storage.setItem(key, JSON.stringify({ day: dayOf(now), count }));
   } catch {
     // blocked storage: the meter stays at zero, Vision still works
   }

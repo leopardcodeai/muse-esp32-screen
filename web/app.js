@@ -29,7 +29,7 @@ import {
   layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE,
 } from "./settings.js";
 import { TabletRail, railWidth, railSide } from "./tablet.js";
-import { Camera } from "./camera.js";
+import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY } from "./camera.js";
 import { Voice } from "./voice.js";
 import { Sensors } from "./sensors.js";
 import { applyTheme } from "./theme.js";
@@ -165,8 +165,14 @@ voice = new Voice({
   onState: (state, detail) => {
     if (rail) rail.setVoice(state, detail);
     updateVoiceHint(state, detail);
+    // "thinking" follows a recognised sentence: one speech-to-text request used.
+    if (state === "thinking") {
+      try { countVisionCall(localStorage, new Date(), VOICE_USAGE_KEY); } catch { /* no storage */ }
+      updateVoiceModel();
+    }
   },
 });
+updateVoiceModel();
 voice.setEnabled(settings.voice && !demoMode);
 voice.bindButton($("rail-mic"));
 voice.bindButton($("btn-mic"));
@@ -264,6 +270,21 @@ async function screenAction(action, fields) {
     return true;
   }
   return false;
+}
+
+// The model line under the microphone, like the camera's: model and today's share.
+function updateVoiceModel() {
+  const el = $("rail-voice-model");
+  if (!el) return;
+  let count = 0;
+  try { count = visionUsage(localStorage, new Date(), VOICE_USAGE_KEY); } catch { /* no storage */ }
+  const label = String(settings.voiceModel || "Spracherkennung").trim();
+  const limit = Number(settings.voiceDailyLimit) || 0;
+  el.textContent = visionUsageText(label, count, limit);
+  el.title = `Spracherkennung der Assist-Pipeline in Home Assistant. Heute ${count}`
+    + (limit > 0 ? ` von ${limit} Anfragen dieses Bildschirms.` : " Anfragen dieses Bildschirms.")
+    + " Google meldet kein Guthaben; das Limit ist eine Einstellung.";
+  el.hidden = !settings.voice || demoMode;
 }
 
 function updateVoiceHint(state, detail = "") {
