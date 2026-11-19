@@ -47,10 +47,27 @@ export class Sensors {
   start() {
     if (!this.bridge) return false;
     try {
-      this.bridge.update = (json) => {
-        try { this.apply(JSON.parse(json)); } catch (e) { this.log("sensor bridge: bad JSON"); }
+      // The native side pushes through `window.museSensors.update(json)`. The object
+      // Android injects is a Java proxy that takes no new properties, so assigning
+      // `update` to it did nothing and every push threw "update is not a function"
+      // (seen in the Tab's log, 19.11.2026). A plain JS object takes its place on
+      // window and forwards read and wake to the native one.
+      const native = this.bridge;
+      const onUpdate = (json) => {
+        try { this.apply(typeof json === "string" ? JSON.parse(json) : json); } catch (e) { this.log("sensor bridge: bad JSON"); }
       };
-      this.apply(this.bridge.read());
+      const wrapper = {
+        read: () => native.read(),
+        wake: () => (typeof native.wake === "function" ? native.wake() : undefined),
+        update: onUpdate,
+      };
+      if (typeof window !== "undefined" && window.museSensors === native) {
+        try { window.museSensors = wrapper; } catch { /* read-only global: the log shows it */ }
+        if (window.museSensors !== wrapper) this.log("sensor bridge: window.museSensors could not be replaced");
+      }
+      this.bridge = wrapper;
+      const first = native.read();
+      this.apply(typeof first === "string" ? JSON.parse(first) : first);
       return true;
     } catch (e) {
       this.log("sensor bridge unavailable: " + (e && e.message ? e.message : e));
@@ -65,8 +82,13 @@ export class Sensors {
     if (typeof data.light === "number") {
       this.hasLight = true;
       this.light = data.light;
-      this.dim = luxDim(data.light);
-      this.applyDim(this.dim);
+      // Like the camera estimate: only a real change moves the overlay, so sensor
+      // noise four times a second does not make the screen breathe.
+      const next = luxDim(data.light);
+      if (Math.abs(next - this.dim) > 0.05 || (next === 0 && this.dim !== 0)) {
+        this.dim = next;
+        this.applyDim(this.dim);
+      }
       if (isHandNear(previous, data.light)) {
         this.handUntil = Date.now() + 5000;
         this.wake();

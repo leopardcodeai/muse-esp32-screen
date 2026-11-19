@@ -17,3 +17,16 @@ test("isHandNear(): a sharp drop, not a dark room", () => {
   assert.equal(isHandNear(20, 2), false);
   assert.equal(isHandNear(null, 2), false);
 });
+
+test("a frozen native bridge still receives pushes through the window wrapper", async () => {
+  const { Sensors } = await import("../sensors.js");
+  const native = Object.freeze({ read: () => JSON.stringify({ light: 80 }), wake: () => {} });
+  globalThis.window = { museSensors: native };
+  const s = new Sensors({ bridge: native });
+  assert.equal(s.start(), true);
+  assert.equal(s.light, 80, "the first read is a JSON string and is applied");
+  assert.notEqual(globalThis.window.museSensors, native);
+  globalThis.window.museSensors.update(JSON.stringify({ light: 3 }));
+  assert.equal(s.light, 3, "the push reaches the page");
+  delete globalThis.window;
+});
