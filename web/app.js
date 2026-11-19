@@ -27,6 +27,7 @@ import { FrameClock, BOX_FPS, fitScale, normaliseFps } from "./pace.js";
 import {
   DEFAULTS, THEMES, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, layoutFor, layoutReload,
   layoutChoice, parseLayoutChoice, tabletProfileFor, themeFor, insecureFromHttps, MIXED_CONTENT_NOTE, updateWanted,
+  restorable,
 } from "./settings.js";
 import { TabletRail, railWidth, railSide } from "./tablet.js";
 import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY } from "./camera.js";
@@ -612,6 +613,7 @@ function applyAction({ action, fields = {} }) {
   }
   display.dispatch(action, fields);
   render();
+  if (!restorable(action)) return;
   try {
     localStorage.setItem(LAST_STATE_KEY, JSON.stringify({ action, fields, at: Date.now() }));
   } catch {
@@ -635,6 +637,10 @@ async function restoreLast() {
     }
   }
   if (!entry || !entry.action) return;
+  if (!restorable(entry.action)) {
+    log(`last display ${entry.action} not restored: a status is not content`);
+    return;
+  }
   const flat = entry.fields && typeof entry.fields === "object" && !Array.isArray(entry.fields)
     ? entry.fields
     : Object.fromEntries(Object.entries(entry).filter(([k]) => k !== "action" && k !== "fields" && k !== "at"));

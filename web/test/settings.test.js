@@ -156,3 +156,12 @@ test("updateWanted(): a different server version, only when idle", async () => {
   assert.equal(updateWanted("1.8.5", "", true), false);
   assert.equal(updateWanted("1.8.5", undefined, true), false);
 });
+
+test("a status is never restored after a reload, content is", async () => {
+  const { restorable } = await import("../settings.js");
+  assert.equal(restorable("set_status_text"), false);
+  assert.equal(restorable("set_status"), false);
+  assert.equal(restorable("reload"), false);
+  assert.equal(restorable("show_text"), true);
+  assert.equal(restorable(""), false);
+});

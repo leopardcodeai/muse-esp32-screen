@@ -189,3 +189,11 @@ export function updateWanted(current, server, idle) {
   const next = String(server || "").trim();
   return Boolean(idle) && next !== "" && next !== String(current || "").trim();
 }
+
+// Whether an action may come back after a reload or a reconnect. A status ("thinking",
+// "listening" ...) belongs to the moment it was sent; restoring it replayed an old
+// "Prüfe Dyson …" on every start (19.11.2026). Only content is restored.
+export const TRANSIENT_ACTIONS = ["set_status", "set_status_text", "reload", "camera", "photo", "vision"];
+export function restorable(action) {
+  return Boolean(action) && !TRANSIENT_ACTIONS.includes(String(action));
+}
