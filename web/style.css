@@ -1232,3 +1232,7 @@ html[data-look="ios"] .s-foot button:active { transform: scale(0.96); transition
   html[data-look="ios"].tablet #rail-mic[data-state="listening"] { box-shadow: 0 0 0 5px rgba(255, 69, 58, 0.35); }
   html[data-look="ios"] :is(#rail, #toolbar, #settings) :active { transform: none !important; }
 }
+
+/* The clock belongs to the canvas only (owner, 19.11.2026): the rail header keeps the
+   connection status and drops its own time and date. */
+#rail-clock { display: none !important; }
