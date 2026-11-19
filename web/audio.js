@@ -49,6 +49,7 @@ export class Sounds {
     this.ctx = null;
     this.buffers = {};
     this.enabled = true;
+    this.tts = null;
   }
 
   // Creates the audio context on the first user gesture (browsers block it before).
@@ -70,6 +71,32 @@ export class Sounds {
     src.buffer = this.buffers[name];
     src.connect(this.ctx.destination);
     src.start();
+  }
+
+  stopTts() {
+    if (!this.tts) return;
+    try { this.tts.stop(); } catch { /* already ended */ }
+    this.tts = null;
+  }
+
+  // A decoded file (an ArrayBuffer from the TTS proxy) through the same context that
+  // the presses unlocked. Returns false when the browser has no audio at all.
+  async playBuffer(data) {
+    if (!data || !this.ctx) return false;
+    if (this.ctx.state === "suspended") await this.ctx.resume();
+    const buffer = await this.ctx.decodeAudioData(data);
+    this.stopTts();
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(this.ctx.destination);
+    return new Promise((resolve) => {
+      src.onended = () => {
+        if (this.tts === src) this.tts = null;
+        resolve(true);
+      };
+      this.tts = src;
+      src.start();
+    });
   }
 
   chime() {

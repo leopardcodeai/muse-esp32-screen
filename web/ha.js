@@ -27,9 +27,12 @@
 // "_muse_" in its actions (esphome.muse_esp32_s3_box_3_screen_muse_show_text), the ESPHome
 // name muse-esp32-s3-box-3-screen with "_" for "-". The settings, the dialog's placeholder
 // and the tests take it from here.
+import { audioFrame } from "./pcm.js";
+
 export const DEFAULT_DEVICE = "muse_esp32_s3_box_3_screen";
 export const EVENT_WEB = "muse_web";
 export const EVENT_ANSWER = "muse_web_answer";
+
 
 // The websocket URL for a Home Assistant base URL.
 export function websocketUrl(base) {
@@ -102,6 +105,7 @@ export class HaClient {
     this.ws = null;
     this.nextId = 1;
     this.pending = new Map(); // id -> {resolve, reject}
+    this.streams = new Map(); // id -> an assist_pipeline/run with events and audio
     this.subscriptions = new Set();
     this.backoff = 1000;
     this.retry = null;
@@ -159,6 +163,12 @@ export class HaClient {
       this.authenticated = false;
       for (const p of this.pending.values()) p.reject(new Error("connection closed"));
       this.pending.clear();
+      for (const s of this.streams.values()) {
+        if (s.timer) clearTimeout(s.timer);
+        if (s.grace) clearTimeout(s.grace);
+        s.reject(new Error("connection closed"));
+      }
+      this.streams.clear();
       if (this.urls.length > 1) {
         // The address that just failed gets no second chance before the other one; a
         // LAN-only page that lost the house Wi-Fi reaches Tailscale within a second.
@@ -189,12 +199,65 @@ export class HaClient {
     const ws = this.ws;
     this.ws = null;
     if (ws) ws.close();
+    for (const s of this.streams.values()) {
+      if (s.timer) clearTimeout(s.timer);
+      if (s.grace) clearTimeout(s.grace);
+      s.reject(new Error("closed by the page"));
+    }
+    this.streams.clear();
     this.onState("off", "closed by the page");
   }
 
   send(obj) {
     if (!this.ws) return;
     this.ws.send(JSON.stringify(obj));
+  }
+
+  sendRaw(data) {
+    if (!this.ws) return;
+    this.ws.send(data);
+  }
+
+  // One pipeline run: the command is opened, the buffered PCM is sent when run-start
+  // names the binary handler, and the events go to onEvent until run-end.
+  runPipeline({ audio = new Int16Array(0), sampleRate = 16000, onEvent = () => {} } = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || !this.authenticated) {
+        reject(new Error("not connected"));
+        return;
+      }
+      const id = this.nextId++;
+      const stream = {
+        onEvent, resolve, reject, audio, sampleRate,
+        handlerId: 0, error: null, ended: false, gotResult: false,
+        timer: null, grace: null,
+      };
+      stream.timer = this.setTimeoutImpl(() => {
+        if (this.streams.get(id) !== stream) return;
+        this.streams.delete(id);
+        reject(new Error("pipeline timed out"));
+      }, 70000);
+      this.streams.set(id, stream);
+      this.send({ id, type: "assist_pipeline/run", start_stage: "stt", end_stage: "tts", input: { sample_rate: sampleRate } });
+    });
+  }
+
+  // The audio frames for one handler, then the one-byte end marker.
+  sendAudio(handlerId, pcm16) {
+    if (!this.ws || !handlerId) return;
+    const chunk = 4096;
+    for (let i = 0; i < pcm16.length; i += chunk) {
+      this.sendRaw(audioFrame(handlerId, pcm16.subarray(i, i + chunk)));
+    }
+    this.sendRaw(new Uint8Array([handlerId & 0xff]));
+  }
+
+  finishStream(id, stream, error = null) {
+    if (stream.timer) clearTimeout(stream.timer);
+    if (stream.grace) clearTimeout(stream.grace);
+    if (this.streams.get(id) === stream) this.streams.delete(id);
+    if (error && !stream.result) stream.reject(error);
+    else stream.resolve({ error: stream.error, result: stream.result });
   }
 
   // A command with an id; resolves with the result message.
@@ -238,6 +301,12 @@ export class HaClient {
       this.onState("off", "auth invalid");
       this.closed = true; // a wrong token is not retried; the person fixes the settings
       if (this.ws) this.ws.close();
+      for (const s of this.streams.values()) {
+        if (s.timer) clearTimeout(s.timer);
+        if (s.grace) clearTimeout(s.grace);
+        s.reject(new Error("auth invalid"));
+      }
+      this.streams.clear();
       return;
     }
     if (msg.type === "auth_ok") {
@@ -250,6 +319,41 @@ export class HaClient {
         await this.command({ type: "subscribe_events", event_type: EVENT_WEB });
       } catch (e) {
         this.log("subscribe failed: " + e.message);
+      }
+      return;
+    }
+    if (msg.type === "result" && this.streams.has(msg.id)) {
+      const s = this.streams.get(msg.id);
+      if (!msg.success) {
+        this.finishStream(msg.id, s, new Error(msg.error ? msg.error.message : "pipeline failed"));
+        return;
+      }
+      s.gotResult = true;
+      s.result = msg.result;
+      if (s.ended) this.finishStream(msg.id, s);
+      return;
+    }
+    if (msg.type === "event" && this.streams.has(msg.id)) {
+      const s = this.streams.get(msg.id);
+      try {
+        s.onEvent(msg.event);
+      } catch (e) {
+        this.log("pipeline event handler failed: " + e.message);
+      }
+      if (msg.event.type === "run-start") {
+        const hid = msg.event.data && msg.event.data.runner_data && msg.event.data.runner_data.stt_binary_handler_id;
+        if (hid) {
+          s.handlerId = hid;
+          this.sendAudio(hid, s.audio);
+        } else {
+          this.log("pipeline run-start without a binary handler id");
+        }
+      } else if (msg.event.type === "error") {
+        s.error = msg.event.data || { message: "pipeline error" };
+      } else if (msg.event.type === "run-end") {
+        s.ended = true;
+        if (s.gotResult) this.finishStream(msg.id, s);
+        else s.grace = this.setTimeoutImpl(() => this.finishStream(msg.id, s), 2000);
       }
       return;
     }
