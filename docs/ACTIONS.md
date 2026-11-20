@@ -225,7 +225,7 @@ camera is on.
 ### Camera mode (web screen: `camera_mode`)
 
 The camera's features are one choice in the Tab and iPad rail (a segmented control of
-icons under the composer) and in the settings dialog (Kamera, Modus):
+icons above the action buttons) and in the settings dialog (Kamera, Modus):
 
 | `mode` | Label | Sets |
 |---|---|---|

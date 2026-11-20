@@ -110,10 +110,10 @@ In the app, press **E** and set:
 | Folder URL of the images | `https://homeassistant.local:8322/local` |
 | Nur Display | on, if you want no toolbar |
 
-### Camera, microphone and Vision (web 1.7.0)
+### Camera and Vision (web 1.7.0)
 
-Camera and microphone need a secure context: use the add-on's HTTPS address, not
-`http://`, and trust the mkcert CA on the tablet. The browser asks once for each
+The camera needs a secure context: use the add-on's HTTPS address, not
+`http://`, and trust the mkcert CA on the tablet. The browser asks once for the
 permission; the camera switch stays off until the owner enables it in the settings.
 
 The Vision button uploads one JPEG to `/media/muse-camera/` and calls
@@ -122,8 +122,9 @@ belong to an admin user, because the media upload endpoint requires admin. The d
 AI Task entity is `ai_task.google_ai_task`; the field in the settings accepts any
 `ai_task.*` entity that can describe images. The file is deleted after the answer.
 
-The microphone is push-to-talk only and uses Home Assistant's preferred Assist pipeline
-(the "Muse" pipeline: Whisper, `conversation.muse`, Piper). No add-on option is needed.
+The page has no microphone since web 1.8.24: talking to Muse is Meta's own voice (on the
+Tab the microphone button of Muse OS). The add-on's header still allows the microphone;
+the page's service worker closes it.
 
 The Home Assistant URL is the **add-on**, not the HA IP. The app connects to
 `wss://homeassistant.local:8322/api/websocket`; the add-on forwards that to `ha_url`.

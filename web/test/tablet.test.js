@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { railWidth, railSide, profileLabel, railDensity, tileParam, tileDetail, cameraModeHint, railDate, TabletRail } from "../tablet.js";
-import { WAVE_BARS } from "../composer.js";
+import { readFileSync, existsSync } from "node:fs";
 
 test("railWidth(): the leftover width makes the page square", () => {
   assert.equal(railWidth(960, 600), 360);
@@ -72,13 +72,11 @@ function fakeDocument(ids) {
   return { els, getElementById: (id) => els[id] || null, createElement: () => make("") };
 }
 
-test("TabletRail: clock, connection, composer state, wave, history and mode hint", () => {
-  const doc = fakeDocument(["rail", "rail-time", "rail-date", "rail-dot", "rail-status-text", "rail-timer", "rail-voice-box",
-    "rail-mic", "rail-mic-label", "rail-wave", "rail-text-send", "rail-history", "rail-history-q", "rail-history-a",
+test("TabletRail: clock, connection, timer and mode hint", () => {
+  const doc = fakeDocument(["rail", "rail-time", "rail-date", "rail-dot", "rail-status-text", "rail-timer",
     "rail-mode-hint", "rail-light", "rail-fullscreen"]);
   const rail = new TabletRail({ document: doc }).mount();
   const e = doc.els;
-  assert.equal(e["rail-wave"].children.length, WAVE_BARS, "mount() makes the wave's bars");
   rail.setDensity("compact");
   assert.equal(e.rail.dataset.density, "compact");
   rail.update({ clock: new Date(2026, 10, 19, 9, 5), connection: "on", cameraMode: "follow", timer: { name: "Tee", left: 272 } });
@@ -91,50 +89,36 @@ test("TabletRail: clock, connection, composer state, wave, history and mode hint
   assert.equal(e["rail-mode-hint"].textContent, "Folgen: Muse bewegt sich mit dir");
   assert.equal(e["rail-light"].hidden, true, "no light reading, no line");
   assert.equal(e["rail-fullscreen"].attrs["aria-pressed"], "false");
-
-  rail.setVoice("listening", "", "Ich höre … Loslassen sendet");
-  assert.equal(e["rail-voice-box"].dataset.state, "listening");
-  assert.equal(e["rail-mic"].dataset.state, "listening");
-  assert.equal(e["rail-mic-label"].textContent, "Ich höre … Loslassen sendet");
-  rail.setLevel(0.8, 300);
-  assert.ok(e["rail-wave"].children.every((bar) => /^scaleY\([01]\.\d{3}\)$/.test(bar.style.transform)), "every bar has a height");
-  rail.setVoice("thinking");
-  assert.equal(e["rail-mic-label"].textContent, "Muse denkt …");
-  assert.ok(e["rail-wave"].children.every((bar) => bar.style.transform === ""), "leaving listening hands the bars back to CSS");
-  rail.setVoice("error", "Mikrofon nicht erlaubt");
-  assert.equal(e["rail-mic-label"].textContent, "Mikrofon nicht erlaubt");
-  rail.setVoice("nonsense");
-  assert.equal(e.rail.dataset.voice, "idle");
-
-  rail.setSendEnabled(true);
-  assert.equal(e["rail-text-send"].disabled, false);
-  rail.setSendEnabled(false);
-  assert.equal(e["rail-text-send"].disabled, true);
-
-  rail.setHistory({ visible: true, question: "Wie spät?", answer: "12 Uhr", tone: "answer" });
-  assert.equal(e["rail-history"].hidden, false);
-  assert.equal(e["rail-history"].dataset.tone, "answer");
-  assert.equal(e["rail-history-q"].textContent, "Wie spät?");
-  assert.equal(e["rail-history-a"].textContent, "12 Uhr");
-  rail.setHistory({ visible: false });
-  assert.equal(e["rail-history"].hidden, true);
+  rail.update({ connection: "on" });
+  assert.equal(e["rail-timer"].hidden, true, "no timer, no chip");
 });
 
-test("TabletRail: a page without the rail or without the new parts never throws", () => {
+test("TabletRail: a page without the rail or without some parts never throws", () => {
   const none = new TabletRail({ document: fakeDocument([]) }).mount();
   none.update({ connection: "on" });
-  none.setVoice("listening");
-  none.setLevel(0.5);
-  none.setHistory({ visible: true, question: "q", answer: "a" });
   none.setCameraMode("all");
-  none.setSendEnabled(true);
   none.setDensity("compact");
   assert.equal(none.root, null);
   const bare = new TabletRail({ document: fakeDocument(["rail"]) }).mount();
-  bare.update({ connection: "demo", cameraMode: "mimic", voice: "speaking" });
-  bare.setLevel(0.5);
-  bare.setSendEnabled(true);
-  bare.setHistory(null);
-  assert.equal(bare.root.dataset.voice, "speaking");
+  bare.update({ connection: "demo", cameraMode: "mimic", timer: { name: "Tee", left: 5 } });
   assert.equal(bare.root.dataset.connection, "demo");
+});
+
+// 1.8.24 (owner, 20.11.2026): talking to Muse is Meta's own voice in Muse OS; the page's
+// Home Assistant voice and text path is gone and must not come back half.
+test("the page has no microphone, no text field to Muse and no voice modules", () => {
+  const web = new URL("../", import.meta.url);
+  const html = readFileSync(new URL("index.html", web), "utf8");
+  for (const gone of ["rail-voice-box", "rail-mic", "rail-text", "rail-wave", "rail-history", "btn-mic", "voice-hint", 'name="voice"', 'name="speak"', "An Muse schreiben"]) {
+    assert.ok(!html.includes(gone), `index.html still has ${gone}`);
+  }
+  assert.ok(html.includes('id="rail-timer"'), "the timer chip stays");
+  for (const file of ["voice.js", "textask.js", "composer.js", "pcm.js", "pcm-worklet.js"]) {
+    assert.ok(!existsSync(new URL(file, web)), `${file} is back`);
+  }
+  const sw = readFileSync(new URL("sw.js", web), "utf8");
+  assert.ok(!/voice\.js|textask\.js|composer\.js|pcm/.test(sw), "the service worker still caches a voice module");
+  assert.match(sw, /microphone=\(\)/, "the page's policy keeps the microphone closed");
+  const css = readFileSync(new URL("style.css", web), "utf8");
+  assert.ok(!/#rail-(mic|text|wave|history|voice|composer)|#voice-hint|#btn-mic/.test(css), "style.css keeps composer rules");
 });

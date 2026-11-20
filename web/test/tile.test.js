@@ -1,14 +1,13 @@
 // tile.test.js: Muse OS's tile mode (the canvas as a small square, square.js TILE): what
 // a frame draws with `display.tile` on, that nothing changes with it off, and what rests
 // meanwhile: the camera card's boxes and their detector, not the pose tracker. Also the
-// card's three views and the two callbacks voice.js gives the rail's history.
+// card's three views.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Display } from "../display.js";
 import { SquareView, TILE, FIGURE, BUBBLE, TOP_BAR, tileDotColor, tileCardKind, connectionColor } from "../square.js";
 import { PILLS } from "../tables.js";
 import { Camera, cameraView } from "../camera.js";
-import { Voice } from "../voice.js";
 
 function make() {
   const clock = { t: 100000 };
@@ -281,37 +280,4 @@ test("setPreviewVisible(false): no boxes drawn, no object detection; the pose tr
     cam.poseTimer = null;
     delete globalThis.document;
   }
-});
-
-// ------------------------------------------------------- the rail's history --
-
-test("Voice: the understood sentence and the answer text reach the rail's history", async () => {
-  const heard = [];
-  const replies = [];
-  const events = [
-    { type: "stt-end", data: { stt_output: { text: "  Wie spät ist es?  " } } },
-    { type: "intent-end", data: { intent_output: { response: { speech: { plain: { speech: "Es ist 12 Uhr." } } } } } },
-  ];
-  const voice = new Voice({
-    getHa: () => ({ async runPipeline({ onEvent }) { for (const ev of events) onEvent(ev); return {}; } }),
-    getDisplay: () => ({ version: 1, offer() {} }),
-    getSettings: () => ({ speak: false }),
-    onHeard: (t) => heard.push(t),
-    onReply: (t) => replies.push(t),
-    fallbackMs: 100000,
-  });
-  await voice.run(new Int16Array(1600));
-  voice.cancel();
-  assert.deepEqual(heard, ["Wie spät ist es?"]);
-  assert.deepEqual(replies, ["Es ist 12 Uhr."]);
-
-  const silent = [];
-  const quiet = new Voice({
-    getHa: () => ({ async runPipeline({ onEvent }) { onEvent({ type: "stt-end", data: { stt_output: { text: " " } } }); return {}; } }),
-    getDisplay: () => ({ version: 1, offer() {} }),
-    getSettings: () => ({ speak: false }),
-    onHeard: (t) => silent.push(t),
-  });
-  await quiet.run(new Int16Array(1600));
-  assert.deepEqual(silent, [], "nothing understood, nothing to show");
 });

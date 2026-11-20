@@ -112,14 +112,15 @@ test("objects: German names, people first, a short caption", async () => {
   assert.equal(objectCaption(many), "Ich sehe Tasse, Laptop, Buch, Stuhl +2");
 });
 
-test("usage meters: Vision and voice count apart", async () => {
-  const { countVisionCall, visionUsage, VOICE_USAGE_KEY } = await import("../camera.js");
+test("usage meters: each key counts apart", async () => {
+  const { countVisionCall, visionUsage } = await import("../camera.js");
+  const OTHER = "muse-other-usage";
   const store = {};
   const storage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } };
   const day = new Date("2026-11-19T12:00:00");
   countVisionCall(storage, day);
-  countVisionCall(storage, day, VOICE_USAGE_KEY);
-  countVisionCall(storage, day, VOICE_USAGE_KEY);
+  countVisionCall(storage, day, OTHER);
+  countVisionCall(storage, day, OTHER);
   assert.equal(visionUsage(storage, day), 1);
-  assert.equal(visionUsage(storage, day, VOICE_USAGE_KEY), 2);
+  assert.equal(visionUsage(storage, day, OTHER), 2);
 });

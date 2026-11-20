@@ -356,7 +356,7 @@ dialog#settings::backdrop { background: rgba(0, 0, 0, 0.55); backdrop-filter: bl
 
    The Tab and iPad profiles: the 480 x 480 canvas takes the full height and the rail
    takes the width the square leaves. The rail is DOM, so its text stays crisp and the
-   settings and voice states do not need a canvas redraw. */
+   settings and camera states do not need a canvas redraw. */
 #rail { display: contents; }
 html:not(.tablet) #rail > :not(#camera) { display: none !important; }
 #tablet-shell { display: contents; }
@@ -385,11 +385,7 @@ html.tablet #rail {
   --r-sub: var(--sub);
   --r-surface: var(--card);
   --r-line: var(--shadow);
-  --r-field: var(--page);
   --r-tint: var(--accent);
-  --r-red: #ff3b30;
-  --r-orange: #ff9f0a;
-  --r-green: #34c759;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -464,7 +460,7 @@ html.muse-tile #rail * { animation-play-state: paused !important; }
   html.tablet #rail-mode { flex: 1 1 320px; margin-top: 0; }
   html.tablet #rail-actions { flex: 1 1 240px; }
   html.tablet #camera-beta { display: none; }
-  html.tablet #rail-voice-box { flex: 1 1 260px; }
+  html.tablet #rail-timer { flex: none; align-self: center; }
 }
 
 /* The status header: the clock and the date on the left (Muse OS has no clock of its
@@ -491,18 +487,7 @@ html.muse-tile #rail * { animation-play-state: paused !important; }
 #rail-dot[data-connection="connecting"] { background: #ff9f0a; }
 #rail-dot[data-connection="demo"] { background: #30b0c7; }
 
-/* The composer: push-to-talk beside the text field, one state line, the last question
-   and answer. States come from #rail-voice-box[data-state] (tablet.js setVoice). */
-#rail-voice-box {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: none;
-  padding: 12px;
-  border-radius: 20px;
-  background: var(--r-surface);
-  border: 1px solid var(--r-line);
-}
+/* The soonest timer as a chip under the camera card (tablet.js update). */
 #rail-timer {
   align-self: flex-start;
   padding: 5px 12px; border-radius: 999px;
@@ -510,30 +495,6 @@ html.muse-tile #rail * { animation-play-state: paused !important; }
   font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 #rail-timer[hidden] { display: none; }
-#rail-composer { display: flex; align-items: center; gap: 10px; }
-#rail-mic {
-  position: relative;
-  display: grid; place-items: center; flex: none;
-  width: 52px; height: 52px; border-radius: 50%;
-  border: 0; background: var(--r-tint); color: #fff; cursor: pointer;
-  touch-action: none; user-select: none; -webkit-user-select: none;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
-  transition: transform 120ms ease, background 160ms ease, box-shadow 160ms ease;
-}
-#rail-mic svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-#rail-mic:active { transform: scale(0.94); }
-#rail-mic[data-state="listening"] { background: var(--r-red); animation: rail-pulse 1.2s ease-out infinite; }
-#rail-mic[data-state="thinking"] { background: var(--r-orange); }
-#rail-mic[data-state="speaking"] { background: var(--r-green); }
-#rail-mic[data-state="error"] { background: #8e8e93; box-shadow: none; }
-#rail-mic[data-state="off"] { background: var(--r-line); color: var(--r-sub); box-shadow: none; }
-@keyframes rail-pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.45); } 100% { box-shadow: 0 0 0 14px rgba(255, 59, 48, 0); } }
-#rail-composer-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-height: 16px; padding: 0 4px; }
-#rail-mic-label { flex: 0 1 auto; min-width: 0; color: var(--r-sub); font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#rail-voice-box[data-state="listening"] #rail-mic-label { color: var(--r-red); }
-#rail-voice-box[data-state="thinking"] #rail-mic-label { color: var(--r-orange); }
-#rail-voice-box[data-state="speaking"] #rail-mic-label { color: var(--r-green); }
-#rail-voice-box[data-state="error"] #rail-mic-label { color: var(--r-red); }
 
 #rail-actions {
   display: flex;
@@ -618,23 +579,13 @@ html.muse-tile #rail * { animation-play-state: paused !important; }
   background: #000; opacity: 0; transition: opacity 1.5s ease;
 }
 
-/* The voice state in the Mosaico and box layouts; the tablet rail carries it itself. */
-#voice-hint {
-  position: fixed; left: 50%; bottom: 56px; z-index: 35; transform: translateX(-50%);
-  max-width: min(90vw, 520px); margin: 0; padding: 9px 16px; border-radius: 999px;
-  background: var(--ink); color: #fff; font-size: 13px; font-weight: 600;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18); pointer-events: none;
-}
-#voice-hint[hidden] { display: none; }
-
-#rail-mic[hidden], #rail-mic-label[hidden] { display: none; }
 #rail-actions button[hidden] { display: none; }
 
 /* The camera mode: one segmented control (Aus, Folgen, Nachmachen, Erkennen, Alles) of
    five equal segments, an icon with its label below, the chosen mode a raised pill;
    "custom" (switched one by one) lights none. A compact rail shows the icons alone and
    names the mode in the line below (tablet.js cameraModeHint). It sits at the rail's
-   bottom with the actions; the free height stays between it and the composer. */
+   bottom with the actions; the free height stays above it. */
 #rail-mode { display: flex; flex-direction: column; gap: 5px; flex: none; margin-top: auto; }
 #rail-camera-mode {
   display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; flex: none;
@@ -669,92 +620,10 @@ html.muse-tile #rail * { animation-play-state: paused !important; }
 #camera[data-facing="environment"] #camera-video { transform: none; }
 .s-body:focus { outline: none; }
 
-/* Holding the microphone on a tablet: no tap highlight, no text selection, no callout,
-   which the Android WebView drew as a square over the rail (owner, 19.11.2026). */
+/* Holding a button on a tablet: no tap highlight, no text selection, no callout, which
+   the Android WebView drew as a square over the rail (owner, 19.11.2026). */
 #rail, #rail * { -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 #rail button:focus:not(:focus-visible) { outline: none; }
-#rail-mic { touch-action: none; }
-#rail-voice-model { flex: 1 100 0px; min-width: 0; text-align: right; color: var(--r-sub); font-size: 11px; font-weight: 500; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#rail-voice-model[hidden] { display: none; }
-#rail[data-density="compact"] #rail-voice-model { display: none; }
-
-/* The text field: a capsule with the send button inside (disabled while empty; Enter
-   sends). While Muse listens, thinks or speaks the wave lies over the field. */
-#rail-text {
-  position: relative; display: flex; align-items: center; flex: 1 1 auto; min-width: 0; height: 48px; margin: 0;
-  padding: 0 4px 0 16px; border-radius: 24px; background: var(--r-field); border: 1px solid var(--r-line);
-  transition: box-shadow 200ms ease, border-color 200ms ease;
-}
-#rail-text:focus-within { border-color: var(--r-tint); }
-#rail-text-input {
-  flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; color: var(--r-ink);
-  font: inherit; font-size: 16px; outline: none;
-  -webkit-user-select: text; user-select: text;
-  transition: opacity 80ms ease;
-}
-#rail-text-input::placeholder { color: var(--r-sub); opacity: 1; }
-#rail-text-send {
-  position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0;
-  background: var(--r-tint); color: #fff; display: grid; place-items: center; cursor: pointer;
-  transition: transform 160ms ease, background 200ms ease, color 200ms ease, opacity 200ms ease;
-}
-/* The 40 px circle takes touches on the field's full 48 px height. */
-#rail-text-send::after { content: ""; position: absolute; inset: -4px; }
-#rail-text-send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-#rail-text-send:active { transform: scale(0.92); }
-#rail-text-send:disabled { background: transparent; color: var(--r-sub); opacity: 0.55; cursor: default; }
-#rail-text[hidden] { display: none; }
-/* Compact: the field is short, so the send button only shows once there is text to
-   send (Enter sends as well) and the placeholder is set a size smaller. */
-#rail[data-density="compact"] #rail-text-send:disabled { display: none; }
-#rail[data-density="compact"] #rail-text { padding-left: 14px; }
-#rail[data-density="compact"] #rail-text-input::placeholder { font-size: 14px; }
-#rail[data-density="compact"] #rail-voice-box { padding: 10px; }
-#rail[data-density="compact"] #rail-composer { gap: 8px; }
-#rail[data-density="compact"] #rail-mic { width: 46px; height: 46px; }
-#rail[data-density="compact"] #rail-wave { right: 14px; }
-
-/* The wave: 21 bars (tablet.js makes them). Listening: app.js sets each bar's height
-   from the microphone's level; thinking and speaking move by CSS alone. */
-#rail-wave {
-  position: absolute; inset: 0 52px 0 16px; display: none; align-items: center; justify-content: space-between;
-  pointer-events: none; color: var(--r-sub);
-}
-#rail-wave i { display: block; width: 3px; height: 28px; border-radius: 2px; background: currentColor; transform: scaleY(0.2); }
-#rail-voice-box:is([data-state="listening"], [data-state="thinking"], [data-state="speaking"]) #rail-wave { display: flex; }
-#rail-voice-box:is([data-state="listening"], [data-state="thinking"], [data-state="speaking"]) #rail-text-input { opacity: 0; }
-#rail-voice-box[data-state="listening"] #rail-wave { color: var(--r-red); }
-#rail-voice-box[data-state="listening"] #rail-wave i { transform: scaleY(0.45); }
-#rail-voice-box[data-state="thinking"] #rail-wave { color: var(--r-orange); }
-#rail-voice-box[data-state="thinking"] #rail-wave i { transform: scaleY(0.3); animation: wave-think 1.4s ease-in-out infinite; }
-#rail-voice-box[data-state="speaking"] #rail-wave { color: var(--r-green); }
-#rail-voice-box[data-state="speaking"] #rail-wave i { transform: scaleY(0.6); animation: wave-speak 0.9s ease-in-out infinite; }
-#rail-wave i:nth-child(3n + 1) { animation-delay: -0.31s; }
-#rail-wave i:nth-child(3n + 2) { animation-delay: -0.62s; }
-#rail-wave i:nth-child(4n) { animation-delay: -0.47s; }
-#rail-wave i:nth-child(5n) { animation-delay: -0.16s; }
-#rail-wave i:nth-child(7n) { animation-delay: -0.78s; }
-/* Reduced motion in every look: no pulse and no moving bars; colour and text still say
-   the state (the level wave rests in app.js as well). */
-@media (prefers-reduced-motion: reduce) {
-  #rail-wave i, #rail-mic { animation: none !important; }
-}
-@keyframes wave-think { 0%, 100% { transform: scaleY(0.16); opacity: 0.45; } 50% { transform: scaleY(0.42); opacity: 1; } }
-@keyframes wave-speak { 0%, 100% { transform: scaleY(0.22); } 50% { transform: scaleY(0.92); } }
-
-/* The last question (one line) and its answer (two lines; more while the camera card is
-   away and the rail has the room). In memory only, composer.js LastExchange. */
-#rail-history { display: grid; gap: 2px; padding: 8px 4px 0; border-top: 1px solid var(--r-line); }
-#rail-history[hidden] { display: none; }
-#rail-history p { margin: 0; overflow: hidden; }
-#rail-history-q { color: var(--r-sub); font-size: 12px; font-weight: 600; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; }
-#rail-history-a {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
-  color: var(--r-ink); font-size: 14px; font-weight: 500; line-height: 1.35;
-}
-html:not(.camera-beta) #rail-history-a { -webkit-line-clamp: 8; line-clamp: 8; }
-#rail-history[data-tone="error"] #rail-history-a { color: var(--r-red); }
-#rail-history:is([data-tone="pending"], [data-tone="card"]) #rail-history-a { color: var(--r-sub); }
 
 /* =================================================================== iOS look --
 
@@ -778,7 +647,7 @@ html:not(.camera-beta) #rail-history-a { -webkit-line-clamp: 8; line-clamp: 8; }
       turns almost opaque, so text keeps its contrast.
     * Inputs use 16 px text: Safari on iPad zooms into any smaller focused field.
     * No glass on glass: the rail's glass surfaces are the status capsule, the camera
-      card, the composer and the mode track; what sits inside them is filled, not glass.
+      card and the mode track; what sits inside them is filled, not glass.
     * The rail's own colours are the --r-* variables of `html.tablet #rail`; this block
       swaps them for the system colours instead of restyling every part again. */
 html[data-look="ios"] {
@@ -851,11 +720,9 @@ html[data-look="ios"][data-theme="dark"] {
 
 /* One glass surface, shared by every floating part of the chrome. */
 html[data-look="ios"].tablet #rail-status,
-html[data-look="ios"].tablet #rail-voice-box,
 html[data-look="ios"] #camera,
 html[data-look="ios"] #toolbar button,
-html[data-look="ios"] #notice,
-html[data-look="ios"] #voice-hint {
+html[data-look="ios"] #notice {
   background: var(--glass-bg);
   border: 1px solid var(--glass-rim);
   box-shadow: var(--glass-highlight), 0 0 0 0.5px var(--glass-edge), var(--glass-shadow);
@@ -875,11 +742,7 @@ html[data-look="ios"].tablet #rail {
   --r-ink: var(--ios-label);
   --r-sub: var(--ios-label-2);
   --r-line: var(--ios-separator);
-  --r-field: var(--ios-fill-2);
   --r-tint: var(--ios-fill-button);
-  --r-red: var(--ios-red);
-  --r-orange: var(--ios-orange);
-  --r-green: var(--ios-green);
   gap: 12px;
   padding: max(16px, env(safe-area-inset-top)) max(var(--rail-pad, 16px), env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) var(--rail-pad, 16px);
   font-family: var(--ios-font);
@@ -915,13 +778,6 @@ html[data-look="ios"] #rail-light { font: 500 12px/1.2 var(--ios-font); }
 html[data-look="ios"] #rail-timer,
 html[data-look="ios"] .s-version { font-variant-numeric: tabular-nums; }
 
-/* The composer: one glass card. Nothing inside it is glass again: the microphone is a
-   filled circle in the state's colour, the field a capsule of the fill colour. */
-html[data-look="ios"].tablet #rail-voice-box {
-  gap: 9px;
-  padding: 12px;
-  border-radius: 26px;
-}
 html[data-look="ios"].tablet #rail-timer {
   padding: 6px 13px;
   background: rgba(255, 159, 10, 0.18);
@@ -930,61 +786,6 @@ html[data-look="ios"].tablet #rail-timer {
   font-weight: 600;
 }
 html[data-look="ios"][data-theme="light"].tablet #rail-timer { color: #a34f00; }
-
-html[data-look="ios"].tablet #rail-mic {
-  background: var(--ios-fill-button);
-  color: #fff;
-  box-shadow: 0 6px 18px var(--ios-tint-glow);
-  transition: transform 420ms var(--spring), background 220ms ease, color 220ms ease, box-shadow 260ms ease;
-}
-html[data-look="ios"].tablet #rail-mic:active { transform: scale(0.9); transition-duration: 160ms; }
-html[data-look="ios"].tablet #rail-mic[data-state="listening"] {
-  background: var(--ios-red);
-  animation: ios-listen 1.4s var(--ease-out) infinite;
-}
-html[data-look="ios"].tablet #rail-mic[data-state="thinking"] {
-  background: var(--ios-orange);
-  box-shadow: 0 6px 18px rgba(255, 159, 10, 0.4);
-  animation: ios-breathe 1.6s ease-in-out infinite;
-}
-html[data-look="ios"].tablet #rail-mic[data-state="speaking"] {
-  background: var(--ios-green);
-  box-shadow: 0 6px 18px rgba(48, 209, 88, 0.4);
-}
-html[data-look="ios"].tablet #rail-mic[data-state="error"],
-html[data-look="ios"].tablet #rail-mic[data-state="off"] {
-  background: var(--ios-fill);
-  color: var(--ios-label-2);
-  box-shadow: none;
-}
-@keyframes ios-listen {
-  0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.5), 0 6px 18px rgba(255, 69, 58, 0.4); }
-  100% { box-shadow: 0 0 0 16px rgba(255, 69, 58, 0), 0 6px 18px rgba(255, 69, 58, 0.4); }
-}
-@keyframes ios-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-
-html[data-look="ios"].tablet #rail-mic-label { font: 500 13px/1.25 var(--ios-font); letter-spacing: -0.01em; }
-html[data-look="ios"].tablet #rail-voice-model { font: 400 11px/1.25 var(--ios-font); opacity: 0.8; }
-/* Coloured state text on glass: the darker system variants in the light theme. */
-html[data-look="ios"][data-theme="light"].tablet #rail-voice-box { --r-red: #d70015; --r-orange: #a34f00; --r-green: #1d7a34; }
-html[data-look="ios"][data-theme="light"].tablet #rail-voice-box #rail-wave { filter: saturate(1.1); }
-
-/* The field as an iOS message field: a capsule of the fill colour, the send button a
-   filled circle inside it. 48 px high for the touch target, 16 px text (Safari zooms
-   into a smaller focused field). */
-html[data-look="ios"] #rail-text { border: 0; }
-html[data-look="ios"] #rail-text:focus-within { background: var(--ios-fill); box-shadow: 0 0 0 3px var(--ios-tint-ring); }
-html[data-look="ios"] #rail-text-input { font: 400 16px/1 var(--ios-font); letter-spacing: -0.01em; }
-html[data-look="ios"] #rail-text-input:focus-visible { outline: none; }
-html[data-look="ios"] #rail-text-send {
-  background: var(--ios-fill-button);
-  box-shadow: 0 3px 10px var(--ios-tint-glow);
-  transition: transform 360ms var(--spring), opacity 200ms ease, background 200ms ease, box-shadow 200ms ease;
-}
-html[data-look="ios"] #rail-text-send:active { transform: scale(0.9); transition-duration: 140ms; }
-html[data-look="ios"] #rail-text-send:disabled { background: var(--ios-fill); color: var(--ios-label-2); box-shadow: none; opacity: 0.7; }
-html[data-look="ios"] #rail-history-q { font: 500 12px/1.3 var(--ios-font); }
-html[data-look="ios"] #rail-history-a { font: 400 14px/1.35 var(--ios-font); letter-spacing: -0.01em; }
 
 /* Actions in the manner of Control Center: round wells straight on the rail (no glass
    under them), the label below; a well fills with the tint while its action is on. */
@@ -1021,14 +822,12 @@ html[data-look="ios"] #toolbar button::after { content: ""; position: absolute; 
 html[data-look="ios"] #toolbar button:hover { border-color: var(--glass-rim); background: var(--glass-bg-strong); }
 html[data-look="ios"] #toolbar button:active { transform: scale(0.95); transition-duration: 140ms; }
 
-html[data-look="ios"] #notice,
-html[data-look="ios"] #voice-hint {
+html[data-look="ios"] #notice {
   border-radius: 18px;
   font-family: var(--ios-font);
   font-size: 15px;
   font-weight: 500;
 }
-html[data-look="ios"] #voice-hint { border-radius: 999px; }
 
 html[data-look="ios"] #camera { border-radius: 24px; font-family: var(--ios-font); }
 html[data-look="ios"] #camera-head { gap: 8px; padding: 10px 12px; color: var(--ios-label); font-size: 14px; font-weight: 600; }
@@ -1223,13 +1022,12 @@ html[data-look="ios"] .s-foot button:active { transform: scale(0.96); transition
 /* Reduced motion: no springs, no pulse, no sheet slide; state changes stay visible
    through colour alone. Only the chrome; the display's own fades are the canvas's. */
 @media (prefers-reduced-motion: reduce) {
-  html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings, #notice, #voice-hint),
+  html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings, #notice),
   html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings) *,
   html[data-look="ios"] :is(#rail, #toolbar, #camera, #settings) *::after {
     transition-duration: 0.01ms !important;
     animation: none !important;
   }
-  html[data-look="ios"].tablet #rail-mic[data-state="listening"] { box-shadow: 0 0 0 5px rgba(255, 69, 58, 0.35); }
   html[data-look="ios"] :is(#rail, #toolbar, #settings) :active { transform: none !important; }
 }
 

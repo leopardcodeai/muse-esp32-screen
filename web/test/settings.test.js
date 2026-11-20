@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DEFAULT_DEVICE } from "../ha.js";
 import {
-  DEFAULTS, SETTINGS_KEY, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, insecureFromHttps,
+  DEFAULTS, RETIRED_KEYS, SETTINGS_KEY, loadSettings, saveSettings, hasStoredSettings, landingTarget, fpsFor, insecureFromHttps,
   layoutFor, layoutReload, LAYOUTS, TABLET_PROFILES, layoutChoice, parseLayoutChoice, tabletProfileFor,
   MIXED_CONTENT_NOTE, LOOKS, lookFor,
 } from "../settings.js";
@@ -128,8 +128,6 @@ test("loadSettings(): the new device switches have safe defaults", () => {
   const s = loadSettings(memory());
   assert.equal(s.layout, "square");
   assert.equal(s.tabletProfile, "tab");
-  assert.equal(s.voice, true);
-  assert.equal(s.speak, true);
   assert.equal(s.camera, false);
   assert.equal(s.cameraFacing, "user");
   assert.equal(s.personBoxes, true);
@@ -142,10 +140,20 @@ test("loadSettings(): the new device switches have safe defaults", () => {
   assert.equal(bad.visionEntity, "ai_task.google_ai_task");
   assert.equal(bad.camera, false);
   assert.equal(bad.cameraFacing, "user");
-  const stored = loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify({ camera: true, vision: false, voice: false }) }));
+  const stored = loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify({ camera: true, vision: false }) }));
   assert.equal(stored.camera, true);
   assert.equal(stored.vision, false);
-  assert.equal(stored.voice, false);
+});
+
+// 1.8.24 removed the page's voice and text path; a browser that stored its switches
+// keeps every other setting and loses only those keys.
+test("loadSettings(): stored voice settings from before 1.8.24 are dropped", () => {
+  const old = { voice: true, speak: true, voiceModel: "Gemini Sprache", voiceDailyLimit: 1000, camera: true, followMe: true, name: "Muse", layoutVersion: 2 };
+  const s = loadSettings(memory({ [SETTINGS_KEY]: JSON.stringify(old) }));
+  for (const key of RETIRED_KEYS) assert.ok(!(key in s), `${key} is still in the settings`);
+  assert.equal(s.camera, true);
+  assert.equal(s.followMe, true);
+  for (const key of RETIRED_KEYS) assert.ok(!(key in DEFAULTS), `${key} is still a default`);
 });
 
 test("updateWanted(): a different server version, only when idle", async () => {

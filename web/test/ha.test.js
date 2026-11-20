@@ -61,7 +61,6 @@ class FakeSocket {
   constructor(url) {
     this.url = url;
     this.sent = [];
-    this.binary = [];
     this.readyState = 0;
     FakeSocket.instances.push(this);
     queueMicrotask(() => this.message({ type: "auth_required", ha_version: "2026.9.4" }));
@@ -70,10 +69,6 @@ class FakeSocket {
     this.onmessage?.({ data: JSON.stringify(obj) });
   }
   send(raw) {
-    if (typeof raw !== "string") {
-      this.binary.push(raw);
-      return;
-    }
     const msg = JSON.parse(raw);
     this.sent.push(msg);
     if (msg.type === "auth") {
@@ -286,29 +281,3 @@ test("urls: when every address refuses the token, the client stops", async () =>
   assert.ok(states.some(([s, d]) => s === "off" && d === "auth invalid"));
 });
 
-test("runPipeline(): events, binary audio frames and the one-byte end marker", async () => {
-  FakeSocket.instances = [];
-  const events = [];
-  const c = new HaClient({ url: "http://ha.local:8123", token: "test-token", WebSocketImpl: FakeSocket,
-    onState: () => {}, setTimeout: () => 0, clearTimeout: () => {} });
-  c.connect();
-  await settle();
-  const ws = FakeSocket.instances[0];
-  const run = c.runPipeline({ audio: new Int16Array([1, 2]), sampleRate: 16000, onEvent: (ev) => events.push(ev.type) });
-  await settle();
-  const command = ws.sent.find((m) => m.type === "assist_pipeline/run");
-  assert.deepEqual(command, { id: 3, type: "assist_pipeline/run", start_stage: "stt", end_stage: "tts", input: { sample_rate: 16000 } });
-  ws.message({ id: 3, type: "event", event: { type: "run-start", data: { runner_data: { stt_binary_handler_id: 1 } } } });
-  await settle();
-  assert.equal(ws.binary.length, 2);
-  assert.deepEqual([...ws.binary[0]], [1, 1, 0, 2, 0]);
-  assert.deepEqual([...ws.binary[1]], [1]);
-  ws.message({ id: 3, type: "event", event: { type: "stt-end", data: { stt_output: { text: "Hallo" } } } });
-  ws.message({ id: 3, type: "event", event: { type: "intent-end", data: {} } });
-  ws.message({ id: 3, type: "event", event: { type: "run-end", data: {} } });
-  ws.message({ id: 3, type: "result", success: true, result: null });
-  const result = await run;
-  assert.deepEqual(result, { error: null, result: null });
-  assert.deepEqual(events, ["run-start", "stt-end", "intent-end", "run-end"]);
-  c.close();
-});

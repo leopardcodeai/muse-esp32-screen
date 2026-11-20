@@ -10,14 +10,14 @@
 // seen on the next visit. The project ships no figure pictures any more (its blue figure
 // folder was removed on 19.11.2026); the owner's figure under ./local is kept
 // in this cache, see PRIVATE below. Frames from another origin are left alone.
-const VERSION = "muse-web-screen-1.8.23";
+const VERSION = "muse-web-screen-1.8.24";
 const RUNTIME = "muse-web-runtime-1.7.0";
 const SHELL = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./app.js", "./display.js", "./cards.js", "./draw.js", "./render.js", "./figure.js", "./scene.js", "./icons.js",
   "./particles.js", "./text.js", "./tables.js", "./queue.js", "./timers.js", "./weather.js", "./media.js",
   "./audio.js", "./ha.js", "./pip.js", "./demo.js", "./settings.js", "./pace.js", "./apng.js", "./figure_sheet.js", "./figure_frames.js", "./figure_styles.js",
-  "./square.js", "./theme.js", "./tablet.js", "./camera.js", "./voice.js", "./sensors.js", "./pcm.js", "./pcm-worklet.js", "./remotelog.js", "./textask.js", "./composer.js", "./follow.js", "./motion.js", "./gestures.js",
+  "./square.js", "./theme.js", "./tablet.js", "./camera.js", "./sensors.js", "./remotelog.js", "./follow.js", "./motion.js", "./gestures.js",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
 ];
 
@@ -60,12 +60,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// The add-on sends a Permissions-Policy that forbids camera and microphone, and a CSP
+// An older add-on build sends a Permissions-Policy that forbids the camera, and a CSP
 // that predates the person detector. A service worker may answer a navigation with its
 // own headers; the document then gets the policy this app needs, without an add-on
-// rebuild. The same response keeps the add-on's other headers.
+// rebuild. The same response keeps the add-on's other headers. The page has no
+// microphone since 1.8.24 (talking to Muse is Meta's own voice in Muse OS), so the
+// policy keeps it closed.
 const APP_CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' https: http: data: blob:; connect-src 'self' https: wss: ws:; media-src 'self' blob: mediastream:; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
-const APP_PERMISSIONS = "camera=(self), microphone=(self), geolocation=(), fullscreen=(self), picture-in-picture=(self), screen-wake-lock=(self)";
+const APP_PERMISSIONS = "camera=(self), microphone=(), geolocation=(), fullscreen=(self), picture-in-picture=(self), screen-wake-lock=(self)";
 
 async function navigation(request) {
   const response = await fetch(request);

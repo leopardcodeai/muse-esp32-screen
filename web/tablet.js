@@ -2,9 +2,9 @@
 // the small geometry decisions the layout needs.
 //
 // The canvas keeps the square layout; the rail is plain DOM and shows, from the top: a
-// status header (clock, date, connection), the camera card, the composer (push-to-talk
-// beside the text field, a state line, the last question and answer; logic in
-// composer.js), the camera mode and a row of round action buttons. It is the only part
+// status header (clock, date, connection), the camera card, the timer chip, the camera
+// mode and a row of round action buttons. Talking to Muse is not part of the page: Meta's
+// own voice runs in the Muse OS app around it (owner, 20.11.2026). The rail is the only part
 // of the app that is not drawn on the canvas, so it stays crisp at any device pixel
 // ratio and the text is real text.
 //
@@ -19,7 +19,6 @@
 //    lines or clamped by CSS, never free-flowing.
 //  * No DOM in the pure helpers, so the tests can call them in Node.
 import { timeLeft } from "./text.js";
-import { waveBars, WAVE_BARS } from "./composer.js";
 
 // The rail width in landscape: the viewport width minus the height, which is exactly
 // the width the square canvas leaves. Capped so a very wide window cannot grow an
@@ -82,15 +81,6 @@ const STATUS = {
   demo: "Demo",
 };
 
-const VOICE = {
-  idle: "Mikrofon halten oder schreiben",
-  listening: "Ich höre … Loslassen sendet",
-  thinking: "Muse denkt …",
-  speaking: "Muse spricht",
-  error: "Mikrofon nicht verfügbar",
-  off: "Mikrofon aus",
-};
-
 const TIME = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" });
 const DATE = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long" });
 const DATE_SHORT = new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "numeric", month: "short" });
@@ -109,7 +99,6 @@ export class TabletRail {
     this.profile = "tab";
     this.density = "regular";
     this.elements = {};
-    this.bars = [];
   }
 
   mount() {
@@ -125,25 +114,11 @@ export class TabletRail {
       dot: id("rail-dot"),
       status: id("rail-status-text"),
       timer: id("rail-timer"),
-      box: id("rail-voice-box"),
-      mic: id("rail-mic"),
-      micLabel: id("rail-mic-label"),
-      wave: id("rail-wave"),
-      send: id("rail-text-send"),
-      history: id("rail-history"),
-      historyQ: id("rail-history-q"),
-      historyA: id("rail-history-a"),
       modeHint: id("rail-mode-hint"),
       light: id("rail-light"),
       battery: id("rail-battery"),
       fullscreen: id("rail-fullscreen"),
     };
-    // The wave's bars are made here, so the page's markup stays short.
-    const wave = this.elements.wave;
-    if (wave && doc.createElement && !wave.firstChild) {
-      for (let i = 0; i < WAVE_BARS; i++) wave.appendChild(doc.createElement("i"));
-    }
-    this.bars = wave && wave.children ? Array.from(wave.children) : [];
     this.setProfile(this.profile);
     return this;
   }
@@ -195,57 +170,7 @@ export class TabletRail {
       e.fullscreen.setAttribute("aria-pressed", state.fullscreen ? "true" : "false");
       e.fullscreen.title = state.fullscreen ? "Vollbild verlassen" : "Vollbild";
     }
-    if (state.voice) this.setVoice(state.voice, state.voiceDetail, state.voiceHint);
     if (state.cameraMode) this.setCameraMode(state.cameraMode);
-  }
-
-  // The composer's state (composer.js composerState) and its hint line. `hint` is the
-  // full line when the caller has it; without one the state's default (or the error's
-  // detail) stands.
-  setVoice(state = "idle", detail = "", hint = "") {
-    if (!this.root) return;
-    const s = VOICE[state] ? state : "idle";
-    const changed = this.root.dataset.voice !== s;
-    this.root.dataset.voice = s;
-    const e = this.elements;
-    if (e.box) e.box.dataset.state = s;
-    if (e.mic) e.mic.dataset.state = s;
-    const text = hint || (s === "error" && detail ? detail : VOICE[s]);
-    if (e.micLabel && e.micLabel.textContent !== text) e.micLabel.textContent = text;
-    // Leaving "listening" lets the bars fall back to the CSS's own heights.
-    if (changed && s !== "listening") this.setLevel(null);
-  }
-
-  // The live microphone level (0..1) at time t in ms; null hands the bars back to CSS.
-  setLevel(level, t = 0) {
-    if (!this.bars.length) return;
-    if (level === null || level === undefined) {
-      for (const bar of this.bars) if (bar.style) bar.style.transform = "";
-      return;
-    }
-    const heights = waveBars(level, t, this.bars.length);
-    for (let i = 0; i < this.bars.length; i++) {
-      if (this.bars[i].style) this.bars[i].style.transform = `scaleY(${heights[i].toFixed(3)})`;
-    }
-  }
-
-  setSendEnabled(enabled) {
-    const send = this.elements.send;
-    if (send) send.disabled = !enabled;
-  }
-
-  // The last question and answer (composer.js LastExchange.view()).
-  setHistory(view) {
-    const e = this.elements;
-    if (!e.history) return;
-    const v = view || { visible: false };
-    e.history.hidden = !v.visible;
-    e.history.dataset.tone = v.tone || "";
-    if (e.historyQ) e.historyQ.textContent = v.question || "";
-    if (e.historyA) {
-      e.historyA.textContent = v.answer || "";
-      e.historyA.title = v.tone === "answer" ? v.answer : "";
-    }
   }
 
   // The line under the camera mode control.

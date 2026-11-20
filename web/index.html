@@ -63,29 +63,7 @@
         <button id="camera-vision" type="button">Vision</button>
       </footer>
     </section>
-    <section id="rail-voice-box" data-state="idle" aria-label="Mit Muse sprechen oder schreiben">
-      <div id="rail-timer" hidden></div>
-      <div id="rail-composer">
-        <button id="rail-mic" type="button" data-state="idle" title="Halten zum Sprechen" aria-label="Halten zum Sprechen">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
-        </button>
-        <form id="rail-text" autocomplete="off">
-          <input id="rail-text-input" type="text" enterkeyhint="send" placeholder="An Muse schreiben" aria-label="Frage an Muse" maxlength="500">
-          <div id="rail-wave" aria-hidden="true"></div>
-          <button id="rail-text-send" type="submit" aria-label="Senden" title="Senden" disabled>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
-          </button>
-        </form>
-      </div>
-      <div id="rail-composer-meta">
-        <span id="rail-mic-label" role="status" aria-live="polite">Mikrofon halten oder schreiben</span>
-        <span id="rail-voice-model" hidden></span>
-      </div>
-      <div id="rail-history" hidden aria-label="Letzte Frage und Antwort">
-        <p id="rail-history-q"></p>
-        <p id="rail-history-a"></p>
-      </div>
-    </section>
+    <div id="rail-timer" hidden></div>
     <div id="rail-mode">
       <div id="rail-camera-mode" role="radiogroup" aria-label="Kamera-Modus" data-mode="off">
         <button type="button" role="radio" data-mode="off" aria-checked="true" aria-label="Aus" title="Kamera aus"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><path d="M4 4l16 17"/></svg><span>Aus</span></button>
@@ -113,12 +91,10 @@
   </aside>
   </div>
   <div id="dim" aria-hidden="true"></div>
-  <p id="voice-hint" hidden></p>
   <video id="pip-video" playsinline muted aria-hidden="true"></video>
   <p id="notice" hidden></p>
   <nav id="toolbar" aria-label="Steuerung">
     <button id="btn-float" type="button" title="Immer im Vordergrund (Bild im Bild)">Float</button>
-    <button id="btn-mic" type="button" title="Halten zum Sprechen" hidden>Mikrofon</button>
     <button id="btn-camera" type="button" title="Kamera ein- oder ausschalten" hidden>Kamera</button>
     <button id="btn-kiosk" type="button" title="Vollbild, Cursor aus, Bildschirm bleibt an">Kiosk</button>
     <button id="btn-demo" type="button" title="Ohne Home Assistant: Szenen und Beispielkarten">Demo</button>
@@ -155,10 +131,8 @@
             </label>
           </section>
           <section class="s-card" data-tint="red">
-            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Sprache &amp; Ton<button type="button" class="info" aria-label="Info">i</button></h3>
-            <small class="hint">Das Mikrofon hört nur, solange der Knopf gedrückt ist. Whisper und Piper laufen in Home Assistant, an Meta Muse geht nur Text.</small>
-            <label class="switch"><span>Mit Muse sprechen</span><input name="voice" type="checkbox"><i></i></label>
-            <label class="switch"><span>Antworten vorlesen</span><input name="speak" type="checkbox"><i></i></label>
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>Ton<button type="button" class="info" aria-label="Info">i</button></h3>
+            <small class="hint">Mit Muse sprichst du über Metas eigene Sprache: am Tab mit dem Mikrofonknopf von Muse OS. Diese Seite hat kein Mikrofon.</small>
             <label class="switch"><span>Töne bei Timer und Frage</span><input name="sound" type="checkbox"><i></i></label>
           </section>
           <section class="s-card" data-tint="indigo">

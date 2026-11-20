@@ -18,7 +18,7 @@
 //    fail, the camera and Vision still work, only the boxes are missing.
 //  * `getUserMedia` needs a secure context. A page on plain HTTP disables the feature.
 //  * The Vision upload endpoint needs an admin token; a restricted token gets a clear
-//    message while camera, voice and local boxes keep working.
+//    message while the camera and local boxes keep working.
 //  * Only one Vision run at a time; a second press is ignored.
 //  * "Muse folgt mir (Beta)" runs MediaPipe PoseLandmarker (lite, VIDEO mode) on the
 //    same video, about 12 times a second, only while the camera and that setting are
@@ -187,7 +187,6 @@ export function cameraErrorMessage(err) {
 // Vision requests of this screen per day, in localStorage. Google's API reports no
 // balance, so the share of the daily limit (a setting) is the only meter there is.
 export const VISION_USAGE_KEY = "muse-vision-usage";
-export const VOICE_USAGE_KEY = "muse-voice-usage";
 
 function dayOf(now) {
   const d = now instanceof Date ? now : new Date(now);

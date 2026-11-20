@@ -33,14 +33,15 @@ export const LOOKS = ["auto", "ios", "classic"];
 // layoutVersion 2 moves a stored box layout once to square, the Mosaico default; an
 // explicit choice after that is kept.
 export const LAYOUT_VERSION = 2;
+// Keys earlier versions stored that no longer mean anything.
+export const RETIRED_KEYS = Object.freeze(["voice", "speak", "voiceModel", "voiceDailyLimit"]);
 export const DEFAULTS = Object.freeze({
   url: "", token: "", device: DEFAULT_DEVICE, inputText: "", name: "Muse", integer: false, sound: true,
   fps: DEFAULT_FPS, figureSource: "placeholder", figureUrl: "", figureStyle: DEFAULT_STYLE, bare: false, layout: "square",
   theme: "auto", look: "auto", pixel: false, urlAway: "", figureUrlAway: "", layoutVersion: LAYOUT_VERSION,
-  tabletProfile: "tab", voice: true, speak: true, camera: false, cameraFacing: "user", personBoxes: true,
+  tabletProfile: "tab", camera: false, cameraFacing: "user", personBoxes: true,
   autoBrightness: true, followMe: false, mimicMe: null, autoMotion: true, vision: true, visionAuto: false, visionEntity: "ai_task.google_ai_task",
   visionModel: "Gemini 3.5 Flash Lite", visionDailyLimit: 1000,
-  voiceModel: "Gemini Sprache", voiceDailyLimit: 1000,
 });
 
 // The stored settings over the defaults, cleaned.
@@ -52,6 +53,10 @@ export function loadSettings(storage) {
     stored = {};
   }
   const s = { ...DEFAULTS, ...stored };
+  // Settings of the removed voice and text path (1.8.24: talking to Muse is Meta's own
+  // voice in Muse OS). An old browser may still store them; they are dropped, so the next
+  // save leaves them out and nothing reads them.
+  for (const key of RETIRED_KEYS) delete s[key];
   s.device = String(s.device || "").trim() || DEFAULT_DEVICE;
   s.fps = normaliseFps(s.fps);
   if (!FIGURE_SOURCES.includes(s.figureSource)) s.figureSource = DEFAULTS.figureSource;
@@ -59,7 +64,7 @@ export function loadSettings(storage) {
   s.figureStyle = cleanStyleId(s.figureStyle) || DEFAULTS.figureStyle;
   s.bare = s.bare === true;
   s.pixel = s.pixel === true;
-  for (const key of ["voice", "speak", "camera", "personBoxes", "autoBrightness", "followMe", "autoMotion", "vision", "visionAuto"]) {
+  for (const key of ["camera", "personBoxes", "autoBrightness", "followMe", "autoMotion", "vision", "visionAuto"]) {
     s[key] = stored[key] === undefined ? DEFAULTS[key] : stored[key] === true;
   }
   // null: "Muse macht meine Bewegungen nach" goes with "Muse folgt mir" (mimicOn()).

@@ -40,12 +40,9 @@ import {
   restorable, mimicOn, mimicChoice, CAMERA_MODES, parseCameraMode, cameraModeOf, cameraModeSettings,
 } from "./settings.js";
 import { TabletRail, railWidth, railSide, railDensity, tileParam, tileDetail } from "./tablet.js";
-import { LastExchange, composerState, composerHint, canSend, levelOfChunks, smoothLevel } from "./composer.js";
-import { Camera, countVisionCall, visionUsage, visionUsageText, VOICE_USAGE_KEY } from "./camera.js";
-import { Voice } from "./voice.js";
+import { Camera } from "./camera.js";
 import { Sensors } from "./sensors.js";
 import { RemoteLog } from "./remotelog.js";
-import { processRequest, answerOf } from "./textask.js";
 import { applyTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
@@ -164,7 +161,7 @@ try {
   // An old browser without matchMedia listeners keeps the full motions.
 }
 
-// ------------------------------------------------------- tablet, camera, voice --
+// ------------------------------------------------------------ tablet, camera --
 
 const rail = tablet ? new TabletRail({ log }).mount() : null;
 if (rail) rail.setProfile(tabletProfile);
@@ -172,50 +169,6 @@ if (rail) rail.setProfile(tabletProfile);
 let cameraLight = null;
 let battery = null;
 let camera = null;
-let voice = null;
-
-// The composer of the rail (composer.js): one state for speaking and writing, the hint
-// line, the send button and the last question with its answer. A typed question has no
-// voice state, so `textBusy` and `textError` stand in for it.
-const exchange = new LastExchange();
-let textBusy = false;
-let textError = "";
-let textErrorTimer = null;
-function composerNow() {
-  return composerState({ voice: voice ? voice.state : "idle", busy: textBusy, textError });
-}
-function syncComposer() {
-  if (!rail) return;
-  const connected = !!ha && display.connection === "on";
-  const state = composerNow();
-  const detail = state === "error" ? ((voice && voice.state === "error" && voice.detail) || textError) : "";
-  rail.setVoice(state, detail, composerHint(state, {
-    detail, voiceOn: settings.voice && !demoMode, connected, demo: demoMode,
-  }));
-  const input = $("rail-text-input");
-  rail.setSendEnabled(canSend(input ? input.value : "", { busy: textBusy, connected, state }));
-  rail.setHistory(exchange.view());
-}
-
-// The level wave while the microphone is open: the newest samples voice.js buffered,
-// smoothed, drawn once per frame. It rests with reduced motion and in the tile.
-let levelFrame = 0;
-let level = 0;
-function startLevel() {
-  if (levelFrame || !rail) return;
-  const step = () => {
-    levelFrame = 0;
-    if (!voice || voice.state !== "listening" || display.reducedMotion || display.tile) {
-      level = 0;
-      rail.setLevel(null);
-      return;
-    }
-    level = smoothLevel(level, levelOfChunks(voice.chunks));
-    rail.setLevel(level, performance.now());
-    levelFrame = requestAnimationFrame(step);
-  };
-  levelFrame = requestAnimationFrame(step);
-}
 
 const sensors = new Sensors({
   log,
@@ -248,88 +201,6 @@ display.gestures = camera.gestures;
 camera.hasLightSensor = sensors.hasLight;
 camera.setOptions(settings);
 camera.setBeta(settings.camera && !demoMode);
-
-voice = new Voice({
-  getHa: () => ha,
-  getSettings: () => settings,
-  getDisplay: () => display,
-  sounds,
-  say,
-  log,
-  urlBase: () => settings.url || location.origin,
-  token: () => settings.token,
-  onState: (state, detail) => {
-    // A spoken question that ended without an answer text: the history says how.
-    if (exchange.pending && exchange.source === "voice") {
-      if (state === "error") exchange.fail(detail);
-      else if (state === "idle") exchange.reply("");
-    }
-    syncComposer();
-    if (state === "listening") startLevel();
-    updateVoiceHint(state, detail);
-    // "thinking" follows a recognised sentence: one speech-to-text request used.
-    if (state === "thinking") {
-      try { countVisionCall(localStorage, new Date(), VOICE_USAGE_KEY); } catch { /* no storage */ }
-      updateVoiceModel();
-    }
-  },
-  onHeard: (text) => { exchange.ask(text, "voice"); syncComposer(); },
-  onReply: (answer) => { exchange.reply(answer); syncComposer(); },
-});
-updateVoiceModel();
-voice.setEnabled(settings.voice && !demoMode);
-voice.bindButton($("rail-mic"));
-
-// A typed question to Muse (textask.js): same agent as the voice pipeline, the answer card
-// comes from Muse's own screen calls, or from the reply text when Muse sends none.
-let textConversation = "";
-$("rail-text-input")?.addEventListener("input", () => {
-  if (textError) {
-    textError = "";
-    clearTimeout(textErrorTimer);
-  }
-  syncComposer();
-});
-$("rail-text")?.addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const input = $("rail-text-input");
-  const text = input.value.trim();
-  const connected = !!ha && display.connection === "on";
-  if (!canSend(text, { busy: textBusy, connected, state: composerNow() })) return;
-  textBusy = true;
-  textError = "";
-  clearTimeout(textErrorTimer);
-  // An old microphone error must not stand under the new question's answer.
-  if (voice.state === "error") voice.setState("idle");
-  exchange.ask(text, "text");
-  input.value = "";
-  input.blur();
-  syncComposer();
-  log(`typed question (${text.length} characters)`);
-  display.setStatusText("thinking", "Muse denkt …");
-  render();
-  const before = display.version;
-  try {
-    const result = await ha.command(processRequest(text, { conversationId: textConversation }));
-    const { text: answer, conversationId } = answerOf(result);
-    textConversation = conversationId || textConversation;
-    log(`typed answer (${answer.length} characters)`);
-    exchange.reply(answer);
-    if (answer) voice.armFallback(before, answer);
-    else display.setStatus(0);
-  } catch (e) {
-    log("typed question failed: " + (e && e.message ? e.message : e));
-    display.setStatusText("error", "Muse antwortet nicht");
-    exchange.fail("Muse antwortet nicht");
-    textError = "Muse antwortet nicht";
-    textErrorTimer = setTimeout(() => { textError = ""; syncComposer(); }, 8000);
-  } finally {
-    textBusy = false;
-    syncComposer();
-    render();
-  }
-});
-voice.bindButton($("btn-mic"));
 
 // The camera mode: one switch for the rail button, the power icon on the card, the C
 // key and Muse's `camera` action. It is stored, so a reload keeps the mode.
@@ -394,14 +265,6 @@ function syncCameraButtons() {
   }
 }
 
-function updateMicVisibility() {
-  const on = settings.voice && !demoMode;
-  $("btn-mic").hidden = !on;
-  $("rail-mic").hidden = !on;
-  // The hint line stays: it is the composer's state line for writing too.
-  syncComposer();
-}
-
 function applyFeatureVisibility() {
   const cam = settings.camera && !demoMode;
   camera.setBeta(cam);
@@ -413,9 +276,7 @@ function applyFeatureVisibility() {
     const el = $(id);
     if (el) el.hidden = !cam;
   }
-  updateMicVisibility();
   camera.setOptions(settings);
-  voice.setEnabled(settings.voice && !demoMode);
   if (cam) camera.start({ quiet: true });
   syncCameraButtons();
 }
@@ -502,36 +363,6 @@ async function screenAction(action, fields) {
   return false;
 }
 
-// The model line under the microphone, like the camera's: model and today's share.
-function updateVoiceModel() {
-  const el = $("rail-voice-model");
-  if (!el) return;
-  let count = 0;
-  try { count = visionUsage(localStorage, new Date(), VOICE_USAGE_KEY); } catch { /* no storage */ }
-  const label = String(settings.voiceModel || "Spracherkennung").trim();
-  const limit = Number(settings.voiceDailyLimit) || 0;
-  el.textContent = visionUsageText(label, count, limit);
-  el.title = `Spracherkennung der Assist-Pipeline in Home Assistant. Heute ${count}`
-    + (limit > 0 ? ` von ${limit} Anfragen dieses Bildschirms.` : " Anfragen dieses Bildschirms.")
-    + " Google meldet kein Guthaben; das Limit ist eine Einstellung.";
-  el.hidden = !settings.voice || demoMode;
-}
-
-function updateVoiceHint(state, detail = "") {
-  const el = $("voice-hint");
-  if (!el) return;
-  if (tablet || state === "idle") {
-    el.hidden = true;
-    return;
-  }
-  const text = state === "listening" ? "Ich höre … Loslassen sendet."
-    : state === "thinking" ? "Muse denkt …"
-      : state === "speaking" ? "Muse spricht"
-        : detail || "Mikrofon nicht verfügbar";
-  el.textContent = text;
-  el.hidden = false;
-}
-
 function updateRail() {
   if (!rail) return;
   rail.update({
@@ -545,7 +376,6 @@ function updateRail() {
     fullscreen: kiosk.active,
     cameraMode: demoMode ? "off" : cameraModeOf(settings),
   });
-  syncComposer();
   syncCameraButtons();
 }
 
@@ -564,13 +394,11 @@ async function watchBattery() {
 
 setInterval(updateRail, 1000);
 updateRail();
-updateMicVisibility();
 watchBattery();
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     camera.pause();
-    if (voice.state === "listening") voice.cancel();
   } else {
     camera.resume();
   }
@@ -725,11 +553,7 @@ document.addEventListener("keydown", (ev) => {
   if (k === "f") $("btn-float").click();
   else if (k === "k") $("btn-kiosk").click();
   else if (k === "e" || k === ",") openSettings();
-  else if (k === "m" && !ev.repeat && settings.voice && !demoMode) { ev.preventDefault(); voice.start(); }
   else if (k === "c" && !ev.repeat && !demoMode) { ev.preventDefault(); setCameraMode(!settings.camera); }
-});
-document.addEventListener("keyup", (ev) => {
-  if (ev.key.toLowerCase() === "m" && settings.voice && !demoMode) voice.stop();
 });
 let loopGeneration = 0;
 function startLoop() {
@@ -1039,8 +863,6 @@ function openSettings() {
   form.layout.value = layoutChoice(settings.layout, settings.tabletProfile);
   form.theme.value = settings.theme;
   form.look.value = settings.look;
-  form.voice.checked = settings.voice;
-  form.speak.checked = settings.speak;
   form.camera.checked = settings.camera;
   form.personBoxes.checked = settings.personBoxes;
   form.followMe.checked = settings.followMe;
@@ -1079,8 +901,6 @@ form.addEventListener("submit", (ev) => {
     tabletProfile: choice.tabletProfile || settings.tabletProfile || DEFAULTS.tabletProfile,
     theme: THEMES.includes(form.theme.value) ? form.theme.value : "auto",
     look: LOOKS.includes(form.look.value) ? form.look.value : "auto",
-    voice: form.voice.checked,
-    speak: form.speak.checked,
     camera: form.camera.checked,
     cameraFacing: settings.cameraFacing,
     personBoxes: form.personBoxes.checked,
@@ -1305,7 +1125,7 @@ async function start() {
     const first = !navigator.serviceWorker.controller;
     navigator.serviceWorker.register("./sw.js").then(async () => {
       await navigator.serviceWorker.ready;
-      // The add-on's document headers forbid camera and microphone. The worker answers
+      // An older add-on build's headers forbid the camera. The worker answers
       // the next navigation with its own policy; one reload on the very first start
       // moves the page under that response. Later SW updates do not reload the panel.
       if (first && !sessionStorage.getItem("muse-sw-reload")) {
@@ -1325,7 +1145,7 @@ async function checkForUpdate() {
     const res = await fetch(`./package.json?t=${Date.now()}`, { cache: "no-store" });
     if (!res.ok) return;
     const server = (await res.json()).version;
-    const idle = (!voice || voice.state === "idle") && !(camera && camera.visionBusy);
+    const idle = !(camera && camera.visionBusy);
     if (updateWanted(VERSION, server, idle)) {
       log(`version ${server} on the server, reloading`);
       location.reload();
@@ -1342,13 +1162,10 @@ start();
 window.muse = {
   display,
   camera,
-  voice,
   rail,
   sensors,
   dispatch: (action, fields) => { const r = display.dispatch(action, fields); render(); return r; },
   tile: (on) => (on === undefined ? display.tile : setTile(on === true)),
-  exchange,
-  syncComposer,
   settings: () => ({ ...settings, token: settings.token ? "(set)" : "" }),
   fps: (n) => { if (n !== undefined) setFps(n); return frames.fps; },
 };
